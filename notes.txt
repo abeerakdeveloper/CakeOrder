@@ -1,0 +1,92 @@
+Modifiction in Database
+ALTER TABLE cake_order MODIFY audio_data MEDIUMTEXT;
+
+
+
+-- Create login table
+CREATE TABLE IF NOT EXISTS `mpass` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `user` VARCHAR(50) NOT NULL,
+    `mpass` VARCHAR(50) NOT NULL,
+    `role` INT(1) NOT NULL DEFAULT 1,
+    `active` INT(1) DEFAULT 1,
+    `dateent` DATETIME DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `idx_user` (`user`)
+) ENGINE=MyISAM;
+
+-- Default users
+INSERT INTO `mpass` (`user`, `mpass`, `role`) VALUES
+('admin', 'admin123', 3),
+('cashier', 'cash123', 1),
+('chef', 'chef123', 2);
+
+-- Create gledg if not exists
+CREATE TABLE IF NOT EXISTS `gledg` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `acc_code` VARCHAR(20) NOT NULL,
+    `date` DATE NOT NULL,
+    `amt_type` VARCHAR(5) NOT NULL,
+    `amount` DECIMAL(10,2) NOT NULL,
+    `description` VARCHAR(255) DEFAULT NULL,
+    `bill_no` INT(11) DEFAULT NULL,
+    `user` VARCHAR(50) DEFAULT NULL,
+    `dateent` DATETIME DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `idx_acc_code` (`acc_code`),
+    INDEX `idx_date` (`date`),
+    INDEX `idx_bill_no` (`bill_no`)
+) ENGINE=MyISAM;
+
+
+Role Permissions Summary
+Action	Role 1 (POS User)	Role 2 (Kitchen)	Role 3 (Admin)
+View Dashboard	✅	❌	✅
+Take New Order	✅	❌	✅
+View Order List	✅ (active only)	✅ (active only)	✅ (all incl. cancelled)
+Check Order Status (for clients)	✅	✅	✅
+Kitchen Display	❌	✅	✅
+Pickup Queue	✅	❌	✅
+Receive Payment	✅	❌	✅
+Cancel Order (before payment & before ready)	✅	❌	✅
+Cancel Order (after payment received)	❌	❌	✅ (with refund)
+Cancel Order (when ready)	❌	❌	✅
+Modify Order Details	❌	❌	✅
+Delete Payment	❌	❌	✅
+Delete Order Permanently	❌	❌	✅
+Manage Users	❌	❌	✅
+View GL Ledger	❌	❌	✅
+
+Default Login Credentials
+Admin: admin / admin123
+POS User: cashier / cash123
+Kitchen: chef / chef123
+
+Payment Flow → GL Recording
+When payment is received:
+
+Cash → gledg.amt_type = 'CR', acc_code = '112000001'
+Bank/Card/Easypaisa → gledg.amt_type = 'BR', acc_code = '112000001'
+Admin refund → Creates reverse entry with negative amount
+Admin delete → Logs as ADJ (Adjustment) type
+
+
+
+
+
+
+
+
+
+┌─────────┐    ┌───────────┐    ┌───────────┐    ┌───────┐    ┌───────────┐    ┌──────┐
+│ PENDING  │───►│ CONFIRMED │───►│ PREPARING │───►│ READY │───►│ DELIVERED │───►│ PAID │
+└─────────┘    └───────────┘    └───────────┘    └───────┘    └───────────┘    └──────┘
+     │              │                                              │
+     │              │         ┌───────────┐                        │
+     └──────────────┴────────►│ CANCELLED │◄───── NOT ALLOWED ─────┘
+                              └───────────┘
+                              
+CANCEL RULES:
+✅ Can cancel: pending, confirmed, hold, preparing
+❌ Cannot cancel: ready, delivered, paid
+❌ Cannot cancel if: paid > 0
