@@ -802,7 +802,9 @@ function ot_plan_total(array $rows, array $plan) {
 }
 
 // Plain-language list of what changed, for the change log.
-function ot_diff_summary(array $rows, array $plan, array $oldHeader, array $newHeader) {
+// Lines for the header fields that changed (customer, phone, date, time, priority, discount, order
+// source, branch, occasion, address). Only the keys present in $newHeader are compared.
+function ot_header_changes(array $oldHeader, array $newHeader) {
     $out = array();
     $labels = array(
         'party_detail' => 'Customer name',
@@ -817,12 +819,20 @@ function ot_diff_summary(array $rows, array $plan, array $oldHeader, array $newH
         'delivery_address' => 'Delivery address',
     );
     foreach ($labels as $key => $label) {
-        $a = (string) $oldHeader[$key];
+        if (!array_key_exists($key, $newHeader)) {
+            continue;
+        }
+        $a = isset($oldHeader[$key]) ? (string) $oldHeader[$key] : '';
         $b = (string) $newHeader[$key];
         if ($a !== $b) {
             $out[] = $label . ': ' . ($a !== '' ? $a : '(none)') . ' changed to ' . ($b !== '' ? $b : '(none)');
         }
     }
+    return $out;
+}
+
+function ot_diff_summary(array $rows, array $plan, array $oldHeader, array $newHeader) {
+    $out = ot_header_changes($oldHeader, $newHeader);
 
     $saved = array();
     foreach ($rows as $r) {

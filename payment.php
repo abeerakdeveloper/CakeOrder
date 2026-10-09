@@ -48,11 +48,11 @@ $waiting = ($order['has_sweet'] && !$order['has_weighed']);
 <div class="layout">
     <nav class="sidebar-nav">
         <div class="brand"><?php echo company_logo_html('brand-logo'); ?></div>
-        <a href="dashboard.php"><span class="icon"></span><span class="label">Dashboard</span></a>
-        <a href="index.php"><span class="icon"></span><span class="label">New Order</span></a>
-        <a href="order_list.php"><span class="icon"></span><span class="label">Order List</span></a>
-        <a href="kitchen_display.php"><span class="icon"></span><span class="label">Kitchen</span></a>
-        <a href="pickup_queue.php"><span class="icon"></span><span class="label">Pickup Queue</span></a>
+        <a href="dashboard.php"><span class="label">Dashboard</span></a>
+        <a href="index.php"><span class="label">New Order</span></a>
+        <a href="order_list.php"><span class="label">Order List</span></a>
+        <a href="kitchen_display.php"><span class="label">Kitchen</span></a>
+        <a href="pickup_queue.php"><span class="label">Pickup Queue</span></a>
     </nav>
 
     <div class="main-content">
@@ -99,13 +99,11 @@ $waiting = ($order['has_sweet'] && !$order['has_weighed']);
                 </div>
                 <?php elseif ($balance <= 0): ?>
                 <div style="text-align:center;padding:40px;">
-                    <div style="font-size:48px;"></div>
                     <h3 style="color:#27ae60;">Fully Paid!</h3>
                     <a href="receipt.php?bill=<?php echo $billNo; ?>" class="btn btn-primary" style="margin-top:16px;"> Print Receipt</a>
                 </div>
                 <?php elseif (!$canPay): ?>
                 <div style="text-align:center;padding:40px;">
-                    <div style="font-size:48px;"></div>
                     <h3 style="color:#f39c12;">Order Not Ready</h3>
                     <p>Current status: <?php echo getStatusBadge($order['status']); ?></p>
                 </div>
@@ -114,16 +112,16 @@ $waiting = ($order['has_sweet'] && !$order['has_weighed']);
                 <label style="font-size:13px;font-weight:600;color:#555;">Payment Method</label>
                 <div class="pay-methods">
                     <div class="pay-method" data-method="cash" onclick="selectMethod('cash')">
-                        <span class="icon"></span>Cash
+                        Cash
                     </div>
                     <div class="pay-method" data-method="bank" onclick="selectMethod('bank')">
-                        <span class="icon"></span>Bank Transfer
+                        Bank Transfer
                     </div>
                     <div class="pay-method" data-method="card" onclick="selectMethod('card')">
-                        <span class="icon"></span>Card
+                        Card
                     </div>
                     <div class="pay-method" data-method="easypaisa" onclick="selectMethod('easypaisa')">
-                        <span class="icon"></span>Easypaisa/JazzCash
+                        Easypaisa/JazzCash
                     </div>
                 </div>
 

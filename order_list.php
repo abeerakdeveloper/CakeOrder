@@ -321,12 +321,6 @@ $pageTitle = 'Order List';
                                         title="Cancel this order">Cancel</button>
                                 <?php endif; ?>
                                 
-                                <?php if (isAdmin() && !$o['cancelled']): ?>
-                                <button class="btn btn-sm btn-warning" 
-                                        onclick="adminDelete(<?php echo $o['bill_no']; ?>)" 
-                                        title="Admin: Permanent Delete" 
-                                        style="background:#8b0000;"></button>
-                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
@@ -417,7 +411,7 @@ function updateStatus(billNo, newStatus) {
 // ===== CANCEL ORDER =====
 function cancelOrder(billNo) {
     var msg = isAdminUser ? 
-        ' ADMIN: Cancel order #' + billNo + '?\n(Will refund payment if exists)' : 
+        'ADMIN: Cancel order #' + billNo + '?\n(Will refund payment if exists)' : 
         'Cancel order #' + billNo + '?';
     if (!confirm(msg)) return;
     var reason = prompt('Reason for cancellation:');
@@ -437,20 +431,6 @@ function cancelOrder(billNo) {
     });
 }
 
-// ===== ADMIN DELETE =====
-function adminDelete(billNo) {
-    if (!confirm('ADMIN: PERMANENTLY DELETE order #' + billNo + '?\n\nThis cannot be undone!')) return;
-    var reason = prompt('Reason for deletion:');
-    if (!reason) return;
-    fetch('admin_delete_order.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({bill_no: billNo, reason: reason})
-    }).then(function(r){return r.json();}).then(function(res) {
-        if (res.success) { showToast('Order deleted', 'success'); setTimeout(function(){ location.reload(); }, 1000); }
-        else showToast(res.message, 'error');
-    });
-}
 
 // ===== ADD MORE ADVANCE =====
 var advBillNoVal = 0;

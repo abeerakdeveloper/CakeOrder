@@ -146,7 +146,6 @@ $branchForTitle = getBranchInfo();
         <!-- STATS ROW -->
         <div class="stats-row">
             <div class="stat-card">
-                <div class="stat-icon" style="background:#fef3c7;"></div>
                 <div class="stat-info">
                     <h2 style="color:#27ae60;">Rs. <?php echo number_format($revenueToday); ?></h2>
                     <p>Revenue Today</p>
@@ -154,21 +153,18 @@ $branchForTitle = getBranchInfo();
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#dbeafe;"></div>
                 <div class="stat-info">
                     <h2><?php echo $ordersToday; ?></h2>
                     <p>Orders Today</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#fce7f3;"></div>
                 <div class="stat-info">
                     <h2 style="color:#e74c3c;"><?php echo $pendingOrders; ?></h2>
                     <p>Pending Orders</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#e0e7ff;"></div>
                 <div class="stat-info">
                     <h2 style="color:#6c3483;"><?php echo $upcomingOrders; ?></h2>
                     <p>Upcoming (7 Days)</p>

@@ -281,7 +281,6 @@ if (!empty($billIds)) {
 
             <?php if (empty($orders)): ?>
                 <div style="text-align:center;padding:80px;color:#999;">
-                    <div style="font-size:60px;margin-bottom:16px;"></div>
                     <h3>No pending orders</h3>
                     <p>New orders will appear here automatically.</p>
                 </div>
