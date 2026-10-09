@@ -1,8 +1,7 @@
 <?php
 require_once 'db.php';
-// TEMPORARY DEBUG - Remove after fixing
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+require_once 'order_lines.php';
+require_once 'order_store.php';
 
 
 $billNo = isset($_GET['bill']) ? intval($_GET['bill']) : 0;
@@ -40,7 +39,7 @@ foreach ($items as $it) $totalAmount += $it['amount'];
 
 // Get GL entries for this order
 $glRes = mysqli_query($mysqli, "SELECT * FROM gledg WHERE ref_no = $billNo ORDER BY gledg_id DESC");
-if (!$res) {
+if (!$glRes) {
     die("SQL Error: " . mysqli_error($mysqli));
 }
 
@@ -61,12 +60,12 @@ $pageTitle = "Order #$billNo Details";
 <?php include 'includes/header.php'; ?>
 
         <?php if (isset($_GET['saved'])): ?>
-        <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:16px;">✅ Saved!</div>
+        <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:16px;">Saved.</div>
         <?php endif; ?>
 
         <?php if ($first['ordercancel']): ?>
         <div style="background:#fee;color:#c0392b;padding:16px;border-radius:8px;margin-bottom:16px;border-left:5px solid #e74c3c;">
-            ❌ <strong>This order is CANCELLED</strong>
+            <strong>This order is cancelled.</strong>
         </div>
         <?php endif; ?>
 
@@ -101,7 +100,7 @@ $pageTitle = "Order #$billNo Details";
                                 <?php endforeach; ?>
                             </select></div>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="margin-top:12px;">💾 Save Changes</button>
+                    <button type="submit" class="btn btn-primary" style="margin-top:12px;">Save changes</button>
                 </form>
                 <?php else: ?>
                 <table style="margin-top:12px;">
@@ -130,15 +129,18 @@ $pageTitle = "Order #$billNo Details";
 
                 <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
                     <?php if (!$first['ordercancel'] && $bal > 0 && in_array($first['status'], array('ready','delivered'))): ?>
-                    <a href="payment.php?bill=<?php echo $billNo; ?>" class="btn btn-success">💰 Receive Payment</a>
+                    <a href="payment.php?bill=<?php echo $billNo; ?>" class="btn btn-success">Receive payment</a>
                     <?php endif; ?>
-                    <a href="receipt.php?bill=<?php echo $billNo; ?>" class="btn btn-info">🖨 Print</a>
+                    <?php if (!$first['ordercancel'] && ot_editable_status($first['status']) && (isPOSUser() || isAdmin())): ?>
+                    <a href="index.php?bill=<?php echo $billNo; ?>" class="btn btn-outline">Edit order</a>
+                    <?php endif; ?>
+                    <a href="receipt.php?bill=<?php echo $billNo; ?>" class="btn btn-info">Print receipt</a>
                     <?php 
                     $canCancel = false;
                     if (isAdmin()) $canCancel = !$first['ordercancel'];
                     else if (isPOSUser()) $canCancel = !$first['ordercancel'] && $first['paid'] == 0 && !in_array($first['status'], array('ready','delivered','paid'));
                     if ($canCancel): ?>
-                    <button class="btn btn-danger" onclick="cancelThis()">✕ Cancel</button>
+                    <button class="btn btn-danger" onclick="cancelThis()">Cancel order</button>
                     <?php endif; ?>
                 </div>
             </div>
@@ -181,10 +183,34 @@ $pageTitle = "Order #$billNo Details";
             </table>
         </div>
 
+        <!-- CHANGE HISTORY: each saved edit, with who, when, the totals and what changed -->
+        <?php $changeLog = ot_load_log($mysqli, $billNo); ?>
+        <div class="data-card" style="margin-top:16px;">
+            <h4>Change history</h4>
+            <?php if (empty($changeLog)): ?>
+            <p class="muted">No changes have been recorded for this order.</p>
+            <?php else: ?>
+            <table>
+                <thead><tr><th>When</th><th>By</th><th>Total before</th><th>Total after</th><th>What changed</th></tr></thead>
+                <tbody>
+                <?php foreach ($changeLog as $ch): ?>
+                <tr>
+                    <td><?php echo date('d M Y, h:i A', strtotime($ch['changed_at'])); ?></td>
+                    <td><?php echo htmlspecialchars($ch['changed_by']); ?></td>
+                    <td>Rs. <?php echo number_format((float) $ch['old_total']); ?></td>
+                    <td>Rs. <?php echo number_format((float) $ch['new_total']); ?></td>
+                    <td><small><?php echo nl2br(htmlspecialchars($ch['details'])); ?></small></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+        </div>
+
         <!-- GL ENTRIES -->
         <?php if (!empty($glEntries)): ?>
         <div class="data-card" style="margin-top:16px;">
-            <h4>📒 GL Entries / Payment History</h4>
+            <h4>Payment history</h4>
             <!-- <table>
                 <thead>
                     <tr><th>ID</th><th>VNo</th><th>Date</th><th>Type</th><th>Amount</th><th>Description</th><th>User</th><?php if(isAdmin()) echo '<th>Action</th>'; ?></tr>
@@ -209,7 +235,7 @@ $pageTitle = "Order #$billNo Details";
                         <td><?php echo htmlspecialchars($g['user']); ?></td>
                         <?php if (isAdmin()): ?>
                         <td>
-                            <button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $g['id']; ?>, <?php echo $g['amount']; ?>)">🗑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $g['id']; ?>, <?php echo $g['amount']; ?>)">Delete</button>
                         </td>
                         <?php endif; ?>
                     </tr>
@@ -262,7 +288,7 @@ $pageTitle = "Order #$billNo Details";
 						</td>
 						<?php if (isAdmin()): ?>
 						<td>
-							<button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $g['id']; ?>, <?php echo $g['amount']; ?>)">🗑</button>
+							<button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $g['id']; ?>, <?php echo $g['amount']; ?>)">Delete</button>
 						</td>
 						<?php endif; ?>
 					</tr>

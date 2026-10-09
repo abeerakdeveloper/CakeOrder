@@ -1,5 +1,6 @@
 <?php
 require_once 'db.php';
+require_once 'order_lines.php';
 
 
 // ============================================
@@ -340,7 +341,7 @@ $branchForTitle = getBranchInfo();
 						else if ($deliveryDays == 1) $deliveryAlert = '<span style="color:#3498db;font-weight:bold;font-size:10px;"> TOMORROW</span>';
 						
 						// Permission to edit
-						$canEdit = !in_array($o['status'], array('ready','delivered','paid','cancelled'));
+						$canEdit = ot_editable_status($o['status']);
 					?>
 					<tr class="pending-row" data-priority="<?php echo $o['priority']; ?>" style="<?php echo $rowBg; ?>">
 						<td>
@@ -377,7 +378,7 @@ $branchForTitle = getBranchInfo();
 								<button class="btn btn-sm btn-warning" 
 										onclick="editOrder(<?php echo $o['bill_no']; ?>)" 
 										title="Edit Order (Add items, customer info, etc.)">
-									✎ Edit
+									Edit
 								</button>
 								<button class="btn btn-sm btn-success" 
 										onclick="addMoreAdvance(<?php echo $o['bill_no']; ?>, <?php echo max(0, $balance); ?>, '<?php echo addslashes($o['party_detail']); ?>')" 
@@ -461,7 +462,7 @@ $branchForTitle = getBranchInfo();
 
 		// ===== EDIT ORDER =====
 		function editOrder(billNo) {
-			window.location.href = 'edit_order.php?bill=' + billNo;
+			window.location.href = 'index.php?bill=' + billNo;
 		}
 
 		// ===== ADD MORE ADVANCE =====

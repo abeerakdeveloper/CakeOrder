@@ -242,7 +242,7 @@ $pageTitle = 'Order List';
                             $canCancel = !$o['cancelled'] && $o['paid'] == 0 && !in_array($o['status'], array('ready','delivered','paid'));
                         }
                         
-                        $canEdit = !$o['cancelled'] && (isPOSUser() || isAdmin()) && !in_array($o['status'], array('ready','delivered','paid','cancelled'));
+                        $canEdit = !$o['cancelled'] && (isPOSUser() || isAdmin()) && ot_editable_status($o['status']);
                         $canAddAdvance = !$o['cancelled'] && (isPOSUser() || isAdmin()) && $balance > 0 && !in_array($o['status'], array('paid','cancelled'));
                         $canPay = !$o['cancelled'] && $balance > 0 && in_array($o['status'], array('delivered','ready'));
                         $canDeliver = !$o['cancelled'] && (isPOSUser() || isAdmin()) && $o['status'] == 'ready';
@@ -296,7 +296,7 @@ $pageTitle = 'Order List';
                                 <?php if ($canEdit): ?>
                                 <button class="btn btn-sm btn-warning" 
                                         onclick="editOrder(<?php echo $o['bill_no']; ?>)" 
-                                        title="Edit Order">✎</button>
+                                        title="Change this order">Edit</button>
                                 <?php endif; ?>
                                 
                                 <?php if ($canAddAdvance): ?>
@@ -318,7 +318,7 @@ $pageTitle = 'Order List';
                                 <?php if ($canCancel): ?>
                                 <button class="btn btn-sm btn-danger" 
                                         onclick="cancelOrder(<?php echo $o['bill_no']; ?>)" 
-                                        title="Cancel Order">✕</button>
+                                        title="Cancel this order">Cancel</button>
                                 <?php endif; ?>
                                 
                                 <?php if (isAdmin() && !$o['cancelled']): ?>
@@ -398,7 +398,7 @@ function filterPriority(priority, btn) {
 
 // ===== EDIT ORDER =====
 function editOrder(billNo) {
-    window.location.href = 'edit_order.php?bill=' + billNo;
+    window.location.href = 'index.php?bill=' + billNo;
 }
 
 // ===== STATUS UPDATE =====

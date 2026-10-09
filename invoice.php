@@ -19,7 +19,7 @@ if (!$billNo) {
 $res = mysqli_query($mysqli, "SELECT id, bill_no, inv_date, deliver_date, delivery_time, party_detail, cell_no,
     order_taker, user, sale_type, inv_id, category, qty, amount, retail_price, tiers, uom, flavor, cake_message,
     material, kitchen_note, notes, box_group, box_qty, flat_disc, advance, paid, status, payment_method,
-    delivery_type, delivery_branch, pay_date,
+    delivery_branch, pay_date,
     (image_data IS NOT NULL AND image_data != '') AS has_image
     FROM cake_order WHERE bill_no = $billNo AND ordercancel = 0 ORDER BY id");
 $rows = array();

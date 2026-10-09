@@ -2,6 +2,7 @@
 require_once 'db.php';
 requireRole(array(1, 3));
 require_once 'order_lines.php';
+require_once 'order_store.php';
 require_once 'company.php';
 
 date_default_timezone_set('Asia/Karachi');
@@ -56,6 +57,56 @@ $typeLabels = ot_type_labels();
 $initialType = (isset($_GET['type']) && is_string($_GET['type']) && isset($typeLabels[$_GET['type']])) ? $_GET['type'] : 'cake';
 $branch = getBranchInfo();
 $deliveryBranchDefault = $branch['name'];
+
+// Edit: index.php?bill=N opens a saved order on this screen. Allowed only until the kitchen starts preparing it.
+$edit = null;
+$lockNotice = '';
+$editBill = (isset($_GET['bill']) && is_string($_GET['bill']) && ctype_digit($_GET['bill'])) ? intval($_GET['bill']) : 0;
+if ($editBill > 0) {
+    $editRows = ot_load_bill($mysqli, $editBill);
+    if (empty($editRows)) {
+        $lockNotice = 'Order #' . $editBill . ' was not found.';
+    } else {
+        $edit = ot_edit_prefill($editRows, $branch['name']);
+        if (!$edit['editable']) {
+            $lockNotice = 'Order #' . $editBill . ' is locked. The kitchen has started preparing it (status: ' . $edit['status'] . '), so it can no longer be changed.';
+            $edit = null;
+        } elseif (json_encode($edit) === false) {
+            // Saved text that is not valid UTF-8 cannot be sent to the script: show a notice, not a broken form
+            $lockNotice = 'Order #' . $editBill . ' cannot be opened here because some of its saved text cannot be read. Ask the developer to check this order.';
+            $edit = null;
+        }
+    }
+    if ($edit === null) {
+        ?>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order #<?php echo $editBill; ?> - <?php echo htmlspecialchars($COMPANY['name']); ?></title>
+<link rel="stylesheet" href="style.css">
+<style>.top-logo { max-height: 40px; max-width: 170px; display: block; } .topbar-brand { display: flex; align-items: center; gap: 14px; } .topbar-brand h2 { margin: 0; }</style>
+</head>
+<body>
+<div class="topbar">
+    <div class="topbar-brand"><?php echo company_logo_html('top-logo'); ?><h2>Order #<?php echo $editBill; ?></h2></div>
+    <div class="topbar-right"><a href="order_list.php">Orders</a><a href="dashboard.php">Dashboard</a></div>
+</div>
+<div style="max-width:640px;margin:40px auto;padding:0 16px;">
+    <div style="background:#fff;border:1px solid #e8e0f0;border-radius:8px;padding:20px;">
+        <p style="font-size:15px;line-height:1.5;margin:0 0 16px;"><?php echo htmlspecialchars($lockNotice); ?></p>
+        <a class="btn btn-outline" href="order_detail.php?bill=<?php echo $editBill; ?>">View order</a>
+        <a class="btn btn-primary" href="order_list.php">Back to orders</a>
+    </div>
+</div>
+</body>
+</html>
+<?php
+        exit;
+    }
+    $initialType = $edit['type'];
+}
 ?>
 <!DOCTYPE html>
 <html>
@@ -111,12 +162,12 @@ $deliveryBranchDefault = $branch['name'];
 .modal h3 { font-size: 16px; }
 </style>
 </head>
-<body data-type="<?php echo $initialType; ?>">
+<body data-type="<?php echo $initialType; ?>"<?php echo $edit ? ' data-mode="edit"' : ''; ?>>
 
 <div class="topbar">
     <div class="topbar-brand">
         <?php echo company_logo_html('top-logo'); ?>
-        <h2>New order</h2>
+        <h2><?php echo $edit ? 'Edit order #' . intval($edit['bill_no']) : 'New order'; ?></h2>
     </div>
     <div class="topbar-right">
         <span style="font-size:13px;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:12px;">
@@ -277,7 +328,7 @@ $deliveryBranchDefault = $branch['name'];
 
         <div id="customerInfoCard" class="customer-info-card">
             <span id="customerInfoText"></span>
-            <button type="button" class="btn btn-sm btn-outline" style="float:right;margin-left:8px;" onclick="showCustomerHistory()">View history</button>
+            <button type="button" class="btn btn-sm btn-outline" style="float:right;margin-left:8px;" onclick="showCustomerHistory()"<?php echo $edit ? ' hidden' : ''; ?>>View history</button>
         </div>
 
         <!-- ITEMS -->
@@ -308,6 +359,7 @@ $deliveryBranchDefault = $branch['name'];
                     <span>Total boxes: <strong id="boxTotalCount">0</strong></span>
                     <span>Total: <strong id="boxTotalAmount">Rs. 0</strong></span>
                 </div>
+                <p id="weighedNote" class="muted" style="display:none;margin-bottom:8px;"></p>
                 <div id="boxGroups"></div>
                 <div class="add-row"><button type="button" class="btn btn-sm btn-primary" onclick="addBoxGroup()">+ Add box group</button></div>
                 <p class="muted" style="margin-top:8px;">
@@ -348,13 +400,17 @@ $deliveryBranchDefault = $branch['name'];
                     </div>
                     <div class="field">
                         <label for="advance">Advance Rs.</label>
-                        <input type="number" id="advance" value="0" min="0" style="width:90px;" onchange="toggleAdvanceMethod()">
+                        <input type="number" id="advance" value="0" min="0" style="width:90px;" onchange="toggleAdvanceMethod()"<?php echo $edit ? ' disabled title="The advance is not changed in edit"' : ''; ?>>
                     </div>
                 </div>
                 <div class="action-btns">
-                    <button type="button" class="btn-hold" onclick="saveOrder('hold')">Hold (F10)</button>
-                    <button type="button" class="btn-confirm" id="confirmBtn" onclick="saveOrder('confirmed')">Confirm order (F9)</button>
+                    <button type="button" class="btn-hold" onclick="saveOrder('hold')"<?php echo $edit ? ' style="display:none;"' : ''; ?>>Hold (F10)</button>
+                    <?php if ($edit): ?><a class="btn btn-outline" href="order_list.php">Back to orders</a><?php endif; ?>
+                    <button type="button" class="btn-confirm" id="confirmBtn" onclick="saveOrder('confirmed')"><?php echo $edit ? 'Save changes (F9)' : 'Confirm order (F9)'; ?></button>
                 </div>
+                <?php if ($edit): ?>
+                <small class="muted" style="display:block;margin-top:6px;text-align:right;">Advance and payments are not changed here. Every saved change is recorded in the order history.</small>
+                <?php endif; ?>
             </div>
 
             <div id="advanceSection" class="advance-section">
@@ -437,6 +493,7 @@ var tempImageData = '';
 var selectedAdvanceMethod = '';
 var currentCustomerCell = '';
 var TYPE_TITLES = { cake: 'Cake items', lunch: 'Lunch boxes', sweet: 'Sweet boxes', eatable: 'Eatable pictures', other: 'Other items' };
+var EDIT = <?php echo $edit ? json_encode($edit, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null'; ?>;
 
 // ===== HELPERS =====
 function esc(s) {
@@ -492,7 +549,7 @@ function hasAnyItems() {
            document.querySelectorAll('#boxGroups .box-group').length > 0;
 }
 function selectType(type) {
-    if (type === currentType) return;
+    if (EDIT || type === currentType) return;
     if (hasAnyItems()) {
         if (!confirm('Change order type?\n\nThe items you added will be removed.')) return;
         clearItems();
@@ -512,7 +569,7 @@ function setType(type) {
     }
     updateEmptyMessage();
     calcTotals();
-    if (window.history && window.history.replaceState) {
+    if (!EDIT && window.history && window.history.replaceState) {
         window.history.replaceState(null, '', 'index.php?type=' + type);
     }
 }
@@ -614,7 +671,7 @@ function showCustomerSummary(cell) {
             if (c.last_order) html += ' &middot; Last order: ' + esc(c.last_order);
             document.getElementById('customerInfoText').innerHTML = html;
             document.getElementById('customerInfoCard').classList.add('show');
-            document.getElementById('historyBtn').style.display = 'inline-block';
+            if (!EDIT) document.getElementById('historyBtn').style.display = 'inline-block';
         }
     });
 }
@@ -708,6 +765,7 @@ function addCakeItem(invId, name, basePrice, uom, preset) {
     div.dataset.price = basePrice;
     div.dataset.image = preset.image_data || '';
     div.dataset.audio = '';
+    div.dataset.rowId = preset.id || 0;
     div.innerHTML =
         cardImageHtml(id, 'Photo') +
         '<div class="item-details">' +
@@ -731,6 +789,8 @@ function addCakeItem(invId, name, basePrice, uom, preset) {
         '</div>';
     document.getElementById('cartItems').appendChild(div);
     if (preset.image_data) setCardImage(id, preset.image_data);
+    if (preset.has_image && preset.id) showSavedImage(id, preset.id);
+    if (preset.has_audio && preset.id) showSavedAudio(id, preset.id);
     updateEmptyMessage();
     calcTotals();
     return id;
@@ -745,6 +805,7 @@ function addEatableItem(preset) {
     var div = makeCard(id, 'eatable');
     div.dataset.name = 'Eatable picture';
     div.dataset.price = num(preset.price);
+    div.dataset.rowId = preset.id || 0;
     div.innerHTML =
         cardImageHtml(id, 'Add picture (required)') +
         '<div class="item-details">' +
@@ -760,6 +821,7 @@ function addEatableItem(preset) {
             '</div>' +
         '</div>';
     document.getElementById('cartItems').appendChild(div);
+    if (preset.has_image && preset.id) showSavedImage(id, preset.id);
     updateEmptyMessage();
     calcTotals();
     return id;
@@ -774,6 +836,7 @@ function addOtherItem(preset) {
     var div = makeCard(id, 'other');
     div.dataset.name = preset.name || '';
     div.dataset.price = num(preset.price);
+    div.dataset.rowId = preset.id || 0;
     div.innerHTML =
         '<div class="item-details">' +
             '<div class="item-top">' +
@@ -843,7 +906,6 @@ function addBoxGroup(preset) {
         '<div class="box-group-head">' +
             '<span class="box-title">Box group</span>' +
             labelWrap('Number of boxes', '<input type="number" class="box-count" min="1" step="1" value="' + (preset.boxes || 1) + '" oninput="calcTotals()">') +
-            labelWrap('Name (optional)', '<input type="text" class="box-name" value="' + esc(preset.name || '') + '" placeholder="e.g. Office set">') +
             '<button type="button" class="btn-remove" onclick="removeBoxGroup(\'' + gid + '\')">Remove group</button>' +
         '</div>' +
         '<div class="box-items-head"><span>Item</span><span>Qty per box</span><span class="hide-sweet">Price per piece (Rs)</span><span></span></div>' +
@@ -865,6 +927,7 @@ function addBoxItem(gid, preset) {
     var listId = currentType === 'sweet' ? 'sweetNames' : 'lunchNames';
     var row = document.createElement('div');
     row.className = 'box-item-row';
+    row.dataset.rowId = preset.id || 0;
     row.innerHTML =
         '<input type="text" class="bi-name" list="' + listId + '" placeholder="Item name" value="' + esc(preset.name || '') + '" oninput="calcTotals()">' +
         '<input type="number" class="bi-qty" min="1" step="1" title="Quantity in each box" value="' + (preset.qty || 1) + '" oninput="calcTotals()">' +
@@ -904,6 +967,7 @@ function addCharge(preset) {
     preset = preset || {};
     var row = document.createElement('div');
     row.className = 'charge-row';
+    row.dataset.rowId = preset.id || 0;
     row.innerHTML =
         '<input type="text" class="ch-label" list="chargeNames" placeholder="Label, e.g. Delivery" value="' + esc(preset.label || '') + '" oninput="calcTotals()">' +
         '<input type="number" class="ch-amount" min="0" step="1" placeholder="Rs" value="' + (preset.amount ? preset.amount : '') + '" oninput="calcTotals()">' +
@@ -921,7 +985,7 @@ function collectCharges() {
     for (var i = 0; i < rows.length; i++) {
         var amt = num(rows[i].querySelector('.ch-amount').value);
         if (amt > 0) {
-            out.push({ label: rows[i].querySelector('.ch-label').value.trim(), amount: amt });
+            out.push({ label: rows[i].querySelector('.ch-label').value.trim(), amount: amt, id: parseInt(rows[i].dataset.rowId, 10) || 0 });
         }
     }
     return out;
@@ -929,6 +993,9 @@ function collectCharges() {
 
 // ===== CALCULATIONS =====
 function calcTotals() {
+    // Sweet boxes are waiting for weighing until a weighed amount is saved (edit shows it)
+    var weighed = (EDIT && EDIT.weighed !== null) ? EDIT.weighed : 0;
+    var waitingWeight = currentType === 'sweet' && weighed <= 0;
     // Cake, eatable and other cards
     var itemsTotal = 0;
     var cards = document.querySelectorAll('#cartItems .cart-item');
@@ -951,14 +1018,14 @@ function calcTotals() {
         boxCount += t.boxes;
         boxTotal += t.total;
         groups[g].querySelector('.box-title').textContent = 'Box group ' + (g + 1);
-        groups[g].querySelector('.box-summary').textContent = currentType === 'sweet'
+        groups[g].querySelector('.box-summary').textContent = waitingWeight
             ? t.boxes + ' boxes. Priced after weighing.'
             : t.boxes + ' boxes. Each box Rs. ' + money(t.each) + '. Group total Rs. ' + money(t.total) + '.';
     }
-    itemsTotal += boxTotal;
+    itemsTotal += boxTotal + weighed;
     lastItemsTotal = itemsTotal;
     document.getElementById('boxTotalCount').textContent = boxCount;
-    document.getElementById('boxTotalAmount').textContent = currentType === 'sweet' ? 'After weighing' : 'Rs. ' + money(boxTotal);
+    document.getElementById('boxTotalAmount').textContent = waitingWeight ? 'After weighing' : 'Rs. ' + money(boxTotal + weighed);
 
     // Extra charges
     var charges = 0;
@@ -973,7 +1040,7 @@ function calcTotals() {
     var advance = parseInt(document.getElementById('advance').value, 10) || 0;
     var total = Math.max(0, itemsTotal + charges - discount);
     var balance = total - advance;
-    var isSweet = currentType === 'sweet';
+    var isSweet = waitingWeight;
 
     document.getElementById('subtotal').textContent = isSweet ? 'After weighing' : 'Rs. ' + money(itemsTotal);
     document.getElementById('chargesDisplay').textContent = 'Rs. ' + money(charges);
@@ -1015,7 +1082,7 @@ function clearAll() {
     if (!confirm('Clear all items, charges and discounts?')) return;
     clearItems();
     document.getElementById('chargeRows').innerHTML = '';
-    document.getElementById('advance').value = 0;
+    if (!EDIT) document.getElementById('advance').value = 0;
     document.getElementById('flatDisc').value = 0;
     document.getElementById('discPercent').value = 0;
     document.getElementById('advanceSection').classList.remove('show');
@@ -1151,8 +1218,9 @@ function saveAudio() {
 }
 
 function playAudio(itemId) {
-    var audioData = document.getElementById(itemId).dataset.audio;
-    if (audioData) new Audio(audioData).play();
+    var el = document.getElementById(itemId);
+    var src = el.dataset.audio || el.dataset.audioUrl;
+    if (src) new Audio(src).play();
 }
 
 // ===== COLLECT ORDER DATA =====
@@ -1169,7 +1237,10 @@ function collectItems() {
             price: num(item.querySelector('.price-edit').value),
             qty: parseInt(item.querySelector('.qty-input').value, 10) || 1,
             note: item.querySelector('.note') ? item.querySelector('.note').value.trim() : '',
-            image_data: item.dataset.image || ''
+            image_data: item.dataset.image || '',
+            id: parseInt(item.dataset.rowId, 10) || 0,
+            keep_image: item.dataset.keepImage === '1' && !item.dataset.image,
+            keep_audio: !!item.dataset.audioUrl && !item.dataset.audio
         };
         if (kind === 'cake') {
             entry.name = item.dataset.name;
@@ -1203,11 +1274,11 @@ function collectBoxes() {
             items.push({
                 name: name,
                 qty: Math.max(1, parseInt(rows[r].querySelector('.bi-qty').value, 10) || 1),
-                price: currentType === 'sweet' ? 0 : num(rows[r].querySelector('.bi-price').value)
+                price: currentType === 'sweet' ? 0 : num(rows[r].querySelector('.bi-price').value),
+                id: parseInt(rows[r].dataset.rowId, 10) || 0
             });
         }
         out.push({
-            name: groups[g].querySelector('.box-name').value.trim(),
             boxes: Math.floor(num(groups[g].querySelector('.box-count').value)),
             items: items
         });
@@ -1227,67 +1298,83 @@ function resetAfterSave() {
     calcTotals();
 }
 
-function saveOrder(status) {
+// Checks the order form. Returns the order data, or null after a message is shown.
+function collectForSave() {
     var type = currentType;
     var items = collectItems();
     var boxes = isBoxType(type) ? collectBoxes() : [];
     var charges = collectCharges();
 
-    if (!isBoxType(type) && items.length === 0) { showToast('Add an item first.', 'error'); return; }
-    if (isBoxType(type) && boxes.length === 0) { showToast('Add a box group first.', 'error'); return; }
-
+    if (!isBoxType(type) && items.length === 0) { showToast('Add an item first.', 'error'); return null; }
+    if (isBoxType(type) && boxes.length === 0) { showToast('Add a box group first.', 'error'); return null; }
     for (var i = 0; i < items.length; i++) {
         if (items[i].kind === 'cake' && (!items[i].name || items[i].tiers <= 0)) {
             showToast('Enter the weight for each cake.', 'error');
-            return;
+            return null;
         }
-        if (items[i].kind === 'eatable' && !items[i].image_data) {
+        if (items[i].kind === 'eatable' && !items[i].image_data && !items[i].keep_image) {
             showToast('Add the picture for each eatable picture.', 'error');
-            return;
+            return null;
         }
         if (items[i].kind === 'other' && !items[i].name) {
             showToast('Describe each other item.', 'error');
-            return;
+            return null;
         }
     }
     for (var b = 0; b < boxes.length; b++) {
-        if (boxes[b].boxes < 1) { showToast('Box group ' + (b + 1) + ': enter how many boxes.', 'error'); return; }
-        if (boxes[b].items.length === 0) { showToast('Box group ' + (b + 1) + ': add at least one item.', 'error'); return; }
+        if (boxes[b].boxes < 1) { showToast('Box group ' + (b + 1) + ': enter how many boxes.', 'error'); return null; }
+        if (boxes[b].items.length === 0) { showToast('Box group ' + (b + 1) + ': add at least one item.', 'error'); return null; }
     }
-
-    var advance = parseInt(document.getElementById('advance').value, 10) || 0;
-    if (advance > 0 && !selectedAdvanceMethod) { showToast('Select the advance payment method.', 'error'); return; }
 
     var deliveryType = document.getElementById('deliveryType').value;
     var deliveryAddress = document.getElementById('deliveryAddress').value.trim();
-    if (deliveryType === 'delivery' && !deliveryAddress) { showToast('Enter the delivery address.', 'error'); return; }
+    if (deliveryType === 'delivery' && !deliveryAddress) { showToast('Enter the delivery address.', 'error'); return null; }
 
-    var data = {
+    return {
         type: type,
         items: items,
         boxes: boxes,
         charges: charges,
-        status: status,
-        party_detail: document.getElementById('custName').value.trim() || 'Walk-in',
-        cell_no: document.getElementById('custCell').value.trim(),
-        deliver_date: document.getElementById('deliverDate').value,
-        delivery_time: document.getElementById('deliverTime').value,
-        priority: document.getElementById('priority').value,
-        flat_disc: parseInt(document.getElementById('flatDisc').value, 10) || 0,
-        advance: advance,
-        advance_method: selectedAdvanceMethod,
-        occasion: document.getElementById('occasion').value,
-        delivery_type: deliveryType,
-        delivery_address: deliveryAddress,
-        delivery_branch: document.getElementById('deliveryBranch').value.trim(),
-        source: document.getElementById('orderSource').value
+        header: {
+            party_detail: document.getElementById('custName').value.trim() || 'Walk-in',
+            cell_no: document.getElementById('custCell').value.trim(),
+            deliver_date: document.getElementById('deliverDate').value,
+            delivery_time: document.getElementById('deliverTime').value,
+            priority: document.getElementById('priority').value,
+            flat_disc: parseInt(document.getElementById('flatDisc').value, 10) || 0,
+            occasion: document.getElementById('occasion').value,
+            delivery_type: deliveryType,
+            delivery_address: deliveryAddress,
+            delivery_branch: document.getElementById('deliveryBranch').value.trim(),
+            source: document.getElementById('orderSource').value
+        }
     };
+}
+
+function setSaving(on) {
+    var btn = document.getElementById('confirmBtn');
+    btn.disabled = on;
+    btn.textContent = on ? 'Saving...' : (EDIT ? 'Save changes (F9)' : 'Confirm order (F9)');
+}
+
+function saveOrder(status) {
+    if (EDIT) { saveEdit(); return; }
+    var c = collectForSave();
+    if (!c) return;
+    var advance = parseInt(document.getElementById('advance').value, 10) || 0;
+    if (advance > 0 && !selectedAdvanceMethod) { showToast('Select the advance payment method.', 'error'); return; }
+
+    var data = c.header;
+    data.type = c.type;
+    data.items = c.items;
+    data.boxes = c.boxes;
+    data.charges = c.charges;
+    data.status = status;
+    data.advance = advance;
+    data.advance_method = selectedAdvanceMethod;
 
     showToast('Saving order...', 'info');
-    var btn = document.getElementById('confirmBtn');
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-
+    setSaving(true);
     fetch('save_order.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -1295,15 +1382,14 @@ function saveOrder(status) {
     })
     .then(function(r) { return r.json(); })
     .then(function(res) {
-        btn.disabled = false;
-        btn.textContent = 'Confirm order (F9)';
+        setSaving(false);
         if (res.success) {
             showToast('Order #' + res.bill_no + ' saved', 'success');
             if (status === 'confirmed') {
                 if (confirm('Order #' + res.bill_no + ' saved.\n\nPrint the invoice now?')) {
                     window.open('invoice.php?bill=' + res.bill_no, '_blank');
                 }
-                setTimeout(function() { window.location.href = 'index.php?type=' + type; }, 800);
+                setTimeout(function() { window.location.href = 'index.php?type=' + c.type; }, 800);
             } else {
                 resetAfterSave();
             }
@@ -1312,10 +1398,115 @@ function saveOrder(status) {
         }
     })
     .catch(function() {
-        btn.disabled = false;
-        btn.textContent = 'Confirm order (F9)';
+        setSaving(false);
         showToast('Network error. The order was not saved.', 'error');
     });
+}
+
+// Edit mode: the whole order is sent; the server checks the status again and records the changes
+function saveEdit() {
+    var c = collectForSave();
+    if (!c) return;
+    var payload = c.header;
+    payload.bill_no = EDIT.bill_no;
+    payload.type = c.type;
+    payload.items = c.items;
+    payload.boxes = c.boxes;
+    payload.charges = c.charges;
+
+    showToast('Saving changes...', 'info');
+    setSaving(true);
+    fetch('save_order_edit.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        setSaving(false);
+        if (res.success) {
+            showToast(res.message, 'success');
+            if (res.changed) {
+                setTimeout(function() { window.location.href = 'order_detail.php?bill=' + EDIT.bill_no; }, 1000);
+            }
+        } else {
+            showToast(res.message || 'Could not save the changes.', 'error');
+        }
+    })
+    .catch(function() {
+        setSaving(false);
+        showToast('Network error. The changes were not saved.', 'error');
+    });
+}
+
+// Edit mode: the saved order is shown on this screen
+function selectValue(id, value) {
+    var sel = document.getElementById(id);
+    value = value || '';
+    var found = false;
+    for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === value) found = true;
+    }
+    if (!found && value !== '') sel.appendChild(new Option(value, value));
+    sel.value = value;
+}
+
+function showSavedImage(cardId, rowId) {
+    document.getElementById(cardId).dataset.keepImage = '1';
+    document.getElementById('imgArea_' + cardId).innerHTML =
+        '<img src="show_image.php?type=thumb&amp;id=' + rowId + '" alt="Photo"><span class="upload-icon">Change</span>';
+}
+
+function showSavedAudio(cardId, rowId) {
+    document.getElementById(cardId).dataset.audioUrl = 'show_image.php?type=audio&amp;id=' + rowId;
+    document.getElementById('audioBtn_' + cardId).style.display = 'none';
+    document.getElementById('audioPlay_' + cardId).style.display = 'inline-block';
+}
+
+function applyEdit(E) {
+    var h = E.header;
+    document.getElementById('custCell').value = h.cell_no;
+    document.getElementById('custName').value = h.party_detail;
+    document.getElementById('custDisplay').textContent = h.party_detail || 'Walk-in';
+    document.getElementById('deliverDate').value = h.deliver_date;
+    document.getElementById('deliverTime').value = h.delivery_time;
+    document.getElementById('deliveryType').value = h.delivery_type;
+    toggleDeliveryAddress();
+    document.getElementById('deliveryAddress').value = h.delivery_address;
+    document.getElementById('deliveryBranch').value = h.delivery_branch;
+    selectValue('priority', h.priority);
+    selectValue('occasion', h.occasion);
+    selectValue('orderSource', h.source);
+    document.getElementById('flatDisc').value = h.flat_disc;
+    document.getElementById('discPercent').value = 0;
+    document.getElementById('advance').value = h.advance;
+    document.getElementById('billNo').textContent = E.bill_no;
+
+    // The order type of a saved order does not change
+    var tabs = document.querySelectorAll('.type-tab');
+    for (var t = 0; t < tabs.length; t++) tabs[t].disabled = true;
+    setType(E.type);
+    clearItems();
+
+    for (var i = 0; i < E.items.length; i++) {
+        var it = E.items[i];
+        if (it.kind === 'cake') {
+            addCakeItem(it.inv_id, it.name, it.price, it.uom, it);
+        } else if (it.kind === 'eatable') {
+            addEatableItem(it);
+        } else {
+            addOtherItem(it);
+        }
+    }
+    for (var b = 0; b < E.boxes.length; b++) addBoxGroup(E.boxes[b]);
+    for (var c = 0; c < E.charges.length; c++) addCharge(E.charges[c]);
+
+    if (E.weighed !== null) {
+        var note = document.getElementById('weighedNote');
+        note.textContent = 'Sweet boxes weighed: Rs. ' + money(E.weighed) + '. If the boxes changed, weigh them again on the Payment page.';
+        note.style.display = 'block';
+    }
+    calcTotals();
 }
 
 function showToast(msg, type) {
@@ -1340,12 +1531,12 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'F2') { e.preventDefault(); document.getElementById('barcodeInput').focus(); }
     if (e.key === 'F4') { e.preventDefault(); document.getElementById('custCell').focus(); }
     if (e.key === 'F9') { e.preventDefault(); saveOrder('confirmed'); }
-    if (e.key === 'F10') { e.preventDefault(); saveOrder('hold'); }
+    if (e.key === 'F10' && !EDIT) { e.preventDefault(); saveOrder('hold'); }
     if (e.key === 'Escape') { document.getElementById('barcodeInput').value = ''; }
 });
 
 // ===== START =====
-setType(currentType);
+if (EDIT) { applyEdit(EDIT); } else { setType(currentType); }
 setTimeout(function() {
     showToast('Shortcuts: F2 barcode, F4 customer, F9 confirm, F10 hold', 'info');
 }, 800);

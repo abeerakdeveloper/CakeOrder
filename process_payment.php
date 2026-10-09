@@ -39,7 +39,15 @@ $vnoFunc = ($method == 'cash') ? 'CR' : 'BR';
 
 $newPaid = $order['paid'] + $amount;
 $newBalance = $balance - $amount;
-$newStatus = ($newBalance <= 0) ? 'paid' : 'delivered';
+// Fully paid: paid. Part paid: an order still in the kitchen keeps its status, so it stays on the
+// kitchen board. A ready order becomes delivered, as before.
+if ($newBalance <= 0) {
+    $newStatus = 'paid';
+} elseif (in_array($order['status'], array('confirmed', 'preparing', 'pending', 'hold'))) {
+    $newStatus = $order['status'];
+} else {
+    $newStatus = 'delivered';
+}
 $payDate = date('Y-m-d');
 $user = esc($_SESSION['user']);
 $partyDetail = esc($order['party_detail']);
