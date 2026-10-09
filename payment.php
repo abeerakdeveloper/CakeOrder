@@ -1,5 +1,6 @@
 <?php
 require_once 'db.php';
+require_once 'company.php';
 
 $billNo = isset($_GET['bill']) ? intval($_GET['bill']) : 0;
 if (!$billNo) { header('Location: order_list.php'); exit; }
@@ -7,6 +8,9 @@ if (!$billNo) { header('Location: order_list.php'); exit; }
 $sql = "SELECT bill_no, party_detail, cell_no, deliver_date, delivery_time,
     SUM(amount) AS total_amount, MAX(advance) AS advance, MAX(paid) AS paid,
     MAX(status) AS status, MAX(flat_disc) AS flat_disc,
+    MAX(CASE WHEN sale_type = 'sweet' THEN 1 ELSE 0 END) AS has_sweet,
+    MAX(CASE WHEN sale_type = 'weighed' THEN 1 ELSE 0 END) AS has_weighed,
+    SUM(CASE WHEN sale_type = 'weighed' THEN amount ELSE 0 END) AS weighed_amount,
     GROUP_CONCAT(CONCAT(qty, 'x ', category, 
         CASE WHEN flavor != '' THEN CONCAT(' (', flavor, ')') ELSE '' END
     ) SEPARATOR '\n') AS items
@@ -21,6 +25,8 @@ $totalAmount = $order['total_amount'] - $order['flat_disc'];
 $alreadyPaid = $order['advance'] + $order['paid'];
 $balance = $totalAmount - $alreadyPaid;
 $canPay = in_array($order['status'], array('delivered', 'ready', 'confirmed', 'preparing'));
+// Sweet boxes are priced after weighing: no balance is final until the weighed amount is entered
+$waiting = ($order['has_sweet'] && !$order['has_weighed']);
 ?>
 <!DOCTYPE html>
 <html>
@@ -32,7 +38,7 @@ $canPay = in_array($order['status'], array('delivered', 'ready', 'confirmed', 'p
 <body>
 
 <div class="topbar">
-    <h2>💰 Payment - Order #<?php echo $billNo; ?></h2>
+    <h2> Payment - Order #<?php echo $billNo; ?></h2>
     <div class="topbar-right">
         <a href="order_list.php">← Back to Orders</a>
         <a href="dashboard.php">Dashboard</a>
@@ -41,25 +47,25 @@ $canPay = in_array($order['status'], array('delivered', 'ready', 'confirmed', 'p
 
 <div class="layout">
     <nav class="sidebar-nav">
-        <div class="brand"><h3>🧁 Salman Sweets</h3></div>
-        <a href="dashboard.php"><span class="icon">📊</span><span class="label">Dashboard</span></a>
-        <a href="index.php"><span class="icon">➕</span><span class="label">New Order</span></a>
-        <a href="order_list.php"><span class="icon">📋</span><span class="label">Order List</span></a>
-        <a href="kitchen_display.php"><span class="icon">👨‍🍳</span><span class="label">Kitchen</span></a>
-        <a href="pickup_queue.php"><span class="icon">🚚</span><span class="label">Pickup Queue</span></a>
+        <div class="brand"><?php echo company_logo_html('brand-logo'); ?></div>
+        <a href="dashboard.php"><span class="label">Dashboard</span></a>
+        <a href="index.php"><span class="label">New Order</span></a>
+        <a href="order_list.php"><span class="label">Order List</span></a>
+        <a href="kitchen_display.php"><span class="label">Kitchen</span></a>
+        <a href="pickup_queue.php"><span class="label">Pickup Queue</span></a>
     </nav>
 
     <div class="main-content">
         <div class="stepper" style="background:#fff;border-radius:10px;margin-bottom:16px;">
-            <div class="step done"><span>✓</span> Draft</div><div class="line"></div>
-            <div class="step done"><span>✓</span> Order</div><div class="line"></div>
+            <div class="step done"><span>1</span> Draft</div><div class="line"></div>
+            <div class="step done"><span>2</span> Order</div><div class="line"></div>
             <div class="step active"><span>3</span> Payment</div><div class="line"></div>
             <div class="step"><span>4</span> Receipt</div>
         </div>
 
         <div class="payment-layout">
             <div class="payment-card">
-                <h3>📋 Order Summary</h3>
+                <h3> Order Summary</h3>
                 <div class="pay-row"><span>Customer:</span><strong><?php echo htmlspecialchars($order['party_detail'] ? $order['party_detail'] : 'Walk-in'); ?></strong></div>
                 <div class="pay-row"><span>Phone:</span><span><?php echo htmlspecialchars($order['cell_no']); ?></span></div>
                 <div class="pay-row"><span>Delivery:</span><span><?php echo date('d M Y', strtotime($order['deliver_date'])); ?> at <?php echo $order['delivery_time']; ?></span></div>
@@ -78,20 +84,26 @@ $canPay = in_array($order['status'], array('delivered', 'ready', 'confirmed', 'p
                 <?php if ($order['paid'] > 0): ?>
                 <div class="pay-row"><span>Previously Paid:</span><span style="color:#27ae60;">- Rs. <?php echo number_format($order['paid']); ?></span></div>
                 <?php endif; ?>
-                <div class="pay-row total"><span>Balance Due:</span><span>Rs. <?php echo number_format(max(0, $balance)); ?></span></div>
+                <div class="pay-row total"><span>Balance Due:</span><span><?php if ($waiting): ?>After weighing<?php else: ?>Rs. <?php echo number_format(max(0, $balance)); ?><?php endif; ?></span></div>
             </div>
 
             <div class="payment-card">
-                <h3>💳 Payment</h3>
-                <?php if ($balance <= 0): ?>
+                <h3> Payment</h3>
+                <?php if ($waiting): ?>
+                <div class="weigh-box">
+                    <h3>Sweet boxes: enter the weighed amount</h3>
+                    <p class="muted">Sweet boxes are priced after weighing. Enter the total, then take the payment.</p>
+                    <label>Total after weighing (Rs)</label>
+                    <input type="number" id="weighAmount" min="1" step="1" class="weigh-input">
+                    <button type="button" class="btn btn-primary" style="width:100%;margin-top:12px;" id="weighBtn" onclick="saveWeight()">Save weighed amount</button>
+                </div>
+                <?php elseif ($balance <= 0): ?>
                 <div style="text-align:center;padding:40px;">
-                    <div style="font-size:48px;">✅</div>
                     <h3 style="color:#27ae60;">Fully Paid!</h3>
-                    <a href="receipt.php?bill=<?php echo $billNo; ?>" class="btn btn-primary" style="margin-top:16px;">🖨 Print Receipt</a>
+                    <a href="receipt.php?bill=<?php echo $billNo; ?>" class="btn btn-primary" style="margin-top:16px;"> Print Receipt</a>
                 </div>
                 <?php elseif (!$canPay): ?>
                 <div style="text-align:center;padding:40px;">
-                    <div style="font-size:48px;">⏳</div>
                     <h3 style="color:#f39c12;">Order Not Ready</h3>
                     <p>Current status: <?php echo getStatusBadge($order['status']); ?></p>
                 </div>
@@ -100,16 +112,16 @@ $canPay = in_array($order['status'], array('delivered', 'ready', 'confirmed', 'p
                 <label style="font-size:13px;font-weight:600;color:#555;">Payment Method</label>
                 <div class="pay-methods">
                     <div class="pay-method" data-method="cash" onclick="selectMethod('cash')">
-                        <span class="icon">💵</span>Cash
+                        Cash
                     </div>
                     <div class="pay-method" data-method="bank" onclick="selectMethod('bank')">
-                        <span class="icon">🏦</span>Bank Transfer
+                        Bank Transfer
                     </div>
                     <div class="pay-method" data-method="card" onclick="selectMethod('card')">
-                        <span class="icon">💳</span>Card
+                        Card
                     </div>
                     <div class="pay-method" data-method="easypaisa" onclick="selectMethod('easypaisa')">
-                        <span class="icon">📱</span>Easypaisa/JazzCash
+                        Easypaisa/JazzCash
                     </div>
                 </div>
 
@@ -132,7 +144,7 @@ $canPay = in_array($order['status'], array('delivered', 'ready', 'confirmed', 'p
                 </div>
 
                 <button class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:16px;" 
-                        onclick="processPayment()" id="payBtn">💰 Process Payment</button>
+                        onclick="processPayment()" id="payBtn"> Process Payment</button>
 
                 <div style="display:flex;gap:8px;margin-top:8px;">
                     <button class="btn btn-outline" style="flex:1;" onclick="window.location.href='order_list.php'">← Back</button>
@@ -186,7 +198,7 @@ function processPayment() {
     if (!confirm('Process Rs. ' + amount.toLocaleString() + ' via ' + selectedMethod.toUpperCase() + '?')) return;
 
     document.getElementById('payBtn').disabled = true;
-    document.getElementById('payBtn').textContent = '⏳ Processing...';
+    document.getElementById('payBtn').textContent = ' Processing...';
 
     fetch('process_payment.php', {
         method: 'POST',
@@ -204,7 +216,26 @@ function processPayment() {
         } else {
             showToast(res.message, 'error');
             document.getElementById('payBtn').disabled = false;
-            document.getElementById('payBtn').textContent = '💰 Process Payment';
+            document.getElementById('payBtn').textContent = ' Process Payment';
+        }
+    });
+}
+
+function saveWeight() {
+    var amt = parseInt(document.getElementById('weighAmount').value) || 0;
+    if (amt <= 0) { showToast('Enter the weighed amount', 'error'); return; }
+    document.getElementById('weighBtn').disabled = true;
+    fetch('save_weight.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({bill_no: <?php echo $billNo; ?>, amount: amt})
+    }).then(function(r){ return r.json(); }).then(function(res) {
+        if (res.success) {
+            showToast('Weighed amount saved', 'success');
+            setTimeout(function(){ location.reload(); }, 700);
+        } else {
+            showToast(res.message, 'error');
+            document.getElementById('weighBtn').disabled = false;
         }
     });
 }

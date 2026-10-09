@@ -1,29 +1,118 @@
 <?php
 require_once 'db.php';
-// TEMPORARY DEBUG - Remove after fixing
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+require_once 'order_lines.php';
+require_once 'order_store.php';
 
 
 $billNo = isset($_GET['bill']) ? intval($_GET['bill']) : 0;
 if (!$billNo) { header('Location: order_list.php'); exit; }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isAdmin()) {
-    $partyDetail = esc($_POST['party_detail']);
-    $cellNo = esc($_POST['cell_no']);
-    $deliverDate = esc($_POST['deliver_date']);
-    $deliveryTime = esc($_POST['delivery_time']);
-    $priority = esc($_POST['priority']);
-    $flatDisc = intval($_POST['flat_disc']);
-    $newStatus = esc($_POST['status']);
-
-    mysqli_query($mysqli, "UPDATE cake_order SET 
-        party_detail='$partyDetail', cell_no='$cellNo', deliver_date='$deliverDate', 
-        delivery_time='$deliveryTime', priority='$priority', flat_disc=$flatDisc, 
-        status='$newStatus', return_date=NOW()
-        WHERE bill_no = $billNo");
-    header("Location: order_detail.php?bill=$billNo&saved=1");
+// Admin override: corrects the customer, phone, date, time, priority, discount and status of the whole bill.
+// The edit lock does not apply (that is its purpose), but every change is written to the change history.
+// Cancelled orders are not changed here: use Cancel on the order list, which also refunds any payment.
+function override_back($billNo, $message = '', $flag = '') {
+    $url = 'order_detail.php?bill=' . intval($billNo);
+    if ($message !== '') {
+        $url .= '&err=' . urlencode($message);
+    }
+    if ($flag !== '') {
+        $url .= '&' . $flag;
+    }
+    header('Location: ' . $url);
     exit;
+}
+
+function override_post($key) {
+    return isset($_POST[$key]) ? trim((string) $_POST[$key]) : '';
+}
+
+$overrideStatuses = array('pending', 'confirmed', 'hold', 'preparing', 'ready', 'delivered', 'paid');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isAdmin()) {
+    $rows = ot_load_bill($mysqli, $billNo);
+    if (empty($rows)) {
+        override_back($billNo, 'This order is cancelled, so it cannot be changed here.');
+    }
+    $first = $rows[0];
+    $total = 0;
+    $advance = 0;
+    $paid = 0;
+    foreach ($rows as $r) {
+        $total += (int) round(ot_num($r['amount']));
+        $advance = max($advance, (int) round(ot_num($r['advance'])));
+        $paid = max($paid, (int) round(ot_num($r['paid'])));
+    }
+    $oldDisc = max(0, (int) round(ot_num($first['flat_disc'])));
+    $oldHeader = array(
+        'party_detail' => (string) $first['party_detail'],
+        'cell_no' => (string) $first['cell_no'],
+        'deliver_date' => substr((string) $first['deliver_date'], 0, 10),
+        'delivery_time' => (string) $first['delivery_time'],
+        'priority' => (string) $first['priority'],
+        'flat_disc' => $oldDisc,
+    );
+    $newPriority = in_array(override_post('priority'), array('normal', 'urgent', 'vip'), true)
+        ? override_post('priority') : $oldHeader['priority'];
+    $newHeader = array(
+        'party_detail' => override_post('party_detail'),
+        'cell_no' => override_post('cell_no'),
+        'deliver_date' => substr(override_post('deliver_date'), 0, 10),
+        'delivery_time' => override_post('delivery_time'),
+        'priority' => $newPriority,
+        'flat_disc' => max(0, (int) round(ot_num(override_post('flat_disc')))),
+    );
+    $newStatus = override_post('status');
+    if ($newStatus === 'cancelled') {
+        override_back($billNo, 'To cancel an order, use Cancel on the order list. It also refunds any payment.');
+    }
+    if (!in_array($newStatus, $overrideStatuses, true)) {
+        override_back($billNo, 'Choose a valid status.');
+    }
+
+    // The discount may not make the total negative, or drop it below what is already received
+    $oldDue = $total - $oldDisc;
+    $newDue = $total - $newHeader['flat_disc'];
+    if ($newHeader['flat_disc'] > $oldDisc) {
+        if ($newDue < 0) {
+            override_back($billNo, 'The discount is more than the total.');
+        }
+        if ($newDue < $advance + $paid) {
+            override_back($billNo, 'The new total, Rs. ' . ot_money($newDue) . ', would be less than the Rs. '
+                . ot_money($advance + $paid) . ' already received.');
+        }
+    }
+
+    $lines = ot_header_changes($oldHeader, $newHeader);
+    if ($newStatus !== (string) $first['status']) {
+        $lines[] = 'Status: ' . (string) $first['status'] . ' changed to ' . $newStatus;
+    }
+    if (empty($lines)) {
+        override_back($billNo, '', 'nochange=1');
+    }
+
+    mysqli_autocommit($mysqli, false);
+    try {
+        $sql = "UPDATE cake_order SET party_detail = " . ot_sql_str($newHeader['party_detail'])
+            . ", cell_no = " . ot_sql_str($newHeader['cell_no'])
+            . ", deliver_date = " . ot_sql_str($newHeader['deliver_date'])
+            . ", delivery_time = " . ot_sql_str($newHeader['delivery_time'])
+            . ", priority = " . ot_sql_str($newHeader['priority'])
+            . ", flat_disc = " . intval($newHeader['flat_disc'])
+            . ", status = " . ot_sql_str($newStatus)
+            . ", return_date = NOW()"
+            . " WHERE bill_no = " . intval($billNo) . " AND ordercancel = 0";
+        if (!mysqli_query($mysqli, $sql)) {
+            throw new Exception('The order could not be updated.');
+        }
+        ot_write_log($mysqli, $billNo, $_SESSION['user'], $oldDue, $newDue,
+            implode("\n", array_merge(array('Admin override'), $lines)));
+        mysqli_commit($mysqli);
+        mysqli_autocommit($mysqli, true);
+    } catch (Exception $e) {
+        mysqli_rollback($mysqli);
+        mysqli_autocommit($mysqli, true);
+        override_back($billNo, 'The change could not be saved. Nothing was changed.');
+    }
+    override_back($billNo, '', 'saved=1');
 }
 
 $res = mysqli_query($mysqli, "SELECT * FROM cake_order WHERE bill_no = $billNo ORDER BY id");
@@ -40,7 +129,7 @@ foreach ($items as $it) $totalAmount += $it['amount'];
 
 // Get GL entries for this order
 $glRes = mysqli_query($mysqli, "SELECT * FROM gledg WHERE ref_no = $billNo ORDER BY gledg_id DESC");
-if (!$res) {
+if (!$glRes) {
     die("SQL Error: " . mysqli_error($mysqli));
 }
 
@@ -61,12 +150,20 @@ $pageTitle = "Order #$billNo Details";
 <?php include 'includes/header.php'; ?>
 
         <?php if (isset($_GET['saved'])): ?>
-        <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:16px;">✅ Saved!</div>
+        <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:16px;">Saved.</div>
+        <?php endif; ?>
+
+        <?php if (isset($_GET['nochange'])): ?>
+        <div style="background:#eef2f7;color:#34495e;padding:12px;border-radius:8px;margin-bottom:16px;">No changes to save.</div>
+        <?php endif; ?>
+
+        <?php if (isset($_GET['err'])): ?>
+        <div style="background:#fee;color:#c0392b;padding:12px;border-radius:8px;margin-bottom:16px;"><?php echo htmlspecialchars($_GET['err']); ?></div>
         <?php endif; ?>
 
         <?php if ($first['ordercancel']): ?>
         <div style="background:#fee;color:#c0392b;padding:16px;border-radius:8px;margin-bottom:16px;border-left:5px solid #e74c3c;">
-            ❌ <strong>This order is CANCELLED</strong>
+            <strong>This order is cancelled.</strong>
         </div>
         <?php endif; ?>
 
@@ -96,12 +193,13 @@ $pageTitle = "Order #$billNo Details";
                             <input type="number" name="flat_disc" value="<?php echo $first['flat_disc']; ?>" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div style="grid-column:span 2;"><label style="font-size:11px;font-weight:600;color:#6c3483;">Status (Admin Override)</label>
                             <select name="status" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;">
-                                <?php foreach(array('pending','confirmed','hold','preparing','ready','delivered','paid','cancelled') as $s): ?>
+                                <?php foreach(array('pending','confirmed','hold','preparing','ready','delivered','paid') as $s): ?>
                                 <option value="<?php echo $s; ?>" <?php if($first['status']==$s) echo 'selected'; ?>><?php echo ucfirst($s); ?></option>
                                 <?php endforeach; ?>
-                            </select></div>
+                            </select>
+                            <small style="color:#888;">To cancel an order, use Cancel on the order list.</small></div>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="margin-top:12px;">💾 Save Changes</button>
+                    <button type="submit" class="btn btn-primary" style="margin-top:12px;">Save changes</button>
                 </form>
                 <?php else: ?>
                 <table style="margin-top:12px;">
@@ -130,15 +228,18 @@ $pageTitle = "Order #$billNo Details";
 
                 <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
                     <?php if (!$first['ordercancel'] && $bal > 0 && in_array($first['status'], array('ready','delivered'))): ?>
-                    <a href="payment.php?bill=<?php echo $billNo; ?>" class="btn btn-success">💰 Receive Payment</a>
+                    <a href="payment.php?bill=<?php echo $billNo; ?>" class="btn btn-success">Receive payment</a>
                     <?php endif; ?>
-                    <a href="receipt.php?bill=<?php echo $billNo; ?>" class="btn btn-info">🖨 Print</a>
+                    <?php if (!$first['ordercancel'] && ot_editable_status($first['status']) && (isPOSUser() || isAdmin())): ?>
+                    <a href="index.php?bill=<?php echo $billNo; ?>" class="btn btn-outline">Edit order</a>
+                    <?php endif; ?>
+                    <a href="receipt.php?bill=<?php echo $billNo; ?>" class="btn btn-info">Print receipt</a>
                     <?php 
                     $canCancel = false;
                     if (isAdmin()) $canCancel = !$first['ordercancel'];
                     else if (isPOSUser()) $canCancel = !$first['ordercancel'] && $first['paid'] == 0 && !in_array($first['status'], array('ready','delivered','paid'));
                     if ($canCancel): ?>
-                    <button class="btn btn-danger" onclick="cancelThis()">✕ Cancel</button>
+                    <button class="btn btn-danger" onclick="cancelThis()">Cancel order</button>
                     <?php endif; ?>
                 </div>
             </div>
@@ -181,10 +282,34 @@ $pageTitle = "Order #$billNo Details";
             </table>
         </div>
 
+        <!-- CHANGE HISTORY: each saved edit, with who, when, the totals and what changed -->
+        <?php $changeLog = ot_load_log($mysqli, $billNo); ?>
+        <div class="data-card" style="margin-top:16px;">
+            <h4>Change history</h4>
+            <?php if (empty($changeLog)): ?>
+            <p class="muted">No changes have been recorded for this order.</p>
+            <?php else: ?>
+            <table>
+                <thead><tr><th>When</th><th>By</th><th>Total before</th><th>Total after</th><th>What changed</th></tr></thead>
+                <tbody>
+                <?php foreach ($changeLog as $ch): ?>
+                <tr>
+                    <td><?php echo date('d M Y, h:i A', strtotime($ch['changed_at'])); ?></td>
+                    <td><?php echo htmlspecialchars($ch['changed_by']); ?></td>
+                    <td>Rs. <?php echo number_format((float) $ch['old_total']); ?></td>
+                    <td>Rs. <?php echo number_format((float) $ch['new_total']); ?></td>
+                    <td><small><?php echo nl2br(htmlspecialchars($ch['details'])); ?></small></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+        </div>
+
         <!-- GL ENTRIES -->
         <?php if (!empty($glEntries)): ?>
         <div class="data-card" style="margin-top:16px;">
-            <h4>📒 GL Entries / Payment History</h4>
+            <h4>Payment history</h4>
             <!-- <table>
                 <thead>
                     <tr><th>ID</th><th>VNo</th><th>Date</th><th>Type</th><th>Amount</th><th>Description</th><th>User</th><?php if(isAdmin()) echo '<th>Action</th>'; ?></tr>
@@ -209,7 +334,7 @@ $pageTitle = "Order #$billNo Details";
                         <td><?php echo htmlspecialchars($g['user']); ?></td>
                         <?php if (isAdmin()): ?>
                         <td>
-                            <button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $g['id']; ?>, <?php echo $g['amount']; ?>)">🗑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $g['id']; ?>, <?php echo $g['amount']; ?>)">Delete</button>
                         </td>
                         <?php endif; ?>
                     </tr>
@@ -262,7 +387,7 @@ $pageTitle = "Order #$billNo Details";
 						</td>
 						<?php if (isAdmin()): ?>
 						<td>
-							<button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $g['id']; ?>, <?php echo $g['amount']; ?>)">🗑</button>
+							<button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $g['id']; ?>, <?php echo $g['amount']; ?>)">Delete</button>
 						</td>
 						<?php endif; ?>
 					</tr>

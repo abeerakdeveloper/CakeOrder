@@ -13,12 +13,16 @@ if (!$billNo || !$amount || !$method) {
 
 $res = mysqli_query($mysqli, "SELECT SUM(amount) AS total, MAX(advance) AS advance, 
     MAX(paid) AS paid, MAX(flat_disc) AS disc, MAX(status) AS status, MAX(ordercancel) AS cancelled,
-    MAX(party_detail) AS party_detail
+    MAX(party_detail) AS party_detail,
+    MAX(CASE WHEN sale_type = 'sweet' THEN 1 ELSE 0 END) AS has_sweet,
+    MAX(CASE WHEN sale_type = 'weighed' THEN 1 ELSE 0 END) AS has_weighed
     FROM cake_order WHERE bill_no = $billNo GROUP BY bill_no");
 
 $order = mysqli_fetch_assoc($res);
 if (!$order) jsonResponse(array('success' => false, 'message' => 'Order not found'));
 if ($order['cancelled']) jsonResponse(array('success' => false, 'message' => 'Order cancelled'));
+// Sweet boxes are priced after weighing: no payment until the weighed amount is entered
+if ($order['has_sweet'] && !$order['has_weighed']) jsonResponse(array('success' => false, 'message' => 'Weigh the sweet boxes first and enter the amount on the Payment page.'));
 
 $totalDue = $order['total'] - $order['disc'];
 $alreadyPaid = $order['advance'] + $order['paid'];
@@ -35,7 +39,15 @@ $vnoFunc = ($method == 'cash') ? 'CR' : 'BR';
 
 $newPaid = $order['paid'] + $amount;
 $newBalance = $balance - $amount;
-$newStatus = ($newBalance <= 0) ? 'paid' : 'delivered';
+// Fully paid: paid. Part paid: an order still in the kitchen keeps its status, so it stays on the
+// kitchen board. A ready order becomes delivered, as before.
+if ($newBalance <= 0) {
+    $newStatus = 'paid';
+} elseif (in_array($order['status'], array('confirmed', 'preparing', 'pending', 'hold'))) {
+    $newStatus = $order['status'];
+} else {
+    $newStatus = 'delivered';
+}
 $payDate = date('Y-m-d');
 $user = esc($_SESSION['user']);
 $partyDetail = esc($order['party_detail']);

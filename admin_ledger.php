@@ -127,14 +127,14 @@ $pageTitle = 'General Ledger';
                 
                 <button class="btn btn-primary btn-sm" type="submit">Filter</button>
                 <a href="admin_ledger.php" class="btn btn-outline btn-sm">Reset</a>
-                <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">Print</button>
             </form>
         </div>
 		-->
 
 		<!-- DEBUG INFO -->
 		<div style="background:#fff3e0;padding:10px;border-radius:6px;margin-bottom:12px;font-size:12px;border-left:4px solid #f39c12;">
-			🔍 <strong>Debug Info:</strong> 
+			<strong>Debug Info:</strong> 
 			Total entries in gledg table: <strong><?php echo $totalRowsInDB; ?></strong> | 
 			Showing <strong><?php echo count($entries); ?></strong> with current filters
 			<?php if ($queryError): ?>
@@ -185,27 +185,24 @@ $pageTitle = 'General Ledger';
 				<button class="btn btn-primary btn-sm" type="submit">Filter</button>
 				<a href="admin_ledger.php" class="btn btn-outline btn-sm">Reset</a>
 				<a href="?all=1&acc_code=ALL" class="btn btn-warning btn-sm">Show All Entries</a>
-				<button type="button" class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print</button>
+				<button type="button" class="btn btn-outline btn-sm" onclick="window.print()">Print</button>
 			</form>
 		</div>
         <!-- STATS SUMMARY -->
         <div class="stats-row" style="grid-template-columns:repeat(4,1fr);">
             <div class="stat-card">
-                <div class="stat-icon" style="background:#d4edda;">💵</div>
                 <div class="stat-info">
                     <h2 style="color:#27ae60;">Rs. <?php echo number_format($totals['CR_receipt']); ?></h2>
                     <p>Cash Received (CR)</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#dbeafe;">🏦</div>
                 <div class="stat-info">
                     <h2 style="color:#3498db;">Rs. <?php echo number_format($totals['BR_receipt']); ?></h2>
                     <p>Bank Received (BR)</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#fee;">💸</div>
                 <div class="stat-info">
                     <h2 style="color:#e74c3c;">Rs. <?php echo number_format($totalRefunded); ?></h2>
                     <p>Total Refunded</p>
@@ -216,7 +213,6 @@ $pageTitle = 'General Ledger';
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#f5f0fa;">📊</div>
                 <div class="stat-info">
                     <h2 style="color:#6c3483;">Rs. <?php echo number_format($netRevenue); ?></h2>
                     <p>Net Revenue</p>
@@ -328,7 +324,7 @@ $pageTitle = 'General Ledger';
         
         <!-- LEGEND -->
         <div class="data-card" style="margin-top:16px;">
-            <h4>📖 Legend</h4>
+            <h4>Legend</h4>
             <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:12px;font-size:13px;">
                 <div>
                     <h5 style="color:#6c3483;margin-bottom:8px;">Voucher Type (v_type)</h5>

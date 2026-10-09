@@ -1,5 +1,7 @@
 <?php
 require_once 'db.php';
+require_once 'order_lines.php';
+require_once 'company.php';
 
 $billNo = isset($_GET['bill']) ? intval($_GET['bill']) : 0;
 if (!$billNo) { header('Location: order_list.php'); exit; }
@@ -14,6 +16,10 @@ $first = $items[0];
 $totalAmount = 0;
 foreach ($items as $i) $totalAmount += $i['amount'];
 $netTotal = $totalAmount - $first['flat_disc'];
+// Sweet boxes are priced after weighing
+$hasSweetRow = false; $hasWeighedRow = false;
+foreach ($items as $i) { if ($i['sale_type'] === 'sweet') $hasSweetRow = true; if ($i['sale_type'] === 'weighed') $hasWeighedRow = true; }
+$waitingWeigh = $hasSweetRow && !$hasWeighedRow;
 ?>
 <!DOCTYPE html>
 <html>
@@ -38,7 +44,11 @@ body { font-family: 'Courier New', monospace; max-width: 350px; margin: 20px aut
     
     <?php $branch = getBranchInfo(); ?>
 	<div class="center">
-		<h2>🧁 <?php echo htmlspecialchars(strtoupper($branch['name'])); ?></h2>
+		<?php if (company_logo_exists()): ?>
+		<img src="clogo.png" alt="" style="max-width:200px;max-height:80px;">
+		<?php else: ?>
+		<h2><?php echo htmlspecialchars(strtoupper($branch['name'])); ?></h2>
+		<?php endif; ?>
 		<?php if (!empty($branch['address'])): ?>
 		<p style="font-size:11px;margin:4px 0;line-height:1.3;"><?php echo htmlspecialchars($branch['address']); ?></p>
 		<?php endif; ?>
@@ -58,7 +68,7 @@ body { font-family: 'Courier New', monospace; max-width: 350px; margin: 20px aut
     <?php foreach ($items as $item): ?>
     <div class="row">
         <span style="flex:2;"><?php echo htmlspecialchars($item['category']); ?>
-            <?php if ($item['flavor']): ?><br><small>(<?php echo $item['flavor']; ?>)</small><?php endif; ?>  <small>(<?php echo $item['tiers']; ?><?php echo $item['uom']; ?>)</small>      </span>
+            <?php if ($item['flavor']): ?><br><small>(<?php echo $item['flavor']; ?>)</small><?php endif; ?><?php if ($item['sale_type'] === null || $item['sale_type'] === 'cake'): ?>  <small>(<?php echo ot_clean_number($item['tiers']); ?> <?php echo htmlspecialchars($item['uom']); ?>)</small><?php endif; ?>      </span>
         <span style="flex:0.5;text-align:center;"><?php echo $item['qty']; ?></span>
         <span style="flex:1;text-align:right;">Rs.<?php echo number_format($item['amount']); ?></span>
     </div>
@@ -74,7 +84,7 @@ body { font-family: 'Courier New', monospace; max-width: 350px; margin: 20px aut
     <div class="line"></div>
     <div class="row"><span>Advance:</span><span>Rs. <?php echo number_format($first['advance']); ?></span></div>
     <div class="row"><span>Paid:</span><span>Rs. <?php echo number_format($first['paid']); ?></span></div>
-    <div class="row bold"><span>Balance:</span><span>Rs. <?php echo number_format(max(0, $netTotal - $first['advance'] - $first['paid'])); ?></span></div>
+    <div class="row bold"><span>Balance:</span><span><?php if ($waitingWeigh): ?>After weighing<?php else: ?>Rs. <?php echo number_format(max(0, $netTotal - $first['advance'] - $first['paid'])); ?><?php endif; ?></span></div>
     <?php if ($first['payment_method']): ?>
     <div class="row"><span>Payment:</span><span><?php echo ucfirst($first['payment_method']); ?></span></div>
     <?php endif; ?>
@@ -85,12 +95,12 @@ body { font-family: 'Courier New', monospace; max-width: 350px; margin: 20px aut
         <p>Served by: <?php echo htmlspecialchars($first['user']); ?></p>
         <p><?php echo date('d/m/Y h:i A'); ?></p>
         <p style="margin-top:10px;">Thank you for your order!</p>
-		<p>🧁 <?php echo htmlspecialchars($branch['name']); ?></p>
+		<p><?php echo htmlspecialchars($COMPANY['name']); ?></p>
     </div>
 </div>
 
 <div class="no-print">
-    <button onclick="window.print()" style="padding:12px 24px;background:#6c3483;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print</button>
+    <button onclick="window.print()" style="padding:12px 24px;background:#6c3483;color:#fff;border:none;border-radius:8px;cursor:pointer;"> Print</button>
     <a href="order_list.php" style="padding:12px 24px;background:#fff;border:1px solid #ddd;border-radius:8px;text-decoration:none;color:#555;margin-left:8px;">← Back</a>
     <a href="index.php" style="padding:12px 24px;background:#27ae60;color:#fff;border-radius:8px;text-decoration:none;margin-left:8px;">+ New Order</a>
 </div>

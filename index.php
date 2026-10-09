@@ -1,1063 +1,555 @@
 <?php
 require_once 'db.php';
 requireRole(array(1, 3));
+require_once 'order_lines.php';
+require_once 'order_store.php';
+require_once 'company.php';
 
 date_default_timezone_set('Asia/Karachi');
 
-// Preview next bill no using retvchno
-if(false){
-
-$res = mysqli_query($mysqli, "SELECT retvchno('CAK') AS next_bill");
-$row = mysqli_fetch_assoc($res);
-$nextBillNo = $row && $row['next_bill'] ? intval($row['next_bill']) : 0;
-}
-$nextBillNo=0;
-
-// Load products from inventory
-$prodSql = "SELECT inv_id, prod_name, retail_price, manualbc AS barcode, packing AS uom 
-            FROM inventory 
-            WHERE manufacture = 'Finish Product' AND active = 1 
-            ORDER BY prod_name ASC LIMIT 500";
-$prodRes = mysqli_query($mysqli, $prodSql);
+// Cake picker: only the products ticked as cakes (Cake Products page, admin)
 $products = array();
+$prodRes = mysqli_query($mysqli, "SELECT i.inv_id, i.prod_name, i.retail_price, i.manualbc AS barcode, i.packing AS uom
+    FROM inventory i
+    INNER JOIN cake_product c ON c.inv_id = i.inv_id
+    WHERE i.manufacture = 'Finish Product' AND i.active = 1
+    ORDER BY i.prod_name ASC LIMIT 1000");
+$cakeSetupMissing = ($prodRes === false);
 if ($prodRes) {
     while ($p = mysqli_fetch_assoc($prodRes)) $products[] = $p;
 }
 
-// Top selling products (last 30 days)
-$topRes = mysqli_query($mysqli, "SELECT inv_id, category, retail_price, COUNT(*) AS cnt 
-    FROM cake_order WHERE inv_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND ordercancel = 0 
-    GROUP BY inv_id, category ORDER BY cnt DESC LIMIT 8");
+// Top selling cakes (last 30 days)
 $topSelling = array();
-if ($topRes) while ($t = mysqli_fetch_assoc($topRes)) $topSelling[] = $t;
+$topRes = mysqli_query($mysqli, "SELECT i.inv_id, i.prod_name AS category, i.retail_price, i.packing AS uom, COUNT(*) AS cnt
+    FROM cake_order co
+    INNER JOIN cake_product cp ON cp.inv_id = co.inv_id
+    INNER JOIN inventory i ON i.inv_id = co.inv_id
+    WHERE co.inv_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND co.ordercancel = 0
+      AND (co.sale_type IS NULL OR co.sale_type = 'cake')
+    GROUP BY i.inv_id, i.prod_name, i.retail_price, i.packing
+    ORDER BY cnt DESC LIMIT 8");
+if ($topRes) {
+    while ($t = mysqli_fetch_assoc($topRes)) $topSelling[] = $t;
+}
+
+// Name suggestions for box items (from earlier box orders)
+$lunchNames = array();
+$sweetNames = array();
+$nameRes = mysqli_query($mysqli, "SELECT DISTINCT sale_type, category FROM cake_order
+    WHERE sale_type IN ('lunch','sweet') AND ordercancel = 0 ORDER BY category LIMIT 400");
+if ($nameRes) {
+    while ($n = mysqli_fetch_assoc($nameRes)) {
+        if ($n['sale_type'] === 'sweet') $sweetNames[] = $n['category'];
+        else $lunchNames[] = $n['category'];
+    }
+}
 
 $flavors = array('Vanilla', 'Chocolate', 'Strawberry', 'Red Velvet', 'Mango', 'Butterscotch', 'Pineapple', 'Coffee', 'Black Forest', 'Tiramisu');
 $shapes = array('Round', 'Square', 'Heart', 'Rectangle', 'Number Shape', 'Custom Shape');
 $uoms = array('pound', 'kg', 'pcs', 'dozen');
 $priorities = array('normal', 'urgent', 'vip');
+$priorityLabels = array('normal' => 'Normal', 'urgent' => 'Urgent', 'vip' => 'VIP');
 $occasions = array('Birthday', 'Anniversary', 'Wedding', 'Engagement', 'Baby Shower', 'Graduation', 'Corporate', 'Other');
 $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
-?>
+$chargeNames = array('Delivery', 'Decoration', 'Packaging', 'Other charge');
+$typeTitles = array('cake' => 'Cakes', 'eatable' => 'Eatable pictures', 'other' => 'Other items', 'lunch' => 'Lunch boxes', 'sweet' => 'Sweet boxes');
+
+$typeLabels = ot_type_labels();
+$initialType = (isset($_GET['type']) && is_string($_GET['type']) && isset($typeLabels[$_GET['type']])) ? $_GET['type'] : 'cake';
+$branch = getBranchInfo();
+$deliveryBranchDefault = $branch['name'];
+
+// Edit: index.php?bill=N opens a saved order on this screen. Allowed only until the kitchen starts preparing it.
+$edit = null;
+$lockNotice = '';
+$editBill = (isset($_GET['bill']) && is_string($_GET['bill']) && ctype_digit($_GET['bill'])) ? intval($_GET['bill']) : 0;
+if ($editBill > 0) {
+    $editRows = ot_load_bill($mysqli, $editBill);
+    if (empty($editRows)) {
+        $lockNotice = 'Order #' . $editBill . ' was not found.';
+    } else {
+        $edit = ot_edit_prefill($editRows, $branch['name']);
+        if (!$edit['editable']) {
+            $lockNotice = 'Order #' . $editBill . ' is locked. The kitchen has started preparing it (status: ' . $edit['status'] . '), so it can no longer be changed.';
+            $edit = null;
+        } elseif (json_encode($edit) === false) {
+            // Saved text that is not valid UTF-8 cannot be sent to the script: show a notice, not a broken form
+            $lockNotice = 'Order #' . $editBill . ' cannot be opened here because some of its saved text cannot be read. Ask the developer to check this order.';
+            $edit = null;
+        }
+    }
+    if ($edit === null) {
+        ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>BestPOS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order #<?php echo $editBill; ?> - <?php echo htmlspecialchars($COMPANY['name']); ?></title>
 <link rel="stylesheet" href="style.css">
-<style>
-/* Customer suggestion dropdown */
-.suggest-box {
-    position: absolute; background: #fff; border: 1px solid #6c3483;
-    border-radius: 6px; max-height: 300px; overflow-y: auto; z-index: 100;
-    min-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-.suggest-item {
-    padding: 10px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer;
-    transition: background 0.15s;
-}
-.suggest-item:hover { background: #f5f0fa; }
-.suggest-item .name { font-weight: 600; color: #333; font-size: 13px; }
-.suggest-item .meta { font-size: 11px; color: #888; margin-top: 2px; }
-.badge-vip { background: #f39c12; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 9px; margin-left: 4px; }
-.badge-loyal { background: #27ae60; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 9px; margin-left: 4px; }
-
-.tab-row { display: flex; gap: 4px; border-bottom: 2px solid #e8e0f0; margin-bottom: 12px; }
-.tab-btn {
-    padding: 8px 16px; cursor: pointer; border: none; background: transparent;
-    font-size: 12px; font-weight: 600; color: #888; border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-}
-.tab-btn.active { color: #6c3483; border-bottom-color: #6c3483; }
-
-.section-header {
-    font-size: 11px; color: #888; letter-spacing: 1px; font-weight: 700;
-    margin: 12px 0 6px; text-transform: uppercase;
-}
-
-.customer-info-card {
-    background: linear-gradient(135deg, #f5f0fa 0%, #fff 100%);
-    border-left: 4px solid #6c3483; padding: 8px 12px; border-radius: 6px;
-    margin-top: 8px; font-size: 12px; display: none;
-}
-.customer-info-card.show { display: block; }
-.customer-info-card strong { color: #6c3483; }
-
-.history-item {
-    padding: 8px; background: #fff; border-radius: 6px; margin-bottom: 4px;
-    border: 1px solid #e8e0f0; font-size: 12px; cursor: pointer;
-}
-.history-item:hover { border-color: #6c3483; }
-
-.advance-section {
-    background: #fff8e1; padding: 10px; border-radius: 6px; margin-top: 10px;
-    border: 1px dashed #f39c12; display: none;
-}
-.advance-section.show { display: block; }
-
-.kbd-hint { font-size: 10px; color: #aaa; }
-
-.product-tag {
-    display: inline-block; background: #f5f0fa; padding: 2px 8px; border-radius: 10px;
-    font-size: 10px; color: #6c3483; margin-right: 4px;
-}
-
-.barcode-input-area {
-    background: #fff; padding: 10px; border-radius: 8px;
-    border: 2px dashed #6c3483; margin-bottom: 8px; text-align: center;
-}
-</style>
+<link rel="stylesheet" href="order_screen.css?v=4">
 </head>
-<body>
-
+<body class="ord-page">
 <div class="topbar">
-	<?php $branch = getBranchInfo(); ?>
-	<h2>🧁 <?php echo htmlspecialchars($branch['name']); ?> — New Order</h2>
-    <div class="topbar-right">
-        <span style="font-size:13px;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:12px;">
-            <?php echo getRoleName(); ?>
-        </span>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="order_list.php">Orders</a>
-        <a href="logout.php" style="background:#e74c3c;padding:6px 12px;border-radius:6px;">🚪</a>
+    <div class="topbar-brand"><?php echo company_logo_html('top-logo'); ?><h2>Order #<?php echo $editBill; ?></h2></div>
+    <div class="topbar-right"><a href="order_list.php">Orders</a><a href="dashboard.php">Dashboard</a></div>
+</div>
+<div class="ord-notice-wrap">
+    <div class="ord-notice">
+        <p class="ord-notice-text"><?php echo htmlspecialchars($lockNotice); ?></p>
+        <div class="ord-notice-actions">
+            <a class="btn btn-outline" href="order_detail.php?bill=<?php echo $editBill; ?>">View order</a>
+            <a class="btn btn-primary" href="order_list.php">Back to orders</a>
+        </div>
     </div>
 </div>
+</body>
+</html>
+<?php
+        exit;
+    }
+    $initialType = $edit['type'];
+}
 
-<div class="pos-layout">
-    <!-- SIDEBAR WITH TABS -->
-    <div class="pos-sidebar">
-        <div class="barcode-input-area">
-            <input type="text" id="barcodeInput" placeholder="📷 Scan Barcode..." 
-                   style="width:100%;padding:6px;border:none;background:transparent;text-align:center;font-size:13px;"
-                   onkeyup="if(event.key=='Enter') scanBarcode()">
-            <div class="kbd-hint">Press ENTER after scan</div>
-        </div>
-        
-        <input type="text" id="searchItems" class="search" placeholder="🔍 Search products...">
-        
-        <div class="tab-row">
-            <button class="tab-btn active" onclick="switchTab('all', this)">📋 All</button>
-            <button class="tab-btn" onclick="switchTab('top', this)">⭐ Top</button>
-        </div>
-        
-        <!-- ALL PRODUCTS -->
-        <div id="tab-all" class="product-list" style="max-height: calc(100vh - 280px);">
-            <?php foreach ($products as $p): ?>
-            <div class="product-item" 
-                 data-id="<?php echo $p['inv_id']; ?>"
-                 data-name="<?php echo htmlspecialchars($p['prod_name'], ENT_QUOTES); ?>"
-                 data-price="<?php echo $p['retail_price']; ?>"
-                 data-uom="<?php echo htmlspecialchars($p['uom'], ENT_QUOTES); ?>"
-                 data-barcode="<?php echo htmlspecialchars($p['barcode'], ENT_QUOTES); ?>"
-                 onclick="addItemFromProduct(this)">
-                <div class="name"><?php echo htmlspecialchars($p['prod_name']); ?></div>
-                <div class="price">Rs. <?php echo number_format($p['retail_price'], 0); ?></div>
-                <div class="meta">
-                    <?php echo htmlspecialchars($p['uom']); ?>
-                    <?php if (!empty($p['barcode'])): ?> | 🏷 <?php echo htmlspecialchars($p['barcode']); ?><?php endif; ?>
-                </div>
-            </div>
+// Data for order_screen.js. json_encode fails only on text that is not valid UTF-8;
+// if it does, the cake lists are left out rather than breaking the whole screen.
+$cakeList = array();
+foreach ($products as $p) {
+    $cakeList[] = array(
+        'id' => intval($p['inv_id']),
+        'name' => (string) $p['prod_name'],
+        'price' => floatval($p['retail_price']),
+        'uom' => (string) $p['uom'],
+        'barcode' => (string) $p['barcode']
+    );
+}
+$topList = array();
+foreach ($topSelling as $t) {
+    $topList[] = array(
+        'id' => intval($t['inv_id']),
+        'name' => (string) $t['category'],
+        'price' => floatval($t['retail_price']),
+        'uom' => (string) $t['uom'],
+        'sold' => intval($t['cnt'])
+    );
+}
+$presetCharges = array('Delivery Charges', 'Decoration', 'Packaging', 'Similar Cake Design');
+$screenConfig = array(
+    'type' => $initialType,
+    'edit' => $edit,
+    'flavors' => $flavors,
+    'shapes' => $shapes,
+    'uoms' => $uoms,
+    'cakes' => $cakeList,
+    'topSellers' => $topList,
+    'lunchNames' => $lunchNames,
+    'sweetNames' => $sweetNames,
+    'presetCharges' => $presetCharges
+);
+$screenConfigJson = ord_json($screenConfig);
+if ($screenConfigJson === 'null') {
+    $screenConfig['cakes'] = array();
+    $screenConfig['topSellers'] = array();
+    $screenConfigJson = ord_json($screenConfig);
+}
+
+// Encodes data for a script block. Returns 'null' if the data cannot be encoded.
+function ord_json($value) {
+    $json = json_encode($value, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    return ($json === false) ? 'null' : $json;
+}
+
+$pageTitle = $edit ? 'Edit order #' . intval($edit['bill_no']) : 'New order';
+?>
+<?php
+// Sidebar links: the same pages and roles as includes/header.php
+$navItems = array(
+    array('New Order', 'index.php', 'plus', isPOSUser() || isAdmin()),
+    array('Dashboard', 'dashboard.php', 'home', true),
+    array('Order List', 'order_list.php', 'search', true),
+    array('Check Status', 'order_status.php', 'clock', true),
+    array('Kitchen', 'kitchen_display.php', 'flame', isKitchen() || isAdmin()),
+    array('Pickup Queue', 'pickup_queue.php', 'truck', isPOSUser() || isAdmin()),
+    array('Payments', 'admin_payments.php', 'card', isAdmin()),
+    array('GL Ledger', 'admin_ledger.php', 'chart', isAdmin()),
+    array('Cake Products', 'cake_products.php', 'cake', isAdmin())
+);
+// Page heading for the order type, or for the order being edited
+$pageHeads = array(
+    'cake' => array('Create Cake Order', 'Select a category, flavour and other details to create a new cake order.', 'cake'),
+    'lunch' => array('Create Lunch Box Order', 'Build lunch box sets and quantities in a few steps.', 'box'),
+    'sweet' => array('Create Sweet Box Order', 'Build sweet box sets. Sweet boxes are priced after weighing.', 'box'),
+    'eatable' => array('Create Eatable Picture Order', 'Add each picture with its photo, size and quantity.', 'image'),
+    'other' => array('Create Other Order', 'Add the items that are not cakes or boxes.', 'list')
+);
+$headLine = $edit
+    ? array('Edit Order #' . intval($edit['bill_no']), 'Changes are allowed until the kitchen starts preparing this order. Every change is recorded.', 'list')
+    : $pageHeads[$initialType];
+$roleName = getRoleName();
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?php echo htmlspecialchars($pageTitle); ?> - <?php echo htmlspecialchars($COMPANY['name']); ?></title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="order_screen.css?v=4">
+</head>
+<body class="ord-page" data-type="<?php echo htmlspecialchars($initialType); ?>" data-mode="<?php echo $edit ? 'edit' : 'new'; ?>">
+
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5.2 1.6.8 2.6 2 3.2C11 9 11 6 12 3z"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path d="M2 7h12v9H2zM14 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l2-5h14l2 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></symbol>
+    <symbol id="i-cake" viewBox="0 0 24 24"><path d="M4 21h16v-8H4z"/><path d="M4 17c2 0 2-1.5 4-1.5S10 17 12 17s2-1.5 4-1.5 2 1.5 4 1.5"/><path d="M12 11V7M12 4v.01"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+</svg>
+
+<div class="app">
+    <aside class="side">
+        <div class="brand"><?php echo company_logo_html('brand-logo'); ?></div>
+        <nav class="nav" aria-label="Main menu">
+            <?php foreach ($navItems as $item): ?>
+            <?php if (!$item[3]) continue; ?>
+            <a href="<?php echo $item[1]; ?>"<?php echo $item[1] === 'index.php' ? ' class="active" aria-current="page"' : ''; ?>>
+                <svg class="ico" aria-hidden="true"><use href="#i-<?php echo $item[2]; ?>"/></svg>
+                <span><?php echo htmlspecialchars($item[0]); ?></span>
+            </a>
             <?php endforeach; ?>
-            <?php if (empty($products)): ?>
-            <div style="text-align:center;padding:20px;color:#999;font-size:12px;">
-                No products. Check inventory table.
+        </nav>
+    </aside>
+
+    <div class="main">
+        <header class="topbar2">
+            <form class="top-search" action="order_list.php" method="get" role="search">
+                <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+                <input type="search" name="search" placeholder="Search orders, customers..." aria-label="Search orders and customers">
+            </form>
+            <div class="top-right">
+                <span class="role-pill"><span class="avatar" aria-hidden="true"><?php echo htmlspecialchars(strtoupper(substr($roleName, 0, 1))); ?></span><?php echo htmlspecialchars($roleName); ?></span>
+                <a class="btn btn-logout" href="logout.php"><svg class="ico" aria-hidden="true"><use href="#i-logout"/></svg>Logout</a>
             </div>
-            <?php endif; ?>
-        </div>
-        
-        <!-- TOP SELLING -->
-        <div id="tab-top" class="product-list" style="display:none;max-height: calc(100vh - 280px);">
-            <?php if (empty($topSelling)): ?>
-            <p style="text-align:center;color:#999;font-size:12px;padding:20px;">No sales data yet</p>
-            <?php endif; ?>
-            <?php foreach ($topSelling as $idx => $t): ?>
-            <div class="product-item"
-                 data-id="<?php echo $t['inv_id']; ?>"
-                 data-name="<?php echo htmlspecialchars($t['category'], ENT_QUOTES); ?>"
-                 data-price="<?php echo $t['retail_price']; ?>"
-                 data-uom="pcs"
-                 onclick="addItemFromProduct(this)">
-                <div class="name">
-                    <?php if ($idx < 3): ?>
-                    <span style="color:#f39c12;">🏆</span>
+        </header>
+
+        <main class="page">
+            <div class="page-head">
+                <div>
+                    <div class="page-title">
+                        <span class="title-ico"><svg class="ico" aria-hidden="true"><use href="#i-<?php echo $headLine[2]; ?>"/></svg></span>
+                        <div>
+                            <h1 id="pageTitle"><?php echo htmlspecialchars($headLine[0]); ?></h1>
+                            <p id="pageSub"><?php echo htmlspecialchars($headLine[1]); ?></p>
+                        </div>
+                    </div>
+                    <?php if (!$edit): ?>
+                    <p class="shortcuts">Shortcuts: F2 cake search, F4 customer, F9 confirm, F10 hold</p>
                     <?php endif; ?>
-                    <?php echo htmlspecialchars($t['category']); ?>
                 </div>
-                <div class="price">Rs. <?php echo number_format($t['retail_price'], 0); ?></div>
-                <div class="meta">Sold <?php echo $t['cnt']; ?>x in last 30 days</div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-    </div>
-
-    <!-- MAIN AREA -->
-    <div class="pos-main">
-        <div class="stepper">
-            <div class="step active"><span>1</span> Draft</div>
-            <div class="line"></div>
-            <div class="step"><span>2</span> Order</div>
-            <div class="line"></div>
-            <div class="step"><span>3</span> Payment</div>
-            <div class="line"></div>
-            <div class="step"><span>4</span> Receipt</div>
-        </div>
-
-        <!-- CUSTOMER BAR ENHANCED -->
-        <div class="customer-bar">
-            <div class="field" style="position:relative;">
-                <label>📱 Phone (search by number)</label>
-                <input type="text" id="custCell" placeholder="0300-0000000" autocomplete="off"
-                       oninput="searchCustomer(this.value)" onblur="setTimeout(hideSuggest, 200)">
-                <div id="suggestBox" class="suggest-box" style="display:none;"></div>
-            </div>
-            <div class="field">
-                <label>👤 Customer Name</label>
-                <input type="text" id="custName" placeholder="Walk-in" value="Walk-in">
-            </div>
-            <div class="field">
-                <label>📅 Delivery Date</label>
-                <input type="date" id="deliverDate" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>">
-            </div>
-            <div class="field">
-                <label>🕐 Time</label>
-                <input type="time" id="deliverTime" value="<?php echo date('H:i', strtotime('+30 minutes')); ?>">
-	    </div>
-            <div class="field">
-                <label>⚡ Priority</label>
-                <select id="priority">
-                    <?php foreach ($priorities as $p): ?>
-                    <option value="<?php echo $p; ?>"><?php echo ucfirst($p); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>🎉 Occasion</label>
-                <select id="occasion">
-                    <option value="">-- None --</option>
-                    <?php foreach ($occasions as $o): ?>
-                    <option value="<?php echo $o; ?>"><?php echo $o; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>📍 Source</label>
-                <select id="orderSource">
-                    <?php foreach ($sources as $k => $v): ?>
-                    <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>🚚 Type</label>
-                <select id="deliveryType" onchange="toggleDeliveryAddress()">
-                    <option value="pickup">Pickup</option>
-                    <option value="delivery">Home Delivery</option>
-                </select>
-            </div>
-        </div>
-        
-        <!-- DELIVERY ADDRESS ROW -->
-        <div id="deliveryAddrRow" style="background:#fff;margin:0 8px 8px;padding:10px 16px;border-radius:8px;border:1px solid #e8e0f0;display:none;">
-            <div class="field">
-                <label style="font-size:12px;font-weight:600;color:#6c3483;">📍 Delivery Address</label>
-                <input type="text" id="deliveryAddress" placeholder="Full delivery address..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
-            </div>
-        </div>
-
-        <!-- CUSTOMER INFO CARD -->
-        <div id="customerInfoCard" class="customer-info-card" style="margin:0 8px 8px;">
-            <span id="customerInfoText"></span>
-            <button class="btn btn-sm btn-outline" style="float:right;margin-left:8px;" onclick="showCustomerHistory()">📜 View History</button>
-        </div>
-
-        <div class="transaction-area">
-            <div class="transaction-header">
-                <div>
-                    <h3>Current Transaction</h3>
-                    <p>Order #<span id="billNo"><?php echo $nextBillNo; ?></span> • Customer: <span id="custDisplay">Walk-in</span></p>
-                </div>
-                <div>
-                    <button class="btn btn-sm btn-outline" onclick="showCustomerHistory()" id="historyBtn" style="display:none;">📜 Previous Orders</button>
-                    <button class="btn-clear" onclick="clearAll()">🗑 Clear All</button>
+                <div class="page-actions">
+                    <button type="button" class="btn-text danger" id="clearAllBtn">Clear all</button>
+                    <?php if ($edit): ?>
+                    <a class="btn btn-outline" href="order_list.php">Back to orders</a>
+                    <?php else: ?>
+                    <button type="button" class="btn btn-outline" id="newOrderBtn">+ New Order</button>
+                    <?php endif; ?>
                 </div>
             </div>
-            <div id="cartItems" class="cart-items"></div>
-            <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;">
-                👈 Click products from the left, scan barcode, or search by customer phone
-            </div>
-        </div>
 
-        <div class="footer-bar">
-            <div class="footer-inner">
-                <div class="totals">
-                    <div class="row">Subtotal <span id="subtotal">Rs. 0</span></div>
-                    <div class="row">Discount <span id="discountDisplay">Rs. 0</span></div>
-                    <div class="row grand">Total <span id="total">Rs. 0</span></div>
-                    <div class="row" style="color:#27ae60;font-size:12px;">Advance <span id="advanceDisplay">Rs. 0</span></div>
-                    <div class="row" style="color:#e74c3c;font-size:12px;font-weight:bold;">Balance <span id="balanceDisplay">Rs. 0</span></div>
-                </div>
-                <div style="display:flex;gap:8px;align-items:flex-end;">
-                    <div class="field" style="display:flex;flex-direction:column;gap:2px;">
-                        <label style="font-size:11px;color:#6c3483;font-weight:600;">Discount %</label>
-                        <input type="number" id="discPercent" value="0" min="0" max="100" style="width:60px;padding:6px;border:1px solid #ddd;border-radius:6px;" onchange="applyDiscPercent()">
+            <nav class="type-bar" aria-label="Order type">
+                <button type="button" class="type-tab" data-action="type" data-type="cake">Cake</button>
+                <button type="button" class="type-tab" data-action="type" data-type="lunch">Lunch box</button>
+                <button type="button" class="type-tab" data-action="type" data-type="sweet">Sweet box</button>
+                <button type="button" class="type-tab" data-action="type" data-type="eatable">Eatable picture</button>
+                <button type="button" class="type-tab" data-action="type" data-type="other">Other</button>
+            </nav>
+
+            <section class="info-row">
+                <div class="card">
+                    <div class="card-head">
+                        <h2 class="card-title">Customer</h2>
+                        <button type="button" class="btn btn-outline btn-sm" id="addNewCustomerBtn">+ Add New</button>
                     </div>
-                    <div class="field" style="display:flex;flex-direction:column;gap:2px;">
-                        <label style="font-size:11px;color:#6c3483;font-weight:600;">Flat Disc</label>
-                        <input type="number" id="flatDisc" value="0" min="0" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:6px;" onchange="calcTotals()">
+                    <div class="search-field rel">
+                        <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+                        <input type="text" id="custCell" placeholder="Search customer name or phone..." autocomplete="off">
+                        <div id="suggestBox" class="suggest" data-kind="customer" hidden></div>
                     </div>
-                    <div class="field" style="display:flex;flex-direction:column;gap:2px;">
-                        <label style="font-size:11px;color:#6c3483;font-weight:600;">Advance Rs.</label>
-                        <input type="number" id="advance" value="0" min="0" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:6px;" onchange="toggleAdvanceMethod()">
+                    <div class="field" style="margin-top:10px;">
+                        <label class="lbl" for="custName">Customer name</label>
+                        <input type="text" id="custName" placeholder="Walk-in" value="Walk-in">
+                    </div>
+                    <div class="cust-row">
+                        <div id="customerInfoCard" class="cust-info" hidden><span id="customerInfoText"></span></div>
+                        <button type="button" class="btn-text" id="historyBtn"<?php echo $edit ? ' hidden' : ''; ?>>Previous orders</button>
+                    </div>
+                    <details class="more">
+                        <summary>More details (occasion, order source, branch)</summary>
+                        <div class="grid2">
+                            <div class="field">
+                                <label class="lbl" for="occasion">Occasion</label>
+                                <select id="occasion">
+                                    <option value="">None</option>
+                                    <?php foreach ($occasions as $o): ?>
+                                    <option value="<?php echo $o; ?>"><?php echo $o; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="orderSource">Order source</label>
+                                <select id="orderSource">
+                                    <?php foreach ($sources as $k => $v): ?>
+                                    <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="field span-2">
+                                <label class="lbl" for="deliveryBranch">Delivery branch</label>
+                                <input type="text" id="deliveryBranch" maxlength="100" value="<?php echo htmlspecialchars($deliveryBranchDefault); ?>">
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">Pickup or delivery</h2>
+                    <div class="seg" role="group" aria-label="Pickup or delivery">
+                        <button type="button" data-action="delivery" data-value="pickup" class="is-active" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-store"/></svg>Pickup</button>
+                        <button type="button" data-action="delivery" data-value="delivery" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-truck"/></svg>Delivery</button>
+                    </div>
+                    <input type="hidden" id="deliveryType" value="pickup">
+                    <div id="deliveryAddrRow" class="addr-row" hidden>
+                        <label class="lbl" for="deliveryAddress">Delivery address</label>
+                        <input type="text" id="deliveryAddress" placeholder="Full delivery address">
                     </div>
                 </div>
-                <div class="action-btns">
-                    <button class="btn-hold" onclick="saveOrder('hold')">⏸ Hold</button>
-                    <button class="btn-confirm" onclick="saveOrder('confirmed')">Confirm Order →</button>
+
+                <div class="card">
+                    <h2 class="card-title">Date and time</h2>
+                    <div class="dt-grid">
+                        <div class="field">
+                            <label class="lbl" for="deliverDate">Date</label>
+                            <input type="date" id="deliverDate" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>">
+                        </div>
+                        <div class="field">
+                            <label class="lbl" for="deliverTime">Time</label>
+                            <input type="time" id="deliverTime" value="<?php echo date('H:i', strtotime('+30 minutes')); ?>">
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:10px;">
+                        <label class="lbl" for="priority">Priority</label>
+                        <select id="priority">
+                            <?php foreach ($priorities as $pr): ?>
+                            <option value="<?php echo $pr; ?>"><?php echo htmlspecialchars($priorityLabels[$pr]); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- ADVANCE PAYMENT METHOD -->
-            <div id="advanceSection" class="advance-section">
-                <label style="font-size:12px;font-weight:600;color:#f39c12;">💰 Advance Payment Method</label>
-                <div style="display:flex;gap:6px;margin-top:6px;">
-                    <button type="button" class="btn btn-sm btn-outline" data-method="cash" onclick="setAdvanceMethod('cash', this)">💵 Cash</button>
-                    <button type="button" class="btn btn-sm btn-outline" data-method="bank" onclick="setAdvanceMethod('bank', this)">🏦 Bank</button>
-                    <button type="button" class="btn btn-sm btn-outline" data-method="card" onclick="setAdvanceMethod('card', this)">💳 Card</button>
-                    <button type="button" class="btn btn-sm btn-outline" data-method="easypaisa" onclick="setAdvanceMethod('easypaisa', this)">📱 Easypaisa</button>
+            </section>
+
+            <div class="work" id="work">
+                <!-- Lunch and sweet boxes: item catalogue -->
+                <aside class="card catalog" id="catalogPanel" data-show="lunch sweet" hidden>
+                    <h2 class="card-title">Items</h2>
+                    <div class="search-field">
+                        <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+                        <input type="search" id="catalogSearch" placeholder="Search items..." autocomplete="off" aria-label="Search items">
+                    </div>
+                    <p class="hint">e.g. chicken, pizza, juice...</p>
+                    <div class="cat-head" id="catalogHead">Default items</div>
+                    <div id="catalogList" class="catalog-list"></div>
+                    <p class="hint">Click Add to put an item in the set you are working on.</p>
+                </aside>
+
+                <div class="work-main">
+                    <!-- Cakes: category tiles -->
+                    <section class="card" id="itemsPanel" data-show="cake">
+                        <div class="card-head">
+                            <h2 class="card-title">Category</h2>
+                        </div>
+                        <div id="cakePicker">
+                            <div class="search-field rel">
+                                <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+                                <input type="text" id="cakeSearch" autocomplete="off" placeholder="Search a cake, or scan its barcode and press Enter" aria-label="Search cake">
+                                <div id="cakeSuggest" class="suggest" data-kind="cake" hidden></div>
+                            </div>
+                            <p class="hint">Only cake products are listed. Click a tile to add that cake to the order.</p>
+                            <div id="tiles" class="tiles" style="margin-top:12px;"></div>
+                            <?php if ($cakeSetupMissing): ?>
+                            <p class="notice-line error">The cake list is not set up yet. Run the database update, then mark cakes on the Cake Products page.</p>
+                            <?php elseif (empty($products)): ?>
+                            <p class="notice-line">No cakes yet. Mark the cake products on the Cake Products page.</p>
+                            <?php endif; ?>
+                        </div>
+                    </section>
+
+                    <!-- Cakes, eatable pictures and other items -->
+                    <section class="card" id="cardsPanel" data-show="cake eatable other">
+                        <div class="card-head">
+                            <h2 class="card-title" id="cardsTitle">Cake details</h2>
+                            <div class="panel-actions">
+                                <button type="button" class="btn btn-outline btn-sm" id="addEatableBtn" data-show="cake eatable">+ Add picture</button>
+                                <button type="button" class="btn btn-outline btn-sm" id="addOtherBtn" data-show="other">+ Add item</button>
+                            </div>
+                        </div>
+                        <div id="cartItems" class="cards"></div>
+                        <p id="emptyMsg" class="empty" hidden></p>
+                    </section>
+
+                    <!-- Lunch and sweet boxes: sets -->
+                    <section class="card" id="boxPanel" data-show="lunch sweet">
+                        <div class="card-head">
+                            <h2 class="card-title" id="boxTitle">Lunch Box Sets</h2>
+                            <button type="button" class="btn btn-outline btn-sm" id="addGroupBtn"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>Add another set</button>
+                        </div>
+                        <p class="hint">One set is one kind of box. Example: 6 boxes with set A and 6 boxes with set B are two sets.</p>
+                        <p class="hint" data-show="sweet">Sweet boxes are priced after weighing. Weigh them on the Payment page.</p>
+                        <p id="weighedNote" class="notice-line" hidden></p>
+                        <div id="boxGroups" style="margin-top:12px;"></div>
+                    </section>
                 </div>
-                <small style="display:block;margin-top:4px;color:#888;">Advance will be recorded in GL ledger automatically</small>
+
+                <aside class="work-side">
+                    <!-- Cakes and eatable pictures: photo after upload only -->
+                    <section class="card" id="previewPanel" data-show="cake eatable">
+                        <div class="card-head">
+                            <h2 class="card-title">Cake Preview</h2>
+                            <button type="button" class="btn-text" id="previewChangeBtn" hidden>Change image</button>
+                        </div>
+                        <div id="previewBox" class="preview-box"><span class="preview-empty">Upload a reference photo to see it here.</span></div>
+                        <p class="preview-caption" id="previewCaption"></p>
+                    </section>
+
+                    <section class="card" id="summaryPanel">
+                        <h2 class="card-title">Order Summary</h2>
+                        <div class="sum-tiles" data-show="lunch sweet">
+                            <div class="sum-tile"><strong id="setCount">0</strong><span id="setCountLabel">Lunch Box Sets</span></div>
+                            <div class="sum-tile"><strong id="boxTotalCount">0</strong><span id="boxTotalLabel">Total Lunch Boxes</span></div>
+                        </div>
+                        <div data-show="lunch sweet"><p class="sub-head">Set breakdown</p></div>
+                        <div id="setBreakdown" class="breakdown" hidden></div>
+                        <div data-show="cake eatable other"><p class="sub-head">Items</p></div>
+                        <div id="orderLines" class="breakdown" hidden></div>
+
+                        <div class="sum-line"><span id="itemsLabel">Items total</span><strong id="subtotal">Rs. 0</strong></div>
+
+                        <div class="sum-block">
+                            <div class="sum-head"><span>Extra charges</span><button type="button" class="btn-text" id="addChargeBtn">+ Add charge</button></div>
+                            <div id="chargePresets" class="chips charge-presets"></div>
+                            <div id="chargeRows"></div>
+                            <div class="sum-line sub"><span>Total extra charges</span><strong id="chargesDisplay">Rs. 0</strong></div>
+                        </div>
+
+                        <div class="sum-block">
+                            <div class="sum-head"><span>Discount</span></div>
+                            <div class="disc-grid">
+                                <label class="field"><span class="lbl">Discount %</span>
+                                    <input type="number" id="discPercent" value="0" min="0" max="100" step="any"></label>
+                                <label class="field"><span class="lbl">Discount (Rs.)</span>
+                                    <input type="number" id="flatDisc" value="0" min="0" step="1"></label>
+                            </div>
+                            <div class="sum-line sub"><span>Total discount</span><strong id="discountDisplay">Rs. 0</strong></div>
+                        </div>
+
+                        <div class="total-box"><span>Total amount</span><strong id="total">Rs. 0</strong></div>
+
+                        <div class="sum-block">
+                            <label class="field"><span class="lbl">Advance (Rs.)</span>
+                                <input type="number" id="advance" value="0" min="0" step="1"<?php echo $edit ? ' disabled title="The advance is not changed in edit"' : ''; ?>></label>
+                            <div id="advanceSection" class="adv-section" hidden>
+                                <span class="lbl">Advance payment method</span>
+                                <div class="chips" id="advMethods">
+                                    <button type="button" class="chip" data-action="method" data-method="cash">Cash</button>
+                                    <button type="button" class="chip" data-action="method" data-method="bank">Bank</button>
+                                    <button type="button" class="chip" data-action="method" data-method="card">Card</button>
+                                    <button type="button" class="chip" data-action="method" data-method="easypaisa">Easypaisa</button>
+                                </div>
+                                <p class="hint">The advance is recorded in the GL ledger automatically.</p>
+                            </div>
+                            <div class="sum-line sub"><span>Advance received</span><strong id="advanceDisplay">Rs. 0</strong></div>
+                            <div class="sum-line due"><span>Balance due</span><strong id="balanceDisplay">Rs. 0</strong></div>
+                        </div>
+
+                        <div class="actions">
+                            <button type="button" class="btn btn-primary btn-block" id="confirmBtn"><?php echo $edit ? 'Save changes (F9)' : 'Confirm order (F9)'; ?></button>
+                            <?php if (!$edit): ?>
+                            <button type="button" class="btn btn-outline btn-block" id="holdBtn">Hold (F10)</button>
+                            <?php endif; ?>
+                            <a class="btn btn-ghost btn-block" href="order_list.php">View All Orders</a>
+                        </div>
+                        <?php if ($edit): ?>
+                        <p class="hint">Advance and payments are not changed here. Every saved change is recorded in the order history.</p>
+                        <?php endif; ?>
+                    </section>
+                </aside>
             </div>
-        </div>
+        </main>
     </div>
 </div>
 
-<!-- IMAGE MODAL -->
-<div class="modal-overlay" id="imageModal">
+<datalist id="chargeNames"><?php foreach (array_unique(array_merge($presetCharges, $chargeNames)) as $n): ?><option value="<?php echo htmlspecialchars($n, ENT_QUOTES); ?>"><?php endforeach; ?></datalist>
+
+<!-- PHOTO DIALOG -->
+<div class="overlay" id="imageModal" role="dialog" aria-modal="true" aria-labelledby="imageTitle">
     <div class="modal">
-        <h3>📷 Attach Image</h3>
-        <!-- <input type="file" id="imageFile" accept="image/*" capture="environment" onchange="previewImage(this)" style="width:100%;padding:10px;border:1px dashed #6c3483;border-radius:8px;"> -->
-		<input type="file" id="imageFile" accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png" capture="environment" onchange="previewImage(this)" style="width:100%;padding:10px;border:1px dashed #6c3483;border-radius:8px;">
-		<small style="display:block;margin-top:6px;color:#888;font-size:11px;">
-			📌 Only JPG/PNG accepted. Images auto-resized to 1024px and converted to JPG.
-		</small>
-        <img id="imgPreview" class="img-preview" style="display:none;max-height:300px;margin-top:10px;">
+        <h3 id="imageTitle">Add photo</h3>
+        <p class="hint">Only JPG or PNG. Images are resized to 1024 px and saved as JPG.</p>
+        <input type="file" id="imageFile" class="file-input" accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png" capture="environment" style="margin-top:10px;">
+        <img id="imgPreview" class="img-preview" alt="Photo preview" hidden>
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="closeImageModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="saveImage()">Save Image</button>
+            <button type="button" class="btn btn-ghost" id="imgCancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="imgSave">Save photo</button>
         </div>
     </div>
 </div>
 
-<!-- AUDIO MODAL -->
-<div class="modal-overlay" id="audioModal">
+<!-- VOICE DIALOG -->
+<div class="overlay" id="audioModal" role="dialog" aria-modal="true" aria-labelledby="audioTitle">
     <div class="modal">
-        <h3>🎤 Voice Instructions</h3>
-        <p style="margin-bottom:12px;color:#888;font-size:13px;">Record voice note for chef</p>
-        <div style="text-align:center;margin:20px 0;">
-            <button class="btn btn-danger" id="recordBtn" onclick="toggleRecord()" style="width:60px;height:60px;border-radius:50%;font-size:24px;">🎤</button>
-            <p id="recordStatus" style="margin-top:8px;font-size:12px;color:#888;">Click to record</p>
+        <h3 id="audioTitle">Voice message</h3>
+        <p class="hint">Record a voice note for the kitchen.</p>
+        <div style="text-align:center;margin:18px 0;">
+            <button type="button" class="btn btn-outline" id="recordBtn" style="min-width:120px;">Record</button>
+            <p id="recordStatus" class="hint">Click to record</p>
         </div>
-        <audio id="audioPlayback" controls style="width:100%;display:none;margin:10px 0;"></audio>
+        <audio id="audioPlayback" controls style="width:100%;" hidden></audio>
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="closeAudioModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="saveAudio()">Save</button>
+            <button type="button" class="btn btn-ghost" id="audioCancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="audioSave">Save</button>
         </div>
     </div>
 </div>
 
-<!-- CUSTOMER HISTORY MODAL -->
-<div class="modal-overlay" id="historyModal">
-    <div class="modal" style="max-width:650px;">
-        <h3>📜 Customer Order History</h3>
-        <div id="historyContent" style="max-height:400px;overflow-y:auto;"></div>
+<!-- CUSTOMER HISTORY DIALOG -->
+<div class="overlay" id="historyModal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="modal" style="width:min(640px,100%);">
+        <h3 id="historyTitle">Customer order history</h3>
+        <div id="historyContent" style="max-height:400px;overflow-y:auto;margin-top:10px;"></div>
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="document.getElementById('historyModal').classList.remove('show')">Close</button>
+            <button type="button" class="btn btn-ghost" id="historyClose">Close</button>
         </div>
     </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script>
-var FLAVORS = <?php echo json_encode($flavors); ?>;
-var SHAPES = <?php echo json_encode($shapes); ?>;
-var UOMS = <?php echo json_encode($uoms); ?>;
-var itemCounter = 0;
-var currentImageItem = null;
-var currentAudioItem = null;
-var mediaRecorder = null;
-var audioChunks = [];
-var tempImageData = '';
-var selectedAdvanceMethod = '';
-var currentCustomerCell = '';
-
-// ===== TABS =====
-function switchTab(tab, btn) {
-    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
-    btn.classList.add('active');
-    document.getElementById('tab-all').style.display = tab === 'all' ? '' : 'none';
-    document.getElementById('tab-top').style.display = tab === 'top' ? '' : 'none';
-}
-
-// ===== BARCODE SCANNER =====
-function scanBarcode() {
-    var code = document.getElementById('barcodeInput').value.trim();
-    if (!code) return;
-    
-    var found = false;
-    var items = document.querySelectorAll('.product-item');
-    for (var i = 0; i < items.length; i++) {
-        if (items[i].dataset.barcode === code) {
-            addItemFromProduct(items[i]);
-            found = true;
-            break;
-        }
-    }
-    
-    if (!found) showToast('Barcode not found: ' + code, 'error');
-    document.getElementById('barcodeInput').value = '';
-    document.getElementById('barcodeInput').focus();
-}
-
-// ===== CUSTOMER LOOKUP =====
-var searchTimer = null;
-function searchCustomer(q) {
-    clearTimeout(searchTimer);
-    if (q.length < 2) { hideSuggest(); return; }
-    
-    searchTimer = setTimeout(function() {
-        fetch('customer_lookup.php?action=search&q=' + encodeURIComponent(q))
-        .then(function(r){return r.json();})
-        .then(function(res) {
-            var box = document.getElementById('suggestBox');
-            if (!res.customers || res.customers.length === 0) {
-                hideSuggest();
-                return;
-            }
-            
-            var html = '';
-            for (var i = 0; i < res.customers.length; i++) {
-                var c = res.customers[i];
-                html += '<div class="suggest-item" onclick="selectCustomer(' + 
-                    "'" + c.cell.replace(/'/g, "\\'") + "', '" + c.name.replace(/'/g, "\\'") + "'" + ')">';
-                html += '<div class="name">' + c.name;
-                if (c.is_vip) html += '<span class="badge-vip">VIP</span>';
-                if (c.is_loyal) html += '<span class="badge-loyal">LOYAL</span>';
-                html += '</div>';
-                html += '<div class="meta">📱 ' + c.cell + ' • ' + c.orders + ' orders • Spent Rs. ' + c.spent.toLocaleString() + '</div>';
-                if (c.fav_flavors) html += '<div class="meta">🍰 Likes: ' + c.fav_flavors + '</div>';
-                html += '</div>';
-            }
-            box.innerHTML = html;
-            box.style.display = 'block';
-        });
-    }, 300);
-}
-
-function selectCustomer(cell, name) {
-    document.getElementById('custCell').value = cell;
-    document.getElementById('custName').value = name;
-    document.getElementById('custDisplay').textContent = name;
-    currentCustomerCell = cell;
-    hideSuggest();
-    showCustomerSummary(cell);
-}
-
-function hideSuggest() {
-    document.getElementById('suggestBox').style.display = 'none';
-}
-
-function showCustomerSummary(cell) {
-    fetch('customer_lookup.php?action=search&q=' + encodeURIComponent(cell))
-    .then(function(r){return r.json();})
-    .then(function(res) {
-        if (res.customers && res.customers.length > 0) {
-            var c = res.customers[0];
-            var html = '🎉 <strong>' + c.name + '</strong> — ';
-            html += c.orders + ' previous orders, Total spent: <strong>Rs. ' + c.spent.toLocaleString() + '</strong>';
-            if (c.fav_flavors) html += ' • Favorite flavors: ' + c.fav_flavors;
-            if (c.is_vip) html += ' <span class="badge-vip">VIP Customer</span>';
-            if (c.last_order) html += ' • Last: ' + c.last_order;
-            document.getElementById('customerInfoText').innerHTML = html;
-            document.getElementById('customerInfoCard').classList.add('show');
-            document.getElementById('historyBtn').style.display = 'inline-block';
-        }
-    });
-}
-
-function showCustomerHistory() {
-    var cell = document.getElementById('custCell').value;
-    if (!cell) { showToast('Enter customer phone first', 'error'); return; }
-    
-    fetch('customer_lookup.php?action=history&cell=' + encodeURIComponent(cell))
-    .then(function(r){return r.json();})
-    .then(function(res) {
-        var html = '';
-        if (!res.orders || res.orders.length === 0) {
-            html = '<p style="text-align:center;color:#999;padding:20px;">No previous orders</p>';
-        } else {
-            for (var i = 0; i < res.orders.length; i++) {
-                var o = res.orders[i];
-                html += '<div class="history-item">';
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-                html += '<strong>Bill #' + o.bill_no + '</strong>' + o.status_badge;
-                html += '</div>';
-                html += '<div style="margin-top:4px;color:#666;">📅 ' + o.date + ' • Rs. ' + o.total + '</div>';
-                html += '<div style="margin-top:2px;font-size:11px;color:#888;">📦 ' + o.items + '</div>';
-                if (o.flavors) html += '<div style="font-size:11px;color:#888;">🍰 ' + o.flavors + '</div>';
-                html += '<div style="margin-top:6px;">';
-                html += '<button class="btn btn-sm btn-primary" onclick="duplicateOrder(' + o.bill_no + ')">📋 Re-order Same Items</button>';
-                html += '</div>';
-                html += '</div>';
-            }
-        }
-        document.getElementById('historyContent').innerHTML = html;
-        document.getElementById('historyModal').classList.add('show');
-    });
-}
-
-function duplicateOrder(billNo) {
-    if (!confirm('Add all items from order #' + billNo + ' to current cart?')) return;
-    
-    fetch('customer_lookup.php?action=duplicate&bill_no=' + billNo)
-    .then(function(r){return r.json();})
-    .then(function(res) {
-        if (res.items && res.items.length > 0) {
-            for (var i = 0; i < res.items.length; i++) {
-                var it = res.items[i];
-                addItem(it.inv_id, it.name, it.price, it.uom || 'pcs');
-                // Set qty, flavor etc on last added item
-                setTimeout(function(item){
-                    return function() {
-                        var lastItem = document.querySelector('.cart-item:last-child');
-                        if (lastItem) {
-                            lastItem.querySelector('.qty-input').value = item.qty || 1;
-                            if (item.flavor) lastItem.querySelector('.flavor').value = item.flavor;
-                            if (item.shape) lastItem.querySelector('.shape').value = item.shape;
-                            if (item.tiers !== undefined && item.tiers !== null) {
-                                lastItem.querySelector('.tiers').value = item.tiers;
-                                var t = parseFloat(item.tiers);
-                                if (t > 0) {
-                                    lastItem.dataset.price = parseFloat(lastItem.dataset.price) / t;
-                                }
-                            }
-                            if (item.cake_message) lastItem.querySelector('.cake-msg').value = item.cake_message;
-                            calcTotals();
-                        }
-                    };
-                }(it), i * 50);
-            }
-            document.getElementById('historyModal').classList.remove('show');
-            showToast('Re-ordered ' + res.items.length + ' items', 'success');
-        }
-    });
-}
-
-// ===== DELIVERY TOGGLE =====
-function toggleDeliveryAddress() {
-    var type = document.getElementById('deliveryType').value;
-    document.getElementById('deliveryAddrRow').style.display = type === 'delivery' ? '' : 'none';
-}
-
-// ===== CUSTOMER NAME UPDATE =====
-document.getElementById('custName').addEventListener('input', function() {
-    document.getElementById('custDisplay').textContent = this.value || 'Walk-in';
-});
-
-// ===== ADD ITEM =====
-function addItemFromProduct(el) {
-    addItem(el.dataset.id, el.dataset.name, parseFloat(el.dataset.price), el.dataset.uom);
-}
-
-function addItem(invId, name, price, uom) {
-    document.getElementById('emptyMsg').style.display = 'none';
-    
-    itemCounter++;
-    var id = 'item_' + itemCounter;
-    var cart = document.getElementById('cartItems');
-    
-    var flavorOpts = '<option value="">Flavor...</option>';
-    for (var i = 0; i < FLAVORS.length; i++) flavorOpts += '<option value="' + FLAVORS[i] + '">' + FLAVORS[i] + '</option>';
-    
-    var shapeOpts = '<option value="">Shape...</option>';
-    for (var j = 0; j < SHAPES.length; j++) shapeOpts += '<option value="' + SHAPES[j] + '">' + SHAPES[j] + '</option>';
-    
-    var uomOpts = '';
-    for (var k = 0; k < UOMS.length; k++) {
-        var sel = (UOMS[k] === uom) ? 'selected' : '';
-        uomOpts += '<option value="' + UOMS[k] + '" ' + sel + '>' + UOMS[k] + '</option>';
-    }
-
-    var div = document.createElement('div');
-    div.className = 'cart-item fade-in';
-    div.id = id;
-    div.dataset.invId = invId;
-    div.dataset.price = price;
-    div.dataset.name = name;
-    div.dataset.image = '';
-    div.dataset.audio = '';
-    
-    div.innerHTML = 
-        '<div class="item-image" onclick="openImageModal(\'' + id + '\')" id="imgArea_' + id + '">' +
-            '<span class="placeholder">📷</span>' +
-            '<span class="upload-icon">+</span>' +
-        '</div>' +
-        '<div class="item-details">' +
-            '<div class="item-top">' +
-                '<h4>' + name + '</h4>' +
-                '<button class="btn-play" onclick="openAudioModal(\'' + id + '\')" id="audioBtn_' + id + '">🎤</button>' +
-                '<button class="btn-play" style="display:none;" onclick="playAudio(\'' + id + '\')" id="audioPlay_' + id + '">▶</button>' +
-                '<input type="number" class="price-edit" value="' + price + '" min="0" step="1" ' +
-                    'style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-weight:bold;color:#6c3483;text-align:right;" ' +
-                    'onchange="updatePrice(\'' + id + '\', this.value)" title="Edit price">' +
-                '<button class="btn-remove" onclick="removeItem(\'' + id + '\')">✕</button>' +
-            '</div>' +
-            '<div class="item-options">' +
-                '<select class="flavor" style="flex:1;min-width:100px;">' + flavorOpts + '</select>' +
-                '<select class="shape" style="flex:1;min-width:100px;">' + shapeOpts + '</select>' +
-                '<div class="qty-control">' +
-                    '<button onclick="changeQty(\'' + id + '\',-1)">−</button>' +
-                    '<input type="number" class="qty-input" value="1" min="1" style="width:55px;padding:3px;text-align:center;border:1px solid #ddd;border-radius:4px;font-weight:bold;" onchange="updateQtyDirect(\'' + id + '\', this.value)">' +
-                    '<button onclick="changeQty(\'' + id + '\',1)">+</button>' +
-                '</div>' +
-            '</div>' +
-            '<div class="item-options">' +
-                '<select class="uom" style="width:90px;">' + uomOpts + '</select>' +
-                '<input type="number" class="tiers" value="1" min="0" style="width:55px;" title="UOM QTY" oninput="calcTotals()">' +
-                '<input type="text" class="cake-msg" placeholder="✍ Cake message (will be written on cake)..." style="flex:1;min-width:150px;">' +
-            '</div>' +
-            '<input type="text" class="note" placeholder="📝 Special Instructions (decorations, allergies, color, etc.)...">' +
-        '</div>';
-    
-    cart.appendChild(div);
-    calcTotals();
-    showToast('Added: ' + name, 'success');
-    
-    // Auto-focus on flavor of newly added item
-    setTimeout(function() {
-        var newItem = document.getElementById(id);
-        if (newItem) newItem.querySelector('.flavor').focus();
-    }, 100);
-}
-
-function updatePrice(id, newPrice) {
-    var item = document.getElementById(id);
-    var newP = parseFloat(newPrice) || 0;
-    var tInput = item.querySelector('.tiers');
-    var tiers = (tInput && tInput.value !== '') ? parseFloat(tInput.value) : 1;
-    item.dataset.price = tiers > 0 ? newP / tiers : newP;
-    calcTotals();
-}
-
-function updateQtyDirect(id, newQty) {
-    var q = parseInt(newQty) || 1;
-    if (q < 1) q = 1;
-    var item = document.getElementById(id);
-    item.querySelector('.qty-input').value = q;
-    calcTotals();
-}
-
-function removeItem(id) {
-    var el = document.getElementById(id);
-    if (el) el.remove();
-    calcTotals();
-    if (document.querySelectorAll('.cart-item').length === 0) {
-        document.getElementById('emptyMsg').style.display = 'block';
-    }
-}
-
-function changeQty(id, delta) {
-    var item = document.getElementById(id);
-    var input = item.querySelector('.qty-input');
-    var q = parseInt(input.value) + delta;
-    if (q < 1) { removeItem(id); return; }
-    input.value = q;
-    calcTotals();
-}
-
-// ===== CALCULATIONS =====
-function calcTotals() {
-    var subtotal = 0;
-    var items = document.querySelectorAll('.cart-item');
-    for (var i = 0; i < items.length; i++) {
-        var basePrice = parseFloat(items[i].dataset.price) || 0;
-        var tInput = items[i].querySelector('.tiers');
-        var tiers = (tInput && tInput.value !== '') ? parseFloat(tInput.value) : 1;
-        var totalItemPrice = basePrice * tiers;
-        
-        var priceEdit = items[i].querySelector('.price-edit');
-        if (priceEdit) {
-            priceEdit.value = totalItemPrice;
-        }
-
-        var qty = parseInt(items[i].querySelector('.qty-input').value) || 1;
-        subtotal += totalItemPrice * qty;
-    }
-    var discount = parseInt(document.getElementById('flatDisc').value) || 0;
-    var advance = parseInt(document.getElementById('advance').value) || 0;
-    var total = subtotal - discount;
-    var balance = total - advance;
-    
-    document.getElementById('subtotal').textContent = 'Rs. ' + subtotal.toLocaleString();
-    document.getElementById('discountDisplay').textContent = 'Rs. ' + discount.toLocaleString();
-    document.getElementById('total').textContent = 'Rs. ' + Math.max(0, total).toLocaleString();
-    document.getElementById('advanceDisplay').textContent = 'Rs. ' + advance.toLocaleString();
-    document.getElementById('balanceDisplay').textContent = 'Rs. ' + Math.max(0, balance).toLocaleString();
-}
-
-function applyDiscPercent() {
-    var pct = parseFloat(document.getElementById('discPercent').value) || 0;
-    var subtotal = 0;
-    var items = document.querySelectorAll('.cart-item');
-    for (var i = 0; i < items.length; i++) {
-        var basePrice = parseFloat(items[i].dataset.price) || 0;
-        var tInput = items[i].querySelector('.tiers');
-        var tiers = (tInput && tInput.value !== '') ? parseFloat(tInput.value) : 1;
-        var totalItemPrice = basePrice * tiers;
-        subtotal += totalItemPrice * (parseInt(items[i].querySelector('.qty-input').value) || 1);
-    }
-    var disc = Math.round(subtotal * pct / 100);
-    document.getElementById('flatDisc').value = disc;
-    calcTotals();
-}
-
-function toggleAdvanceMethod() {
-    var adv = parseInt(document.getElementById('advance').value) || 0;
-    document.getElementById('advanceSection').classList.toggle('show', adv > 0);
-    calcTotals();
-}
-
-function setAdvanceMethod(method, btn) {
-    selectedAdvanceMethod = method;
-    document.querySelectorAll('#advanceSection .btn').forEach(function(b){ 
-        b.classList.remove('btn-warning'); b.classList.add('btn-outline'); 
-    });
-    btn.classList.remove('btn-outline'); btn.classList.add('btn-warning');
-}
-
-function clearAll() {
-    if (!confirm('Clear all items?')) return;
-    document.getElementById('cartItems').innerHTML = '';
-    document.getElementById('emptyMsg').style.display = 'block';
-    document.getElementById('advance').value = 0;
-    document.getElementById('flatDisc').value = 0;
-    document.getElementById('discPercent').value = 0;
-    document.getElementById('advanceSection').classList.remove('show');
-    selectedAdvanceMethod = '';
-    calcTotals();
-}
-
-// ===== IMAGE / AUDIO (kept same as before) =====
-function openImageModal(itemId) {
-    currentImageItem = itemId;
-    document.getElementById('imageModal').classList.add('show');
-    document.getElementById('imgPreview').style.display = 'none';
-    document.getElementById('imageFile').value = '';
-    tempImageData = '';
-}
-
-function closeImageModal() {
-    document.getElementById('imageModal').classList.remove('show');
-    currentImageItem = null;
-}
-
-function previewImage(input) {
-    if (!input.files || !input.files[0]) return;
-    
-    var file = input.files[0];
-    
-    // ============================================
-    // VALIDATE FILE TYPE - Only allow JPG/JPEG/PNG
-    // ============================================
-    var allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    var allowedExts = /\.(jpg|jpeg|png)$/i;
-    
-    if (allowedTypes.indexOf(file.type) === -1 && !allowedExts.test(file.name)) {
-        showToast('❌ Only JPG, JPEG, or PNG images are allowed!', 'error');
-        input.value = '';
-        return;
-    }
-    
-    // ============================================
-    // VALIDATE FILE SIZE (max 20MB before processing)
-    // ============================================
-    var maxFileSizeMB = 20;
-    if (file.size > maxFileSizeMB * 1024 * 1024) {
-        showToast('❌ Image too large! Max ' + maxFileSizeMB + 'MB allowed.', 'error');
-        input.value = '';
-        return;
-    }
-    
-    var fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-    showToast('📤 Processing ' + fileSizeMB + ' MB image...', 'info');
-    
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        var img = new Image();
-        img.onload = function() {
-            // ============================================
-            // RESIZE: Max 1024px on longest side
-            // ============================================
-            var canvas = document.createElement('canvas');
-            var maxSize = 1024;
-            var w = img.width, h = img.height;
-            
-            if (w > h) {
-                if (w > maxSize) { 
-                    h = Math.round(h * maxSize / w); 
-                    w = maxSize; 
-                }
-            } else {
-                if (h > maxSize) { 
-                    w = Math.round(w * maxSize / h); 
-                    h = maxSize; 
-                }
-            }
-            
-            canvas.width = w;
-            canvas.height = h;
-            
-            // ============================================
-            // CONVERT TO JPG with white background
-            // (in case original is PNG with transparency)
-            // ============================================
-            var ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, w, h);
-            ctx.drawImage(img, 0, 0, w, h);
-            
-            // Force JPEG output at 75% quality
-            tempImageData = canvas.toDataURL('image/jpeg', 0.75);
-            
-            // Calculate compressed size
-            var compressedKB = Math.round((tempImageData.length * 3 / 4) / 1024);
-            
-            document.getElementById('imgPreview').src = tempImageData;
-            document.getElementById('imgPreview').style.display = 'block';
-            
-            showToast('✅ Image ready! Resized to ' + w + 'x' + h + 'px (' + compressedKB + ' KB)', 'success');
-        };
-        img.onerror = function() {
-            showToast('❌ Invalid image file', 'error');
-            input.value = '';
-        };
-        img.src = e.target.result;
-    };
-    reader.onerror = function() {
-        showToast('❌ Failed to read file', 'error');
-    };
-    reader.readAsDataURL(file);
-}
-
-function saveImage() {
-    if (!tempImageData || !currentImageItem) { closeImageModal(); return; }
-    var item = document.getElementById(currentImageItem);
-    item.dataset.image = tempImageData;
-    document.getElementById('imgArea_' + currentImageItem).innerHTML = 
-        '<img src="' + tempImageData + '"><span class="upload-icon">✎</span>';
-    showToast('Image attached', 'success');
-    closeImageModal();
-}
-
-function openAudioModal(itemId) {
-    currentAudioItem = itemId;
-    document.getElementById('audioModal').classList.add('show');
-    document.getElementById('audioPlayback').style.display = 'none';
-    document.getElementById('recordStatus').textContent = 'Click to record';
-    audioChunks = [];
-}
-
-function closeAudioModal() {
-    document.getElementById('audioModal').classList.remove('show');
-    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-    currentAudioItem = null;
-}
-
-function toggleRecord() {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
-        document.getElementById('recordBtn').textContent = '🎤';
-        document.getElementById('recordStatus').textContent = 'Recording saved';
-    } else {
-        if (!navigator.mediaDevices) { showToast('Microphone not supported', 'error'); return; }
-        navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            mediaRecorder.ondataavailable = function(e) { audioChunks.push(e.data); };
-            mediaRecorder.onstop = function() {
-                var blob = new Blob(audioChunks, {type: 'audio/webm'});
-                var audio = document.getElementById('audioPlayback');
-                audio.src = URL.createObjectURL(blob);
-                audio.style.display = 'block';
-                var reader = new FileReader();
-                reader.onload = function() {
-                    if (currentAudioItem) document.getElementById(currentAudioItem).dataset.audio = reader.result;
-                };
-                reader.readAsDataURL(blob);
-                stream.getTracks().forEach(function(t) { t.stop(); });
-            };
-            mediaRecorder.start();
-            document.getElementById('recordBtn').textContent = '⏹';
-            document.getElementById('recordStatus').textContent = '🔴 Recording...';
-        }).catch(function() { showToast('Microphone denied', 'error'); });
-    }
-}
-
-function saveAudio() {
-    if (currentAudioItem) {
-        var item = document.getElementById(currentAudioItem);
-        if (item.dataset.audio) {
-            document.getElementById('audioBtn_' + currentAudioItem).style.display = 'none';
-            document.getElementById('audioPlay_' + currentAudioItem).style.display = 'inline-block';
-            showToast('Voice note saved', 'success');
-        }
-    }
-    closeAudioModal();
-}
-
-function playAudio(itemId) {
-    var audioData = document.getElementById(itemId).dataset.audio;
-    if (audioData) new Audio(audioData).play();
-}
-
-// ===== SAVE ORDER =====
-function collectOrderData() {
-    var items = [];
-    var elements = document.querySelectorAll('.cart-item');
-    for (var i = 0; i < elements.length; i++) {
-        var item = elements[i];
-        var tInput = item.querySelector('.tiers');
-        var tVal = (tInput && tInput.value !== '') ? parseFloat(tInput.value) : 1;
-        items.push({
-            inv_id: item.dataset.invId,
-            name: item.dataset.name,
-            category: item.dataset.name,
-            price: parseFloat(item.querySelector('.price-edit').value) || 0,
-            qty: parseInt(item.querySelector('.qty-input').value) || 1,
-            flavor: item.querySelector('.flavor').value,
-            shape: item.querySelector('.shape').value,
-            uom: item.querySelector('.uom').value,
-            tiers: tVal,
-            cake_message: item.querySelector('.cake-msg').value,
-            note: item.querySelector('.note').value,
-            image_data: item.dataset.image || '',
-            audio_data: item.dataset.audio || ''
-        });
-    }
-    return items;
-}
-
-function saveOrder(status) {
-    var items = collectOrderData();
-	console.log('called');
-    if (items.length === 0) { showToast('Cart is empty!', 'error'); return; }
-    
-    var advance = parseInt(document.getElementById('advance').value) || 0;
-    if (advance > 0 && !selectedAdvanceMethod) {
-        showToast('Select advance payment method', 'error');
-        return;
-    }
-    
-    var custName = document.getElementById('custName').value || 'Walk-in';
-    var custCell = document.getElementById('custCell').value;
-    var deliveryType = document.getElementById('deliveryType').value;
-    var deliveryAddress = document.getElementById('deliveryAddress') ? document.getElementById('deliveryAddress').value : '';
-    
-    if (deliveryType === 'delivery' && !deliveryAddress) {
-        showToast('Enter delivery address', 'error');
-        return;
-    }
-
-    var data = {
-        items: items,
-        status: status,
-        party_detail: custName,
-        cell_no: custCell,
-        deliver_date: document.getElementById('deliverDate').value,
-        delivery_time: document.getElementById('deliverTime').value,
-        priority: document.getElementById('priority').value,
-        flat_disc: parseInt(document.getElementById('flatDisc').value) || 0,
-        advance: advance,
-        advance_method: selectedAdvanceMethod,
-        occasion: document.getElementById('occasion').value,
-        delivery_type: deliveryType,
-        delivery_address: deliveryAddress,
-        source: document.getElementById('orderSource').value
-    };
-
-    showToast('Saving order...', 'info');
-    
-    var btn = document.querySelector('.btn-confirm');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
-
-    fetch('save_order.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-        if (res.success) {
-            showToast('✅ Order #' + res.bill_no + ' saved!', 'success');
-            if (status === 'confirmed') {
-                if (confirm('Order #' + res.bill_no + ' saved!\n\nPrint receipt now?')) {
-                    window.open('receipt.php?bill=' + res.bill_no, '_blank');
-                }
-                setTimeout(function() { window.location.href = 'index.php'; }, 1500);
-            } else {
-                document.getElementById('cartItems').innerHTML = '';
-                document.getElementById('emptyMsg').style.display = 'block';
-                calcTotals();
-                if (btn) { btn.disabled = false; btn.textContent = 'Confirm Order →'; }
-            }
-        } else {
-            showToast('Error: ' + res.message, 'error');
-            if (btn) { btn.disabled = false; btn.textContent = 'Confirm Order →'; }
-        }
-    })
-    .catch(function() { 
-        showToast('Network error', 'error'); 
-        if (btn) { btn.disabled = false; btn.textContent = 'Confirm Order →'; }
-    });
-}
-
-function showToast(msg, type) {
-    var toast = document.getElementById('toast');
-    toast.textContent = msg;
-    toast.className = 'toast ' + type + ' show';
-    setTimeout(function() { toast.classList.remove('show'); }, 3500);
-}
-
-// ===== SEARCH PRODUCTS =====
-document.getElementById('searchItems').addEventListener('input', function(e) {
-    var q = e.target.value.toLowerCase();
-    var items = document.querySelectorAll('.pos-sidebar .product-item');
-    for (var i = 0; i < items.length; i++) {
-        var text = items[i].textContent.toLowerCase();
-        items[i].style.display = text.indexOf(q) > -1 ? '' : 'none';
-    }
-});
-
-// ===== KEYBOARD SHORTCUTS =====
-document.addEventListener('keydown', function(e) {
-    // F2 = focus barcode
-    if (e.key === 'F2') { e.preventDefault(); document.getElementById('barcodeInput').focus(); }
-    // F4 = focus customer search
-    if (e.key === 'F4') { e.preventDefault(); document.getElementById('custCell').focus(); }
-    // F9 = Confirm Order
-    if (e.key === 'F9') { e.preventDefault(); saveOrder('confirmed'); }
-    // F10 = Hold
-    if (e.key === 'F10') { e.preventDefault(); saveOrder('hold'); }
-    // Esc = clear barcode
-    if (e.key === 'Escape') { document.getElementById('barcodeInput').value = ''; }
-});
-
-// Show keyboard shortcuts hint on load
-setTimeout(function(){
-    showToast('💡 Shortcuts: F2=Barcode | F4=Customer | F9=Confirm | F10=Hold', 'info');
-}, 1000);
-
-// Auto-focus barcode on load
-document.getElementById('barcodeInput').focus();
-</script>
+<script>window.ORDER_CONFIG = <?php echo $screenConfigJson; ?>;</script>
+<script src="order_screen.js?v=4"></script>
 </body>
 </html>

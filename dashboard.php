@@ -1,5 +1,6 @@
 <?php
 require_once 'db.php';
+require_once 'order_lines.php';
 
 
 // ============================================
@@ -126,14 +127,25 @@ $branchForTitle = getBranchInfo();
 
         <?php if (isset($_GET['error']) && $_GET['error'] == 'access_denied'): ?>
         <div style="background:#fee;color:#c0392b;padding:12px;border-radius:8px;margin-bottom:16px;">
-            ⚠ Access Denied: You don't have permission to access that page.
+             Access Denied: You don't have permission to access that page.
         </div>
         <?php endif; ?>
         
+        <?php if (isPOSUser() || isAdmin()): ?>
+        <!-- START A NEW ORDER: one tile per order type -->
+        <div class="section-label">Start a new order</div>
+        <div class="type-tiles">
+            <a class="type-tile" href="index.php?type=cake"><strong>Cake</strong><span>Cake by weight, with flavour, shape and message</span></a>
+            <a class="type-tile" href="index.php?type=lunch"><strong>Lunch box</strong><span>Boxes with items. One or more box groups</span></a>
+            <a class="type-tile" href="index.php?type=sweet"><strong>Sweet box</strong><span>Boxes with items, priced after weighing</span></a>
+            <a class="type-tile" href="index.php?type=eatable"><strong>Eatable picture</strong><span>Printed picture with size and price</span></a>
+            <a class="type-tile" href="index.php?type=other"><strong>Other</strong><span>Any other item</span></a>
+        </div>
+        <?php endif; ?>
+
         <!-- STATS ROW -->
         <div class="stats-row">
             <div class="stat-card">
-                <div class="stat-icon" style="background:#fef3c7;">💰</div>
                 <div class="stat-info">
                     <h2 style="color:#27ae60;">Rs. <?php echo number_format($revenueToday); ?></h2>
                     <p>Revenue Today</p>
@@ -141,21 +153,18 @@ $branchForTitle = getBranchInfo();
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#dbeafe;">🧁</div>
                 <div class="stat-info">
                     <h2><?php echo $ordersToday; ?></h2>
                     <p>Orders Today</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#fce7f3;">⏳</div>
                 <div class="stat-info">
                     <h2 style="color:#e74c3c;"><?php echo $pendingOrders; ?></h2>
                     <p>Pending Orders</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#e0e7ff;">📅</div>
                 <div class="stat-info">
                     <h2 style="color:#6c3483;"><?php echo $upcomingOrders; ?></h2>
                     <p>Upcoming (7 Days)</p>
@@ -166,12 +175,12 @@ $branchForTitle = getBranchInfo();
         <!-- QUICK SEARCH BAR FOR USER -->
         <?php if (isPOSUser() || isAdmin()): ?>
         <div class="data-card" style="margin-bottom:20px;">
-            <h4>🔍 Quick Order Status Check (for Customer Inquiries)</h4>
+            <h4> Quick Order Status Check (for Customer Inquiries)</h4>
             <div style="display:flex;gap:10px;margin-top:12px;">
                 <input type="text" id="quickSearch" placeholder="Enter Bill #, Customer Name or Phone..." 
                        style="flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;"
                        onkeyup="if(event.key=='Enter') quickStatusCheck()">
-                <button class="btn btn-primary" onclick="quickStatusCheck()">🔍 Check Status</button>
+                <button class="btn btn-primary" onclick="quickStatusCheck()"> Check Status</button>
             </div>
             <div id="quickResult" style="margin-top:12px;"></div>
         </div>
@@ -218,16 +227,16 @@ $branchForTitle = getBranchInfo();
                     <?php foreach ($latestPending as $o): ?>
                     <tr>
                         <td><strong>#<?php echo $o['bill_no']; ?></strong>
-                            <?php if ($o['priority']=='urgent'): ?><br><small style="color:#e74c3c;">🔴</small><?php endif; ?>
+                            <?php if ($o['priority']=='urgent'): ?><br><small style="color:#e74c3c;"></small><?php endif; ?>
                         </td>
                         <td><?php echo htmlspecialchars($o['party_detail']); ?><br>
-                            <small style="color:#888;">📱 <?php echo htmlspecialchars($o['cell_no']); ?></small></td>
+                            <small style="color:#888;"> <?php echo htmlspecialchars($o['cell_no']); ?></small></td>
                         <td><small><?php echo htmlspecialchars($o['items']); ?></small></td>
                         <td><?php echo date('d M', strtotime($o['deliver_date'])); ?><br>
                             <small><?php echo $o['delivery_time']; ?></small></td>
                         <td>Rs. <?php echo number_format($o['total']); ?></td>
                         <td><?php echo getStatusBadge($o['status']); ?></td>
-                        <td><a href="order_detail.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-info">👁 View</a></td>
+                        <td><a href="order_detail.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-info"> View</a></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -267,19 +276,19 @@ $branchForTitle = getBranchInfo();
 
 		<div class="data-card">
 			<h4>
-				📋 Pending Orders (<?php echo count($allPending); ?>)
+				 Pending Orders (<?php echo count($allPending); ?>)
 				<span style="font-size:12px;font-weight:normal;color:#888;margin-left:10px;">
-					<span style="color:#f39c12;">⭐ VIP: <?php echo $vipCount; ?></span> &nbsp;|&nbsp;
-					<span style="color:#e74c3c;">🔴 Urgent: <?php echo $urgentCount; ?></span> &nbsp;|&nbsp;
-					<span style="color:#3498db;">📦 Normal: <?php echo $normalCount; ?></span>
+					<span style="color:#f39c12;"> VIP: <?php echo $vipCount; ?></span> &nbsp;|&nbsp;
+					<span style="color:#e74c3c;"> Urgent: <?php echo $urgentCount; ?></span> &nbsp;|&nbsp;
+					<span style="color:#3498db;"> Normal: <?php echo $normalCount; ?></span>
 				</span>
 				
 				<!-- Priority Filter Tabs -->
 				<div style="float:right;display:flex;gap:4px;">
 					<button class="btn btn-sm btn-outline priority-tab active" onclick="filterPriority('all', this)">All</button>
-					<button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('vip', this)" style="color:#f39c12;">⭐ VIP</button>
-					<button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('urgent', this)" style="color:#e74c3c;">🔴 Urgent</button>
-					<button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('normal', this)">📦 Normal</button>
+					<button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('vip', this)" style="color:#f39c12;"> VIP</button>
+					<button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('urgent', this)" style="color:#e74c3c;"> Urgent</button>
+					<button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('normal', this)"> Normal</button>
 				</div>
 			</h4>
 			
@@ -304,18 +313,18 @@ $branchForTitle = getBranchInfo();
 					<?php foreach ($allPending as $o): 
 						$balance = $o['total'] - $o['disc'] - $o['advance'] - $o['paid'];
 						$rowBg = '';
-						$priorityIcon = '📦';
+						$priorityIcon = '';
 						$priorityColor = '#3498db';
 						$priorityLabel = 'Normal';
 						
 						if ($o['priority'] == 'vip') {
-							$rowBg = 'background:linear-gradient(90deg,#fff8e1,#fff);';
-							$priorityIcon = '⭐';
+							$rowBg = 'background:#fff8e1;';
+							$priorityIcon = '';
 							$priorityColor = '#f39c12';
 							$priorityLabel = 'VIP';
 						} else if ($o['priority'] == 'urgent') {
-							$rowBg = 'background:linear-gradient(90deg,#ffebee,#fff);';
-							$priorityIcon = '🔴';
+							$rowBg = 'background:#ffebee;';
+							$priorityIcon = '';
 							$priorityColor = '#e74c3c';
 							$priorityLabel = 'Urgent';
 						}
@@ -323,12 +332,12 @@ $branchForTitle = getBranchInfo();
 						// Check if delivery is today or overdue
 						$deliveryDays = (strtotime($o['deliver_date']) - strtotime(date('Y-m-d'))) / 86400;
 						$deliveryAlert = '';
-						if ($deliveryDays < 0) $deliveryAlert = '<span style="color:#e74c3c;font-weight:bold;font-size:10px;">⚠ OVERDUE</span>';
-						else if ($deliveryDays == 0) $deliveryAlert = '<span style="color:#f39c12;font-weight:bold;font-size:10px;">⏰ TODAY</span>';
-						else if ($deliveryDays == 1) $deliveryAlert = '<span style="color:#3498db;font-weight:bold;font-size:10px;">📅 TOMORROW</span>';
+						if ($deliveryDays < 0) $deliveryAlert = '<span style="color:#e74c3c;font-weight:bold;font-size:10px;"> OVERDUE</span>';
+						else if ($deliveryDays == 0) $deliveryAlert = '<span style="color:#f39c12;font-weight:bold;font-size:10px;"> TODAY</span>';
+						else if ($deliveryDays == 1) $deliveryAlert = '<span style="color:#3498db;font-weight:bold;font-size:10px;"> TOMORROW</span>';
 						
 						// Permission to edit
-						$canEdit = !in_array($o['status'], array('ready','delivered','paid','cancelled'));
+						$canEdit = ot_editable_status($o['status']);
 					?>
 					<tr class="pending-row" data-priority="<?php echo $o['priority']; ?>" style="<?php echo $rowBg; ?>">
 						<td>
@@ -339,7 +348,7 @@ $branchForTitle = getBranchInfo();
 						<td><strong style="font-size:14px;">#<?php echo $o['bill_no']; ?></strong></td>
 						<td>
 							<strong><?php echo htmlspecialchars($o['party_detail']); ?></strong><br>
-							<small style="color:#888;">📱 <?php echo htmlspecialchars($o['cell_no']); ?></small>
+							<small style="color:#888;"> <?php echo htmlspecialchars($o['cell_no']); ?></small>
 						</td>
 						<td>
 							<small><?php echo htmlspecialchars($o['items']); ?></small><br>
@@ -347,7 +356,7 @@ $branchForTitle = getBranchInfo();
 						</td>
 						<td>
 							<strong><?php echo date('d M Y', strtotime($o['deliver_date'])); ?></strong><br>
-							<small>🕐 <?php echo $o['delivery_time']; ?></small>
+							<small> <?php echo $o['delivery_time']; ?></small>
 							<?php if ($deliveryAlert): ?><br><?php echo $deliveryAlert; ?><?php endif; ?>
 						</td>
 						<td><strong>Rs. <?php echo number_format($o['total'] - $o['disc']); ?></strong><br>
@@ -359,18 +368,18 @@ $branchForTitle = getBranchInfo();
 						<td><?php echo getStatusBadge($o['status']); ?></td>
 						<td>
 							<div style="display:flex;gap:4px;flex-wrap:wrap;">
-								<a href="order_detail.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-info" title="View Details">👁</a>
+								<a href="order_detail.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-info" title="View Details"></a>
 								
 								<?php if ($canEdit && (isPOSUser() || isAdmin())): ?>
 								<button class="btn btn-sm btn-warning" 
 										onclick="editOrder(<?php echo $o['bill_no']; ?>)" 
 										title="Edit Order (Add items, customer info, etc.)">
-									✎ Edit
+									Edit
 								</button>
 								<button class="btn btn-sm btn-success" 
 										onclick="addMoreAdvance(<?php echo $o['bill_no']; ?>, <?php echo max(0, $balance); ?>, '<?php echo addslashes($o['party_detail']); ?>')" 
 										title="Add More Advance Payment">
-									💰 +Advance
+									 +Advance
 								</button>
 								<?php endif; ?>
 							</div>
@@ -384,7 +393,7 @@ $branchForTitle = getBranchInfo();
 		<!-- ADD MORE ADVANCE MODAL -->
 		<div class="modal-overlay" id="advanceModal">
 			<div class="modal">
-				<h3>💰 Add More Advance Payment</h3>
+				<h3> Add More Advance Payment</h3>
 				<p style="color:#666;font-size:13px;margin-bottom:12px;">
 					Order: <strong id="advBillNo"></strong> — Customer: <strong id="advCustomer"></strong>
 				</p>
@@ -401,10 +410,10 @@ $branchForTitle = getBranchInfo();
 				<div class="form-group">
 					<label>Payment Method</label>
 					<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
-						<button type="button" class="btn btn-outline adv-method" data-method="cash" onclick="selectAdvMethod('cash', this)">💵 Cash</button>
-						<button type="button" class="btn btn-outline adv-method" data-method="bank" onclick="selectAdvMethod('bank', this)">🏦 Bank</button>
-						<button type="button" class="btn btn-outline adv-method" data-method="card" onclick="selectAdvMethod('card', this)">💳 Card</button>
-						<button type="button" class="btn btn-outline adv-method" data-method="easypaisa" onclick="selectAdvMethod('easypaisa', this)">📱 Easypaisa</button>
+						<button type="button" class="btn btn-outline adv-method" data-method="cash" onclick="selectAdvMethod('cash', this)"> Cash</button>
+						<button type="button" class="btn btn-outline adv-method" data-method="bank" onclick="selectAdvMethod('bank', this)"> Bank</button>
+						<button type="button" class="btn btn-outline adv-method" data-method="card" onclick="selectAdvMethod('card', this)"> Card</button>
+						<button type="button" class="btn btn-outline adv-method" data-method="easypaisa" onclick="selectAdvMethod('easypaisa', this)"> Easypaisa</button>
 					</div>
 				</div>
 				
@@ -415,7 +424,7 @@ $branchForTitle = getBranchInfo();
 				
 				<div class="modal-actions">
 					<button class="btn btn-outline" onclick="closeAdvanceModal()">Cancel</button>
-					<button class="btn btn-success" onclick="submitAdvance()" id="advSubmitBtn">💰 Add Advance</button>
+					<button class="btn btn-success" onclick="submitAdvance()" id="advSubmitBtn"> Add Advance</button>
 				</div>
 			</div>
 		</div>
@@ -449,7 +458,7 @@ $branchForTitle = getBranchInfo();
 
 		// ===== EDIT ORDER =====
 		function editOrder(billNo) {
-			window.location.href = 'edit_order.php?bill=' + billNo;
+			window.location.href = 'index.php?bill=' + billNo;
 		}
 
 		// ===== ADD MORE ADVANCE =====
@@ -519,7 +528,7 @@ $branchForTitle = getBranchInfo();
 			
 			var btn = document.getElementById('advSubmitBtn');
 			btn.disabled = true;
-			btn.textContent = '⏳ Processing...';
+			btn.textContent = ' Processing...';
 			
 			fetch('add_more_advance.php', {
 				method: 'POST',
@@ -534,18 +543,18 @@ $branchForTitle = getBranchInfo();
 			.then(function(r){ return r.json(); })
 			.then(function(res) {
 				if (res.success) {
-					alert('✅ Advance of Rs. ' + amount.toLocaleString() + ' added successfully!\nVoucher #' + res.vno);
+					alert(' Advance of Rs. ' + amount.toLocaleString() + ' added successfully!\nVoucher #' + res.vno);
 					location.reload();
 				} else {
-					alert('❌ Error: ' + res.message);
+					alert(' Error: ' + res.message);
 					btn.disabled = false;
-					btn.textContent = '💰 Add Advance';
+					btn.textContent = ' Add Advance';
 				}
 			})
 			.catch(function() {
 				alert('Network error');
 				btn.disabled = false;
-				btn.textContent = '💰 Add Advance';
+				btn.textContent = ' Add Advance';
 			});
 		}
 		</script>
@@ -592,7 +601,7 @@ function quickStatusCheck() {
     if (!q) { alert('Enter search term'); return; }
     
     var result = document.getElementById('quickResult');
-    result.innerHTML = '<div style="text-align:center;padding:10px;">⏳ Searching...</div>';
+    result.innerHTML = '<div style="text-align:center;padding:10px;"> Searching...</div>';
     
     fetch('order_status_api.php?q=' + encodeURIComponent(q))
     .then(function(r){return r.json();})
@@ -608,16 +617,16 @@ function quickStatusCheck() {
                 html += '<div>'+o.status_badge+'</div>';
                 html += '</div>';
                 html += '<div style="margin-top:4px;font-size:12px;color:#666;">';
-                html += '📦 '+o.items+' | 🚚 '+o.deliver_date+' '+o.delivery_time;
-                html += ' | 💰 Rs. '+o.total+' (Paid: '+o.paid+' | Balance: '+o.balance+')';
+                html += ' '+o.items+' |  '+o.deliver_date+' '+o.delivery_time;
+                html += ' |  Rs. '+o.total+' (Paid: '+o.paid+' | Balance: '+o.balance+')';
                 html += '</div>';
-                html += '<div style="margin-top:6px;"><a href="order_detail.php?bill='+o.bill_no+'" class="btn btn-sm btn-info">👁 View Full Details</a></div>';
+                html += '<div style="margin-top:6px;"><a href="order_detail.php?bill='+o.bill_no+'" class="btn btn-sm btn-info"> View Full Details</a></div>';
                 html += '</div>';
             }
             html += '</div>';
             result.innerHTML = html;
         } else {
-            result.innerHTML = '<div style="background:#fee;color:#c0392b;padding:12px;border-radius:8px;">❌ No orders found matching "'+q+'"</div>';
+            result.innerHTML = '<div style="background:#fee;color:#c0392b;padding:12px;border-radius:8px;"> No orders found matching "'+q+'"</div>';
         }
     });
 }

@@ -75,32 +75,75 @@ else if ($action == 'history') {
 }
 
 else if ($action == 'duplicate') {
-    // Duplicate a previous order's items for re-ordering
+    // Copy a previous order into the New Order screen: its items and box groups.
+    // Charges and weighed amounts are not copied (they belong to that bill only).
     $billNo = isset($_GET['bill_no']) ? intval($_GET['bill_no']) : 0;
-    if (!$billNo) jsonResponse(array('items' => array()));
-    
-    $sql = "SELECT inv_id, category, retail_price, qty, flavor, shape, tiers, uom, cake_message, notes
-            FROM cake_order WHERE bill_no = $billNo AND ordercancel = 0";
-    
+    if (!$billNo) jsonResponse(array('type' => 'cake', 'items' => array(), 'boxes' => array()));
+
+    $sql = "SELECT id, inv_id, category, retail_price, qty, flavor, shape, tiers, uom, cake_message,
+            notes, kitchen_note, material, sale_type, box_group, box_qty
+            FROM cake_order WHERE bill_no = $billNo AND ordercancel = 0 ORDER BY id";
+
     $res = mysqli_query($mysqli, $sql);
     $items = array();
+    $boxRows = array();
+    $boxType = '';
+    $hasCake = false; $hasEatable = false; $hasOther = false;
     if ($res) {
         while ($r = mysqli_fetch_assoc($res)) {
+            $sale = $r['sale_type'];
+            if ($sale === 'lunch' || $sale === 'sweet') {
+                $boxRows[] = $r;
+                $boxType = $sale;
+                continue;
+            }
+            if ($sale === 'charge' || $sale === 'weighed') continue;
+
+            $tiers = floatval($r['tiers']) > 0 ? floatval($r['tiers']) : 1;
+            if (($sale === null || $sale === '' || $sale === 'cake') && intval($r['inv_id']) > 0) {
+                $kind = 'cake'; $hasCake = true;
+            } elseif ($sale === 'eatable') {
+                $kind = 'eatable'; $hasEatable = true;
+            } else {
+                $kind = 'other'; $hasOther = true;
+            }
+            $note = ($r['kitchen_note'] !== null && $r['kitchen_note'] !== '') ? $r['kitchen_note'] : $r['notes'];
             $items[] = array(
+                'kind' => $kind,
                 'inv_id' => intval($r['inv_id']),
                 'name' => $r['category'],
-                'price' => floatval($r['retail_price']),
-                'qty' => intval($r['qty']),
+                'price' => floatval($r['retail_price']) / $tiers,   // base price per unit (weight removed)
+                'qty' => max(1, intval($r['qty'])),
                 'flavor' => $r['flavor'],
                 'shape' => $r['shape'],
-                'tiers' => intval($r['tiers']),
+                'tiers' => $tiers,
                 'uom' => $r['uom'],
                 'cake_message' => $r['cake_message'],
-                'note' => $r['notes']
+                'material' => $r['material'],
+                'note' => $note,
             );
         }
     }
-    jsonResponse(array('items' => $items));
+
+    // Box groups
+    $groups = array();
+    foreach ($boxRows as $r) {
+        $g = intval($r['box_group']);
+        if (!isset($groups[$g])) {
+            $groups[$g] = array('name' => '', 'boxes' => max(1, intval($r['box_qty'])), 'items' => array());
+        }
+        $perBox = max(1, intval(round(intval($r['qty']) / max(1, intval($r['box_qty'])))));
+        $groups[$g]['items'][] = array('name' => $r['category'], 'qty' => $perBox, 'price' => floatval($r['retail_price']));
+    }
+    ksort($groups);
+
+    if ($boxType !== '') $type = $boxType;
+    elseif ($hasCake) $type = 'cake';
+    elseif ($hasEatable) $type = 'eatable';
+    elseif ($hasOther) $type = 'other';
+    else $type = 'cake';
+
+    jsonResponse(array('type' => $type, 'items' => $items, 'boxes' => array_values($groups)));
 }
 
 else if ($action == 'upcoming_occasions') {

@@ -60,21 +60,18 @@ $pageTitle = 'Payments Management';
 
         <div class="stats-row" style="grid-template-columns:repeat(3,1fr);">
             <div class="stat-card">
-                <div class="stat-icon" style="background:#d4edda;">💵</div>
                 <div class="stat-info">
                     <h2 style="color:#27ae60;">Rs. <?php echo number_format($totalCash); ?></h2>
                     <p>Cash Received</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#dbeafe;">🏦</div>
                 <div class="stat-info">
                     <h2 style="color:#3498db;">Rs. <?php echo number_format($totalBank); ?></h2>
                     <p>Bank/Card Received</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon" style="background:#fee;">↩️</div>
                 <div class="stat-info">
                     <h2 style="color:#e74c3c;">Rs. <?php echo number_format($totalRefund); ?></h2>
                     <p>Refunds</p>
@@ -148,7 +145,7 @@ $pageTitle = 'Payments Management';
                             <small><?php echo date('h:i A', strtotime($p['dateent'])); ?></small></td>
                         <td>
                             <button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $p['id']; ?>, <?php echo $p['bill_no']; ?>, <?php echo $p['amount']; ?>)">
-                                🗑 Delete
+                                Delete
                             </button>
                         </td>
                     </tr> -->
@@ -196,7 +193,7 @@ $pageTitle = 'Payments Management';
 							<small><?php echo date('h:i A', strtotime($p['dateent'])); ?></small></td>
 						<td>
 							<button class="btn btn-sm btn-danger" onclick="deletePayment(<?php echo $p['id']; ?>, <?php echo $p['ref_no']; ?>, <?php echo $p['amount']; ?>)">
-								🗑 Delete
+								Delete
 							</button>
 						</td>
 					</tr>
@@ -211,7 +208,7 @@ $pageTitle = 'Payments Management';
 
 <script>
 function deletePayment(id, billNo, amount) {
-    if (!confirm('⚠ ADMIN ACTION: Delete payment ID #'+id+' of Rs. '+Math.abs(amount).toLocaleString()+'?\n\nThis will reverse the payment on Bill #'+billNo+' and update its status.')) return;
+    if (!confirm('ADMIN ACTION: Delete payment ID #'+id+' of Rs. '+Math.abs(amount).toLocaleString()+'?\n\nThis will reverse the payment on Bill #'+billNo+' and update its status.')) return;
     
     var reason = prompt('Reason for deleting payment:');
     if (!reason) return;

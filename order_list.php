@@ -1,11 +1,19 @@
 <?php
 require_once 'db.php';
+require_once 'order_lines.php';
+
+date_default_timezone_set('Asia/Karachi');
 
 $statusFilter = isset($_GET['status']) ? esc($_GET['status']) : '';
 $dateFilter = isset($_GET['date']) ? esc($_GET['date']) : '';
 $search = isset($_GET['search']) ? esc($_GET['search']) : '';
 $priorityFilter = isset($_GET['priority']) ? esc($_GET['priority']) : '';
 $viewMode = isset($_GET['view']) ? $_GET['view'] : 'pending'; // pending | all
+
+// Quick filters: today's deliveries, VIP, Urgent
+$quick = (isset($_GET['quick']) && is_string($_GET['quick'])) ? $_GET['quick'] : '';
+if ($quick === 'today') $dateFilter = date('Y-m-d');
+if ($quick === 'vip' || $quick === 'urgent') $priorityFilter = $quick;
 
 $where = "WHERE 1=1";
 
@@ -26,19 +34,19 @@ if ($search) {
     $where .= " AND (party_detail LIKE '%$search%' OR bill_no LIKE '%$search%' OR cell_no LIKE '%$search%')";
 }
 
-// SORT BY PRIORITY (VIP > Urgent > Normal) THEN BY DELIVERY DATE ASC
+// NEWEST ENTRY FIRST (entry date, then bill number)
 $sql = "SELECT bill_no, party_detail, cell_no, deliver_date, delivery_time,
     SUM(amount) AS total_amount, MAX(advance) AS advance, MAX(paid) AS paid,
     MAX(status) AS status, MAX(priority) AS priority, MAX(flat_disc) AS flat_disc,
     MAX(payment_method) AS payment_method, MAX(dateent) AS dateent, MAX(ordercancel) AS cancelled,
-    GROUP_CONCAT(category SEPARATOR ', ') AS items,
-    COUNT(*) AS item_count
+    GROUP_CONCAT(CASE WHEN sale_type IN ('lunch','sweet','charge','weighed') THEN NULL ELSE category END SEPARATOR ', ') AS items,
+    COUNT(*) AS item_count,
+    MAX(CASE WHEN sale_type IN ('lunch','sweet') THEN 1 ELSE 0 END) AS has_boxes
     FROM cake_order $where
     GROUP BY bill_no
     ORDER BY 
-        FIELD(MAX(priority), 'vip', 'urgent', 'normal'),
-        deliver_date ASC,
-        delivery_time ASC
+        dateent DESC,
+        bill_no DESC
     LIMIT 500";
 
 $res = mysqli_query($mysqli, $sql);
@@ -50,6 +58,27 @@ if ($res) {
         if ($r['priority'] == 'vip') $vipCount++;
         else if ($r['priority'] == 'urgent') $urgentCount++;
         else $normalCount++;
+    }
+}
+
+// Box summary per bill: "Lunch boxes: 12 (2 groups)"
+$boxSummary = array();
+$boxBillIds = array();
+foreach ($orders as $o) {
+    if (intval($o['has_boxes']) === 1) $boxBillIds[] = intval($o['bill_no']);
+}
+if (!empty($boxBillIds)) {
+    $bxRes = mysqli_query($mysqli, "SELECT bill_no, box_group, MAX(box_qty) AS boxes, MAX(sale_type) AS sale_type
+        FROM cake_order WHERE bill_no IN (" . implode(',', $boxBillIds) . ")
+        AND sale_type IN ('lunch','sweet') AND ordercancel = 0
+        GROUP BY bill_no, box_group");
+    if ($bxRes) {
+        while ($bx = mysqli_fetch_assoc($bxRes)) {
+            $bn = intval($bx['bill_no']);
+            if (!isset($boxSummary[$bn])) $boxSummary[$bn] = array('boxes' => 0, 'groups' => 0, 'type' => $bx['sale_type']);
+            $boxSummary[$bn]['boxes'] += intval($bx['boxes']);
+            $boxSummary[$bn]['groups'] += 1;
+        }
     }
 }
 
@@ -84,10 +113,10 @@ $pageTitle = 'Order List';
         <div style="background:#fff;padding:0 16px;border-radius:8px;margin-bottom:12px;border:1px solid #e8e0f0;">
             <div style="display:flex;gap:0;border-bottom:2px solid #e8e0f0;">
                 <a href="?view=pending" class="view-tab <?php if($viewMode=='pending') echo 'active'; ?>">
-                    📋 Pending Orders
+                     Pending Orders
                 </a>
                 <a href="?view=all" class="view-tab <?php if($viewMode=='all') echo 'active'; ?>">
-                    📚 All Orders
+                     All Orders
                 </a>
             </div>
         </div>
@@ -97,7 +126,7 @@ $pageTitle = 'Order List';
             <form method="GET" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                 <input type="hidden" name="view" value="<?php echo htmlspecialchars($viewMode); ?>">
                 
-                <input type="text" name="search" placeholder="🔍 Bill#, customer, phone" value="<?php echo htmlspecialchars($search); ?>" style="width:220px;">
+                <input type="text" name="search" placeholder=" Bill#, customer, phone" value="<?php echo htmlspecialchars($search); ?>" style="width:220px;">
                 
                 <?php if ($viewMode == 'all'): ?>
                 <select name="status">
@@ -112,22 +141,28 @@ $pageTitle = 'Order List';
                 <button class="btn btn-primary btn-sm" type="submit">Filter</button>
                 <a href="?view=<?php echo $viewMode; ?>" class="btn btn-outline btn-sm">Reset</a>
             </form>
+            <div class="chip-row">
+                <a class="chip <?php echo $quick === '' ? 'active' : ''; ?>" href="?view=<?php echo $viewMode; ?>">All orders</a>
+                <a class="chip <?php echo $quick === 'today' ? 'active' : ''; ?>" href="?view=<?php echo $viewMode; ?>&amp;quick=today">Deliver today</a>
+                <a class="chip <?php echo $quick === 'vip' ? 'active' : ''; ?>" href="?view=<?php echo $viewMode; ?>&amp;quick=vip">VIP</a>
+                <a class="chip <?php echo $quick === 'urgent' ? 'active' : ''; ?>" href="?view=<?php echo $viewMode; ?>&amp;quick=urgent">Urgent</a>
+            </div>
         </div>
 
         <!-- ORDER TABLE WITH PRIORITY SORTING -->
         <div class="data-card">
             <h4>
                 <?php if ($viewMode == 'pending'): ?>
-                📋 Pending Orders (<?php echo count($orders); ?>)
+                 Pending Orders (<?php echo count($orders); ?>)
                 <?php else: ?>
-                📚 All Orders (<?php echo count($orders); ?> shown)
+                 All Orders (<?php echo count($orders); ?> shown)
                 <?php endif; ?>
                 
                 <?php if ($viewMode == 'pending'): ?>
                 <span style="font-size:12px;font-weight:normal;color:#888;margin-left:10px;">
-                    <span style="color:#f39c12;">⭐ VIP: <?php echo $vipCount; ?></span> &nbsp;|&nbsp;
-                    <span style="color:#e74c3c;">🔴 Urgent: <?php echo $urgentCount; ?></span> &nbsp;|&nbsp;
-                    <span style="color:#3498db;">📦 Normal: <?php echo $normalCount; ?></span>
+                    <span style="color:#f39c12;"> VIP: <?php echo $vipCount; ?></span> &nbsp;|&nbsp;
+                    <span style="color:#e74c3c;"> Urgent: <?php echo $urgentCount; ?></span> &nbsp;|&nbsp;
+                    <span style="color:#3498db;"> Normal: <?php echo $normalCount; ?></span>
                 </span>
                 <?php endif; ?>
                 
@@ -138,9 +173,9 @@ $pageTitle = 'Order List';
                 <!-- Priority Filter Tabs -->
                 <div style="float:right;display:flex;gap:4px;">
                     <button class="btn btn-sm btn-outline priority-tab active" onclick="filterPriority('all', this)">All</button>
-                    <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('vip', this)" style="color:#f39c12;">⭐ VIP</button>
-                    <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('urgent', this)" style="color:#e74c3c;">🔴 Urgent</button>
-                    <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('normal', this)">📦 Normal</button>
+                    <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('vip', this)" style="color:#f39c12;"> VIP</button>
+                    <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('urgent', this)" style="color:#e74c3c;"> Urgent</button>
+                    <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('normal', this)"> Normal</button>
                 </div>
             </h4>
             
@@ -169,18 +204,18 @@ $pageTitle = 'Order List';
                         
                         // Priority styling
                         $rowBg = '';
-                        $priorityIcon = '📦';
+                        $priorityIcon = '';
                         $priorityColor = '#3498db';
                         $priorityLabel = 'Normal';
                         
                         if ($o['priority'] == 'vip') {
-                            $rowBg = 'background:linear-gradient(90deg,#fff8e1,#fff);';
-                            $priorityIcon = '⭐';
+                            $rowBg = 'background:#fff8e1;';
+                            $priorityIcon = '';
                             $priorityColor = '#f39c12';
                             $priorityLabel = 'VIP';
                         } else if ($o['priority'] == 'urgent') {
-                            $rowBg = 'background:linear-gradient(90deg,#ffebee,#fff);';
-                            $priorityIcon = '🔴';
+                            $rowBg = 'background:#ffebee;';
+                            $priorityIcon = '';
                             $priorityColor = '#e74c3c';
                             $priorityLabel = 'Urgent';
                         }
@@ -194,9 +229,9 @@ $pageTitle = 'Order List';
                         $deliveryDays = (strtotime($o['deliver_date']) - strtotime(date('Y-m-d'))) / 86400;
                         $deliveryAlert = '';
                         if (!$o['cancelled'] && !in_array($o['status'], array('delivered','paid'))) {
-                            if ($deliveryDays < 0) $deliveryAlert = '<span style="color:#e74c3c;font-weight:bold;font-size:10px;">⚠ OVERDUE</span>';
-                            else if ($deliveryDays == 0) $deliveryAlert = '<span style="color:#f39c12;font-weight:bold;font-size:10px;">⏰ TODAY</span>';
-                            else if ($deliveryDays == 1) $deliveryAlert = '<span style="color:#3498db;font-weight:bold;font-size:10px;">📅 TOMORROW</span>';
+                            if ($deliveryDays < 0) $deliveryAlert = '<span style="color:#e74c3c;font-weight:bold;font-size:10px;"> OVERDUE</span>';
+                            else if ($deliveryDays == 0) $deliveryAlert = '<span style="color:#f39c12;font-weight:bold;font-size:10px;"> TODAY</span>';
+                            else if ($deliveryDays == 1) $deliveryAlert = '<span style="color:#3498db;font-weight:bold;font-size:10px;"> TOMORROW</span>';
                         }
                         
                         // Permission logic
@@ -207,7 +242,7 @@ $pageTitle = 'Order List';
                             $canCancel = !$o['cancelled'] && $o['paid'] == 0 && !in_array($o['status'], array('ready','delivered','paid'));
                         }
                         
-                        $canEdit = !$o['cancelled'] && (isPOSUser() || isAdmin()) && !in_array($o['status'], array('ready','delivered','paid','cancelled'));
+                        $canEdit = !$o['cancelled'] && (isPOSUser() || isAdmin()) && ot_editable_status($o['status']);
                         $canAddAdvance = !$o['cancelled'] && (isPOSUser() || isAdmin()) && $balance > 0 && !in_array($o['status'], array('paid','cancelled'));
                         $canPay = !$o['cancelled'] && $balance > 0 && in_array($o['status'], array('delivered','ready'));
                         $canDeliver = !$o['cancelled'] && (isPOSUser() || isAdmin()) && $o['status'] == 'ready';
@@ -221,15 +256,20 @@ $pageTitle = 'Order List';
                         <td><strong style="font-size:14px;">#<?php echo $o['bill_no']; ?></strong></td>
                         <td>
                             <strong><?php echo htmlspecialchars($o['party_detail']); ?></strong><br>
-                            <small style="color:#888;">📱 <?php echo htmlspecialchars($o['cell_no']); ?></small>
+                            <small style="color:#888;"> <?php echo htmlspecialchars($o['cell_no']); ?></small>
                         </td>
                         <td>
+                            <?php if (intval($o['has_boxes']) === 1 && isset($boxSummary[intval($o['bill_no'])])): $bsum = $boxSummary[intval($o['bill_no'])]; ?>
+                            <small style="color:#6c3483;font-weight:600;"><?php echo $bsum['type'] === 'sweet' ? 'Sweet boxes' : 'Lunch boxes'; ?>: <?php echo $bsum['boxes']; ?> boxes<?php echo $bsum['groups'] > 1 ? ' (' . $bsum['groups'] . ' groups)' : ''; ?></small><br>
+                            <?php endif; ?>
+                            <?php if ($o['items'] !== null && $o['items'] !== ''): ?>
                             <small><?php echo htmlspecialchars($o['items']); ?></small><br>
+                            <?php endif; ?>
                             <small style="color:#6c3483;font-weight:600;">(<?php echo $o['item_count']; ?> items)</small>
                         </td>
                         <td>
                             <strong><?php echo date('d M Y', strtotime($o['deliver_date'])); ?></strong><br>
-                            <small>🕐 <?php echo $o['delivery_time']; ?></small>
+                            <small> <?php echo $o['delivery_time']; ?></small>
                             <?php if ($deliveryAlert): ?><br><?php echo $deliveryAlert; ?><?php endif; ?>
                         </td>
                         <td>
@@ -250,42 +290,37 @@ $pageTitle = 'Order List';
                         <td><?php echo getStatusBadge($o['status']); ?></td>
                         <td>
                             <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                                <a href="order_detail.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-info" title="View Details">👁</a>
+                                <a href="order_detail.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-info" title="View Details"></a>
+                                <a href="invoice.php?bill=<?php echo $o['bill_no']; ?>" target="_blank" class="btn btn-sm btn-outline" title="Print invoice">Invoice</a>
                                 
                                 <?php if ($canEdit): ?>
                                 <button class="btn btn-sm btn-warning" 
                                         onclick="editOrder(<?php echo $o['bill_no']; ?>)" 
-                                        title="Edit Order">✎</button>
+                                        title="Change this order">Edit</button>
                                 <?php endif; ?>
                                 
                                 <?php if ($canAddAdvance): ?>
                                 <button class="btn btn-sm btn-success" 
                                         onclick="addMoreAdvance(<?php echo $o['bill_no']; ?>, <?php echo max(0, $balance); ?>, '<?php echo addslashes($o['party_detail']); ?>')" 
-                                        title="Add Advance">💰+</button>
+                                        title="Add Advance">+</button>
                                 <?php endif; ?>
                                 
                                 <?php if ($canPay): ?>
-                                <a href="payment.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-success" title="Receive Payment">💰</a>
+                                <a href="payment.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-success" title="Receive Payment"></a>
                                 <?php endif; ?>
                                 
                                 <?php if ($canDeliver): ?>
                                 <button class="btn btn-sm btn-success" 
                                         onclick="updateStatus(<?php echo $o['bill_no']; ?>, 'delivered')" 
-                                        title="Mark Delivered">🚚</button>
+                                        title="Mark Delivered"></button>
                                 <?php endif; ?>
                                 
                                 <?php if ($canCancel): ?>
                                 <button class="btn btn-sm btn-danger" 
                                         onclick="cancelOrder(<?php echo $o['bill_no']; ?>)" 
-                                        title="Cancel Order">✕</button>
+                                        title="Cancel this order">Cancel</button>
                                 <?php endif; ?>
                                 
-                                <?php if (isAdmin() && !$o['cancelled']): ?>
-                                <button class="btn btn-sm btn-warning" 
-                                        onclick="adminDelete(<?php echo $o['bill_no']; ?>)" 
-                                        title="Admin: Permanent Delete" 
-                                        style="background:#8b0000;">🗑</button>
-                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
@@ -299,7 +334,7 @@ $pageTitle = 'Order List';
 <!-- ADD MORE ADVANCE MODAL -->
 <div class="modal-overlay" id="advanceModal">
     <div class="modal">
-        <h3>💰 Add More Advance Payment</h3>
+        <h3> Add More Advance Payment</h3>
         <p style="color:#666;font-size:13px;margin-bottom:12px;">
             Order: <strong id="advBillNo"></strong> — Customer: <strong id="advCustomer"></strong>
         </p>
@@ -316,10 +351,10 @@ $pageTitle = 'Order List';
         <div class="form-group">
             <label>Payment Method</label>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
-                <button type="button" class="btn btn-outline adv-method" data-method="cash" onclick="selectAdvMethod('cash', this)">💵 Cash</button>
-                <button type="button" class="btn btn-outline adv-method" data-method="bank" onclick="selectAdvMethod('bank', this)">🏦 Bank</button>
-                <button type="button" class="btn btn-outline adv-method" data-method="card" onclick="selectAdvMethod('card', this)">💳 Card</button>
-                <button type="button" class="btn btn-outline adv-method" data-method="easypaisa" onclick="selectAdvMethod('easypaisa', this)">📱 Easypaisa</button>
+                <button type="button" class="btn btn-outline adv-method" data-method="cash" onclick="selectAdvMethod('cash', this)"> Cash</button>
+                <button type="button" class="btn btn-outline adv-method" data-method="bank" onclick="selectAdvMethod('bank', this)"> Bank</button>
+                <button type="button" class="btn btn-outline adv-method" data-method="card" onclick="selectAdvMethod('card', this)"> Card</button>
+                <button type="button" class="btn btn-outline adv-method" data-method="easypaisa" onclick="selectAdvMethod('easypaisa', this)"> Easypaisa</button>
             </div>
         </div>
         
@@ -330,7 +365,7 @@ $pageTitle = 'Order List';
         
         <div class="modal-actions">
             <button class="btn btn-outline" onclick="closeAdvanceModal()">Cancel</button>
-            <button class="btn btn-success" onclick="submitAdvance()" id="advSubmitBtn">💰 Add Advance</button>
+            <button class="btn btn-success" onclick="submitAdvance()" id="advSubmitBtn"> Add Advance</button>
         </div>
     </div>
 </div>
@@ -357,7 +392,7 @@ function filterPriority(priority, btn) {
 
 // ===== EDIT ORDER =====
 function editOrder(billNo) {
-    window.location.href = 'edit_order.php?bill=' + billNo;
+    window.location.href = 'index.php?bill=' + billNo;
 }
 
 // ===== STATUS UPDATE =====
@@ -376,7 +411,7 @@ function updateStatus(billNo, newStatus) {
 // ===== CANCEL ORDER =====
 function cancelOrder(billNo) {
     var msg = isAdminUser ? 
-        '⚠ ADMIN: Cancel order #' + billNo + '?\n(Will refund payment if exists)' : 
+        'ADMIN: Cancel order #' + billNo + '?\n(Will refund payment if exists)' : 
         'Cancel order #' + billNo + '?';
     if (!confirm(msg)) return;
     var reason = prompt('Reason for cancellation:');
@@ -396,20 +431,6 @@ function cancelOrder(billNo) {
     });
 }
 
-// ===== ADMIN DELETE =====
-function adminDelete(billNo) {
-    if (!confirm('⚠ ADMIN: PERMANENTLY DELETE order #' + billNo + '?\n\nThis cannot be undone!')) return;
-    var reason = prompt('Reason for deletion:');
-    if (!reason) return;
-    fetch('admin_delete_order.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({bill_no: billNo, reason: reason})
-    }).then(function(r){return r.json();}).then(function(res) {
-        if (res.success) { showToast('Order deleted', 'success'); setTimeout(function(){ location.reload(); }, 1000); }
-        else showToast(res.message, 'error');
-    });
-}
 
 // ===== ADD MORE ADVANCE =====
 var advBillNoVal = 0;
@@ -468,7 +489,7 @@ function submitAdvance() {
     
     var btn = document.getElementById('advSubmitBtn');
     btn.disabled = true;
-    btn.textContent = '⏳ Processing...';
+    btn.textContent = ' Processing...';
     
     fetch('add_more_advance.php', {
         method: 'POST',
@@ -483,18 +504,18 @@ function submitAdvance() {
     .then(function(r){ return r.json(); })
     .then(function(res) {
         if (res.success) {
-            alert('✅ Advance of Rs. ' + amount.toLocaleString() + ' added successfully!\nVoucher #' + res.vno);
+            alert(' Advance of Rs. ' + amount.toLocaleString() + ' added successfully!\nVoucher #' + res.vno);
             location.reload();
         } else {
-            alert('❌ Error: ' + res.message);
+            alert(' Error: ' + res.message);
             btn.disabled = false;
-            btn.textContent = '💰 Add Advance';
+            btn.textContent = ' Add Advance';
         }
     })
     .catch(function() {
         alert('Network error');
         btn.disabled = false;
-        btn.textContent = '💰 Add Advance';
+        btn.textContent = ' Add Advance';
     });
 }
 

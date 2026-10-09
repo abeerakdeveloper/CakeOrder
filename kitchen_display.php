@@ -1,35 +1,44 @@
 <?php
 require_once 'db.php';
+require_once 'order_lines.php';
 requireRole(array(2, 3)); // Kitchen and Admin only
 
 // Show warning if kitchen user tried to access dashboard
 $showAccessMsg = isset($_GET['msg']) && $_GET['msg'] == 'no_dashboard_access';
 
+// Optional filter: only orders to deliver today
+$todayOnly = isset($_GET['today']) && $_GET['today'] == '1';
+$todayWhere = $todayOnly ? " AND co.deliver_date = CURDATE()" : '';
 
+
+// Long item lists: allow up to 1 MB in GROUP_CONCAT (default is 1024 bytes and would cut long orders)
+mysqli_query($mysqli, "SET SESSION group_concat_max_len = 1000000");
+
+// Kitchen item rows: cake, eatable picture and other. Box groups, extra charges and
+// weighed sweet boxes are not item lines; box groups are shown in their own block below.
+$kitchenRow = "(co.sale_type IS NULL OR co.sale_type IN ('cake','eatable','other'))";
 $sql = "SELECT co.bill_no, co.party_detail, co.deliver_date, co.delivery_time,
-        co.status, co.priority, MAX(co.dateent) AS dateent,
-        GROUP_CONCAT(CONCAT(
-	'qty = ', co.qty,
-        ' , ', co.uom,
-        ' = ', IFNULL(co.tiers, 0),
-        ' , ', co.category,
-
- 
+        co.status, co.priority, MAX(co.dateent) AS dateent, MAX(co.sale_type) AS sale_type,
+        GROUP_CONCAT(CASE WHEN $kitchenRow THEN CONCAT(
+            'qty = ', co.qty,
+            ' , ', co.uom,
+            ' = ', IFNULL(CAST(co.tiers AS DOUBLE), 0),
+            ' , ', co.category,
             CASE WHEN co.flavor != '' THEN CONCAT(' (', co.flavor, ')') ELSE '' END,
             CASE WHEN co.cake_message != '' THEN CONCAT(' [', co.cake_message, ']') ELSE '' END
-        ) SEPARATOR '||') AS items,
-        GROUP_CONCAT(IFNULL(co.notes,'') SEPARATOR '||') AS all_notes,
-        GROUP_CONCAT(IFNULL(co.thumb_data,'') SEPARATOR '||') AS thumbs,
+        ) ELSE NULL END SEPARATOR '||') AS items,
+        GROUP_CONCAT(CASE WHEN $kitchenRow THEN IFNULL(co.notes,'') ELSE NULL END SEPARATOR '||') AS all_notes,
+        GROUP_CONCAT(CASE WHEN $kitchenRow THEN IFNULL(co.thumb_data,'') ELSE NULL END SEPARATOR '||') AS thumbs,
         SUM(co.amount) AS total_amount,
         MAX(CASE WHEN co.audio_data IS NOT NULL AND co.audio_data != '' THEN 1 ELSE 0 END) AS has_audio,
-        COUNT(*) AS item_count
+        SUM(CASE WHEN $kitchenRow THEN 1 ELSE 0 END) AS item_count
         FROM cake_order co
-        WHERE co.status IN ('confirmed', 'preparing') 
-        AND co.ordercancel = 0
+        WHERE co.status IN ('confirmed', 'preparing')
+        AND co.ordercancel = 0$todayWhere
         GROUP BY co.bill_no
-        ORDER BY 
+        ORDER BY
             FIELD(MAX(co.priority), 'urgent', 'vip', 'normal'),
-            co.deliver_date ASC, 
+            co.deliver_date ASC,
             co.delivery_time ASC";
 
 $result = mysqli_query($mysqli, $sql);
@@ -44,6 +53,27 @@ if ($result) {
             $confirmedCount++;
         if ($r['status'] == 'preparing')
             $preparingCount++;
+    }
+}
+
+// Lunch and sweet box groups for the cards
+$boxByBill = array();
+$billIds = array();
+foreach ($orders as $o) {
+    $billIds[] = intval($o['bill_no']);
+}
+if (!empty($billIds)) {
+    $boxRes = mysqli_query($mysqli, "SELECT bill_no, sale_type, box_group, box_qty, category, qty, retail_price, amount
+        FROM cake_order WHERE bill_no IN (" . implode(',', $billIds) . ")
+        AND sale_type IN ('lunch','sweet') AND ordercancel = 0 ORDER BY bill_no, box_group, id");
+    $boxRowsByBill = array();
+    if ($boxRes) {
+        while ($b = mysqli_fetch_assoc($boxRes)) {
+            $boxRowsByBill[intval($b['bill_no'])][] = $b;
+        }
+    }
+    foreach ($boxRowsByBill as $bn => $brows) {
+        $boxByBill[$bn] = ot_box_groups($brows);
     }
 }
 ?>
@@ -138,10 +168,11 @@ if ($result) {
             background: #e74c3c;
             color: #fff;
             border: none;
-            width: 50px;
+            min-width: 50px;
             height: 50px;
-            border-radius: 50%;
-            font-size: 24px;
+            padding: 0 18px;
+            border-radius: 25px;
+            font-size: 16px;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
@@ -195,9 +226,9 @@ if ($result) {
 <body>
 
     <!-- <div class="topbar" style="background:#e67e22;">
-    <h2>👨‍🍳 Kitchen Display</h2>
+    <h2> Kitchen Display</h2>
     <div class="topbar-right">
-        <span style="font-size:14px;">📥 New: <?php echo $confirmedCount; ?> | 🔥 Preparing: <?php echo $preparingCount; ?></span>
+        <span style="font-size:14px;"> New: <?php echo $confirmedCount; ?> |  Preparing: <?php echo $preparingCount; ?></span>
         <?php if (!isKitchen()) { ?>
         <a href="dashboard.php">Dashboard</a>
         <a href="order_list.php">Orders</a>
@@ -207,31 +238,31 @@ if ($result) {
 
     <?php $branch = getBranchInfo(); ?>
     <div class="topbar" style="background:#e67e22;">
-        <h2>👨‍🍳 <?php echo htmlspecialchars($branch['name']); ?> — Kitchen Display</h2>
+        <h2> <?php echo htmlspecialchars($branch['name']); ?> — Kitchen Display</h2>
         <div class="topbar-right">
             <span style="font-size:14px;background:rgba(255,255,255,0.2);padding:4px 12px;border-radius:12px;">
-                📥 New: <strong><?php echo $confirmedCount; ?></strong> |
-                🔥 Preparing: <strong><?php echo $preparingCount; ?></strong>
+                 New: <strong><?php echo $confirmedCount; ?></strong> |
+                 Preparing: <strong><?php echo $preparingCount; ?></strong>
             </span>
 
             <span style="font-size:13px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:12px;">
                 <?php echo getRoleName(); ?>
             </span>
 
-            <span style="font-size:13px;">👤 <?php echo htmlspecialchars($_SESSION['user']); ?></span>
+            <span style="font-size:13px;"> <?php echo htmlspecialchars($_SESSION['user']); ?></span>
 
             <?php if (isAdmin()): ?>
                 <a href="dashboard.php"
-                    style="color:#fff;text-decoration:none;padding:4px 10px;background:rgba(255,255,255,0.15);border-radius:6px;">📊
+                    style="color:#fff;text-decoration:none;padding:4px 10px;background:rgba(255,255,255,0.15);border-radius:6px;">
                     Dashboard</a>
                 <a href="order_list.php"
-                    style="color:#fff;text-decoration:none;padding:4px 10px;background:rgba(255,255,255,0.15);border-radius:6px;">📋
+                    style="color:#fff;text-decoration:none;padding:4px 10px;background:rgba(255,255,255,0.15);border-radius:6px;">
                     Orders</a>
             <?php endif; ?>
 
             <a href="logout.php" onclick="return confirm('Are you sure you want to logout?');"
                 style="background:#c0392b;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:600;">
-                🚪 Logout
+                 Logout
             </a>
         </div>
     </div>
@@ -241,31 +272,44 @@ if ($result) {
             <?php if ($showAccessMsg): ?>
                 <div
                     style="background:#fff3e0;border-left:5px solid #f39c12;padding:14px 20px;border-radius:6px;margin-bottom:16px;font-size:13px;color:#5d4037;">
-                    ⚠ <strong>Access Restricted:</strong> Kitchen staff cannot access Dashboard. Redirected to Kitchen
+                     <strong>Access Restricted:</strong> Kitchen staff cannot access Dashboard. Redirected to Kitchen
                     Display.
                     <button onclick="this.parentElement.style.display='none'"
-                        style="float:right;background:none;border:none;font-size:16px;cursor:pointer;color:#f39c12;">✕</button>
+                        style="float:right;background:none;border:none;font-size:16px;cursor:pointer;color:#f39c12;">Close</button>
                 </div>
             <?php endif; ?>
 
             <?php if (empty($orders)): ?>
                 <div style="text-align:center;padding:80px;color:#999;">
-                    <div style="font-size:60px;margin-bottom:16px;">👨‍🍳</div>
                     <h3>No pending orders</h3>
                     <p>New orders will appear here automatically.</p>
                 </div>
             <?php endif; ?>
 
+            <div class="chip-row" style="margin-bottom:12px;">
+                <a class="chip <?php echo $todayOnly ? '' : 'active'; ?>" href="kitchen_display.php">All deliveries</a>
+                <a class="chip <?php echo $todayOnly ? 'active' : ''; ?>" href="kitchen_display.php?today=1">Deliver today</a>
+            </div>
+
             <div style="margin-bottom: 20px;">
-                <input type="text" id="kitchenSearch" placeholder="🔍 Search bill no or text..." style="width: 100%; max-width: 400px; padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;" oninput="filterKitchen()">
+                <input type="text" id="kitchenSearch" placeholder=" Search bill no or text..." style="width: 100%; max-width: 400px; padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;" oninput="filterKitchen()">
             </div>
 
             <div class="kitchen-grid">
                 <?php foreach ($orders as $o):
                     $isUrgent = $o['priority'] == 'urgent';
-                    $itemsList = explode('||', $o['items']);
-                    $thumbsList = explode('||', $o['thumbs']);
-                    $notesList = array_filter(explode('||', $o['all_notes']));
+                    $itemsList = ($o['items'] === null || $o['items'] === '') ? array() : explode('||', $o['items']);
+                    $thumbsList = ($o['thumbs'] === null || $o['thumbs'] === '') ? array() : explode('||', $o['thumbs']);
+                    $notesList = array_filter(explode('||', (string) $o['all_notes']));
+                    $billBoxes = isset($boxByBill[intval($o['bill_no'])]) ? $boxByBill[intval($o['bill_no'])] : array();
+                    $kindLabel = 'Cake order';
+                    if (!empty($billBoxes)) {
+                        $kindLabel = $billBoxes[0]['type'] === 'sweet' ? 'Sweet boxes' : 'Lunch boxes';
+                    } elseif ($o['sale_type'] === 'eatable') {
+                        $kindLabel = 'Eatable picture';
+                    } elseif ($o['sale_type'] === 'other') {
+                        $kindLabel = 'Other';
+                    }
                     $elapsed = time() - strtotime($o['dateent']);
                     $elapsedMin = floor($elapsed / 60);
                     ?>
@@ -275,13 +319,14 @@ if ($result) {
                             <div>
                                 <h4>Order #<?php echo $o['bill_no']; ?></h4>
                                 <small><?php echo htmlspecialchars($o['party_detail'] ? $o['party_detail'] : 'Walk-in'); ?></small>
+                                <div style="font-size:11px;color:#6c3483;font-weight:600;margin-top:2px;"><?php echo $kindLabel; ?></div>
                             </div>
                             <div style="text-align:right;">
                                 <?php echo getStatusBadge($o['status']); ?>
                                 <?php if ($isUrgent): ?>
-                                    <div style="color:#e74c3c;font-size:11px;font-weight:bold;margin-top:4px;">🔴 URGENT</div>
+                                    <div style="color:#e74c3c;font-size:11px;font-weight:bold;margin-top:4px;"> URGENT</div>
                                 <?php endif; ?>
-                                <div style="font-size:11px;color:#888;margin-top:4px;">⏱ <?php echo $elapsedMin; ?> min ago
+                                <div style="font-size:11px;color:#888;margin-top:4px;"> <?php echo $elapsedMin; ?> min ago
                                 </div>
                             </div>
                         </div>
@@ -292,7 +337,7 @@ if ($result) {
                             $itemDetailsSql = "SELECT id, 
 					(image_data IS NOT NULL AND image_data != '') AS has_image,
 					(audio_data IS NOT NULL AND audio_data != '') AS has_audio
-					FROM cake_order WHERE bill_no = " . intval($o['bill_no']) . " ORDER BY id";
+					FROM cake_order WHERE bill_no = " . intval($o['bill_no']) . " AND (sale_type IS NULL OR sale_type IN ('cake','eatable','other')) AND ordercancel = 0 ORDER BY id";
                             $itemDetailsRes = mysqli_query($mysqli, $itemDetailsSql);
                             $itemDetails = array();
                             if ($itemDetailsRes) {
@@ -300,6 +345,23 @@ if ($result) {
                                     $itemDetails[] = $d;
                             }
                             ?>
+                            <?php foreach ($billBoxes as $grp): ?>
+                                <div class="kitchen-item" style="display:block;background:#f7f1fb;">
+                                    <div style="font-weight:600;font-size:13px;">
+                                        <?php echo $grp['type'] === 'sweet' ? 'Sweet box' : 'Lunch box'; ?> <?php echo $grp['no']; ?>: <?php echo $grp['boxes']; ?> boxes
+                                    </div>
+                                    <div style="font-size:12px;margin-top:3px;">
+                                        <?php
+                                        $boxParts = array();
+                                        foreach ($grp['items'] as $bi) {
+                                            $boxParts[] = htmlspecialchars($bi['name']) . ' x' . ot_clean_number($bi['per_box']);
+                                        }
+                                        echo implode(', ', $boxParts);
+                                        ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+
                             <?php foreach ($itemsList as $idx => $item):
                                 $thumbHex = isset($thumbsList[$idx]) ? trim($thumbsList[$idx]) : '';
                                 $itemId = isset($itemDetails[$idx]) ? $itemDetails[$idx]['id'] : 0;
@@ -312,7 +374,7 @@ if ($result) {
                                             title="Click to view full image"
                                             onclick="viewImage(<?php echo $itemId; ?>, '<?php echo addslashes(trim($item)); ?>', <?php echo $o['bill_no']; ?>)">
                                     <?php else: ?>
-                                        <div class="thumb placeholder-thumb">🧁</div>
+                                        <div class="thumb placeholder-thumb"></div>
                                     <?php endif; ?>
 
                                     <span style="font-size:13px;flex:1;">
@@ -325,7 +387,7 @@ if ($result) {
                                     <?php if ($hasAudio): ?>
                                         <button class="audio-mini-btn" title="Play voice instructions"
                                             onclick="playItemAudio(<?php echo $itemId; ?>, this)">
-                                            🔊
+                                            
                                         </button>
                                     <?php endif; ?>
                                 </div>
@@ -333,7 +395,7 @@ if ($result) {
 
                             <?php if (!empty($notesList)): ?>
                                 <div style="margin-top:8px;padding:8px;background:#fff8e1;border-radius:6px;font-size:12px;">
-                                    📝 <?php echo htmlspecialchars(implode(' | ', $notesList)); ?>
+                                     <?php echo htmlspecialchars(implode(' | ', $notesList)); ?>
                                 </div>
                             <?php endif; ?>
 
@@ -341,12 +403,12 @@ if ($result) {
 
                             <!--  <?php if ($o['has_audio']): ?>
                 <button class="btn btn-sm btn-warning" style="margin-top:8px;" onclick="playKitchenAudio(<?php echo $o['bill_no']; ?>)">
-                    🔊 Play Voice Note
+                     Play Voice Note
                 </button>
                 <?php endif; ?> -->
 
                             <div style="margin-top:8px;font-size:12px;color:#888;">
-                                🚚 Deliver: <?php echo date('d M', strtotime($o['deliver_date'])); ?> at
+                                 Deliver: <?php echo date('d M', strtotime($o['deliver_date'])); ?> at
                                 <?php echo $o['delivery_time']; ?>
                             </div>
                         </div>
@@ -357,12 +419,12 @@ if ($result) {
                                 <?php if ($o['status'] == 'confirmed'): ?>
                                     <button class="btn btn-sm btn-warning"
                                         onclick="kitchenAction(<?php echo $o['bill_no']; ?>, 'preparing')">
-                                        🔥 Start Preparing
+                                         Start Preparing
                                     </button>
                                 <?php elseif ($o['status'] == 'preparing'): ?>
                                     <button class="btn btn-sm btn-success"
                                         onclick="kitchenAction(<?php echo $o['bill_no']; ?>, 'ready')">
-                                        ✅ Mark Ready
+                                         Mark Ready
                                     </button>
                                 <?php endif; ?>
                             </div>
@@ -376,7 +438,7 @@ if ($result) {
 
         <!-- IMAGE VIEWER MODAL -->
         <div class="img-viewer-overlay" id="imgViewer" onclick="closeImageViewer(event)">
-            <button class="close-btn" onclick="closeImageViewer(event, true)">✕</button>
+            <button class="close-btn" onclick="closeImageViewer(event, true)">Close</button>
             <img id="viewerImage" src="" alt="">
             <div class="info" id="viewerInfo"></div>
         </div>
@@ -419,7 +481,7 @@ if ($result) {
                 var img = document.getElementById('viewerImage');
                 var info = document.getElementById('viewerInfo');
                 img.src = 'show_image.php?type=image&id=' + itemId + '&t=' + Date.now();
-                info.innerHTML = '🧁 <strong>' + itemName + '</strong> &nbsp;|&nbsp; Order #' + billNo;
+                info.innerHTML = ' <strong>' + itemName + '</strong> &nbsp;|&nbsp; Order #' + billNo;
                 document.getElementById('imgViewer').classList.add('show');
             }
 
@@ -442,7 +504,7 @@ if ($result) {
                     audio.pause();
                     audio.currentTime = 0;
                     btn.classList.remove('playing');
-                    btn.textContent = '🔊';
+                    btn.textContent = '';
                     currentAudioBtn = null;
                     return;
                 }
@@ -450,23 +512,23 @@ if ($result) {
                 // Reset previous button
                 if (currentAudioBtn) {
                     currentAudioBtn.classList.remove('playing');
-                    currentAudioBtn.textContent = '🔊';
+                    currentAudioBtn.textContent = '';
                 }
 
                 audio.src = 'show_image.php?type=audio&id=' + itemId + '&t=' + Date.now();
 
                 audio.play().then(function () {
                     btn.classList.add('playing');
-                    btn.textContent = '⏸';
+                    btn.textContent = '';
                     currentAudioBtn = btn;
-                    showToast('🔊 Playing voice instructions', 'info');
+                    showToast(' Playing voice instructions', 'info');
                 }).catch(function (err) {
                     showToast('Audio playback failed', 'error');
                 });
 
                 audio.onended = function () {
                     btn.classList.remove('playing');
-                    btn.textContent = '🔊';
+                    btn.textContent = '';
                     currentAudioBtn = null;
                 };
             }
@@ -480,7 +542,7 @@ if ($result) {
                         audio.pause();
                         if (currentAudioBtn) {
                             currentAudioBtn.classList.remove('playing');
-                            currentAudioBtn.textContent = '🔊';
+                            currentAudioBtn.textContent = '';
                             currentAudioBtn = null;
                         }
                     }
