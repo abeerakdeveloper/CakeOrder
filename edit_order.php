@@ -20,10 +20,11 @@ if (in_array($first['status'], array('ready','delivered','paid','cancelled'))) {
 }
 
 // Load products from inventory
-$prodSql = "SELECT inv_id, prod_name, retail_price, manualbc AS barcode, packing AS uom 
-            FROM inventory 
-            WHERE manufacture = 'Finish Product' AND active = 1 
-            ORDER BY prod_name ASC LIMIT 500";
+$prodSql = "SELECT i.inv_id, i.prod_name, i.retail_price, i.manualbc AS barcode, i.packing AS uom
+            FROM inventory i
+            INNER JOIN cake_product c ON c.inv_id = i.inv_id
+            WHERE i.manufacture = 'Finish Product' AND i.active = 1
+            ORDER BY i.prod_name ASC LIMIT 1000";
 $prodRes = mysqli_query($mysqli, $prodSql);
 $products = array();
 if ($prodRes) {

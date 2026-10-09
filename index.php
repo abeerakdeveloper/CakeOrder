@@ -1,35 +1,48 @@
 <?php
 require_once 'db.php';
 requireRole(array(1, 3));
+require_once 'order_lines.php';
+require_once 'company.php';
 
 date_default_timezone_set('Asia/Karachi');
 
-// Preview next bill no using retvchno
-if(false){
-
-$res = mysqli_query($mysqli, "SELECT retvchno('CAK') AS next_bill");
-$row = mysqli_fetch_assoc($res);
-$nextBillNo = $row && $row['next_bill'] ? intval($row['next_bill']) : 0;
-}
-$nextBillNo=0;
-
-// Load products from inventory
-$prodSql = "SELECT inv_id, prod_name, retail_price, manualbc AS barcode, packing AS uom 
-            FROM inventory 
-            WHERE manufacture = 'Finish Product' AND active = 1 
-            ORDER BY prod_name ASC LIMIT 500";
-$prodRes = mysqli_query($mysqli, $prodSql);
+// Cake picker: only the products ticked as cakes (Cake Products page, admin)
 $products = array();
+$prodRes = mysqli_query($mysqli, "SELECT i.inv_id, i.prod_name, i.retail_price, i.manualbc AS barcode, i.packing AS uom
+    FROM inventory i
+    INNER JOIN cake_product c ON c.inv_id = i.inv_id
+    WHERE i.manufacture = 'Finish Product' AND i.active = 1
+    ORDER BY i.prod_name ASC LIMIT 1000");
+$cakeSetupMissing = ($prodRes === false);
 if ($prodRes) {
     while ($p = mysqli_fetch_assoc($prodRes)) $products[] = $p;
 }
 
-// Top selling products (last 30 days)
-$topRes = mysqli_query($mysqli, "SELECT inv_id, category, retail_price, COUNT(*) AS cnt 
-    FROM cake_order WHERE inv_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND ordercancel = 0 
-    GROUP BY inv_id, category ORDER BY cnt DESC LIMIT 8");
+// Top selling cakes (last 30 days)
 $topSelling = array();
-if ($topRes) while ($t = mysqli_fetch_assoc($topRes)) $topSelling[] = $t;
+$topRes = mysqli_query($mysqli, "SELECT i.inv_id, i.prod_name AS category, i.retail_price, i.packing AS uom, COUNT(*) AS cnt
+    FROM cake_order co
+    INNER JOIN cake_product cp ON cp.inv_id = co.inv_id
+    INNER JOIN inventory i ON i.inv_id = co.inv_id
+    WHERE co.inv_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND co.ordercancel = 0
+      AND (co.sale_type IS NULL OR co.sale_type = 'cake')
+    GROUP BY i.inv_id, i.prod_name, i.retail_price, i.packing
+    ORDER BY cnt DESC LIMIT 8");
+if ($topRes) {
+    while ($t = mysqli_fetch_assoc($topRes)) $topSelling[] = $t;
+}
+
+// Name suggestions for box items (from earlier box orders)
+$lunchNames = array();
+$sweetNames = array();
+$nameRes = mysqli_query($mysqli, "SELECT DISTINCT sale_type, category FROM cake_order
+    WHERE sale_type IN ('lunch','sweet') AND ordercancel = 0 ORDER BY category LIMIT 400");
+if ($nameRes) {
+    while ($n = mysqli_fetch_assoc($nameRes)) {
+        if ($n['sale_type'] === 'sweet') $sweetNames[] = $n['category'];
+        else $lunchNames[] = $n['category'];
+    }
+}
 
 $flavors = array('Vanilla', 'Chocolate', 'Strawberry', 'Red Velvet', 'Mango', 'Butterscotch', 'Pineapple', 'Coffee', 'Black Forest', 'Tiramisu');
 $shapes = array('Round', 'Square', 'Heart', 'Rectangle', 'Number Shape', 'Custom Shape');
@@ -37,113 +50,109 @@ $uoms = array('pound', 'kg', 'pcs', 'dozen');
 $priorities = array('normal', 'urgent', 'vip');
 $occasions = array('Birthday', 'Anniversary', 'Wedding', 'Engagement', 'Baby Shower', 'Graduation', 'Corporate', 'Other');
 $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
+$chargeNames = array('Delivery', 'Decoration', 'Packaging', 'Other charge');
+
+$typeLabels = ot_type_labels();
+$initialType = (isset($_GET['type']) && is_string($_GET['type']) && isset($typeLabels[$_GET['type']])) ? $_GET['type'] : 'cake';
+$branch = getBranchInfo();
+$deliveryBranchDefault = $branch['name'];
 ?>
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>BestPOS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Order - <?php echo htmlspecialchars($COMPANY['name']); ?></title>
 <link rel="stylesheet" href="style.css">
 <style>
-/* Customer suggestion dropdown */
+/* New order screen */
+.top-logo { max-height: 40px; max-width: 170px; display: block; }
+.top-logo-text { color: #fff; font-size: 17px; font-weight: 700; }
+.topbar-brand { display: flex; align-items: center; gap: 14px; }
+.topbar-brand h2 { margin: 0; }
+.pos-main { min-width: 0; }
+.transaction-area { flex: 1; overflow-y: auto; min-height: 120px; }
 .suggest-box {
     position: absolute; background: #fff; border: 1px solid #6c3483;
     border-radius: 6px; max-height: 300px; overflow-y: auto; z-index: 100;
     min-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-.suggest-item {
-    padding: 10px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer;
-    transition: background 0.15s;
-}
+.suggest-item { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
 .suggest-item:hover { background: #f5f0fa; }
 .suggest-item .name { font-weight: 600; color: #333; font-size: 13px; }
 .suggest-item .meta { font-size: 11px; color: #888; margin-top: 2px; }
-.badge-vip { background: #f39c12; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 9px; margin-left: 4px; }
+.badge-vip { background: #6c3483; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 9px; margin-left: 4px; }
 .badge-loyal { background: #27ae60; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 9px; margin-left: 4px; }
-
 .tab-row { display: flex; gap: 4px; border-bottom: 2px solid #e8e0f0; margin-bottom: 12px; }
 .tab-btn {
-    padding: 8px 16px; cursor: pointer; border: none; background: transparent;
-    font-size: 12px; font-weight: 600; color: #888; border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
+    padding: 8px 14px; cursor: pointer; border: none; background: transparent;
+    font-size: 12px; font-weight: 600; color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px;
 }
 .tab-btn.active { color: #6c3483; border-bottom-color: #6c3483; }
-
-.section-header {
-    font-size: 11px; color: #888; letter-spacing: 1px; font-weight: 700;
-    margin: 12px 0 6px; text-transform: uppercase;
-}
-
-.customer-info-card {
-    background: linear-gradient(135deg, #f5f0fa 0%, #fff 100%);
-    border-left: 4px solid #6c3483; padding: 8px 12px; border-radius: 6px;
-    margin-top: 8px; font-size: 12px; display: none;
-}
+.customer-info-card { background: #f5f0fa; border-left: 4px solid #6c3483; padding: 8px 12px; border-radius: 6px; margin: 0 8px 8px; font-size: 12px; display: none; }
 .customer-info-card.show { display: block; }
 .customer-info-card strong { color: #6c3483; }
-
-.history-item {
-    padding: 8px; background: #fff; border-radius: 6px; margin-bottom: 4px;
-    border: 1px solid #e8e0f0; font-size: 12px; cursor: pointer;
-}
-.history-item:hover { border-color: #6c3483; }
-
-.advance-section {
-    background: #fff8e1; padding: 10px; border-radius: 6px; margin-top: 10px;
-    border: 1px dashed #f39c12; display: none;
-}
+.history-item { padding: 8px; background: #fff; border-radius: 6px; margin-bottom: 4px; border: 1px solid #e8e0f0; font-size: 12px; }
+.advance-section { background: #fff8e1; padding: 10px; border-radius: 6px; margin-top: 10px; border: 1px dashed #f39c12; display: none; }
 .advance-section.show { display: block; }
-
 .kbd-hint { font-size: 10px; color: #aaa; }
-
-.product-tag {
-    display: inline-block; background: #f5f0fa; padding: 2px 8px; border-radius: 10px;
-    font-size: 10px; color: #6c3483; margin-right: 4px;
-}
-
-.barcode-input-area {
-    background: #fff; padding: 10px; border-radius: 8px;
-    border: 2px dashed #6c3483; margin-bottom: 8px; text-align: center;
-}
+.barcode-input-area { background: #fff; padding: 10px; border-radius: 8px; border: 2px dashed #6c3483; margin-bottom: 8px; text-align: center; }
+.empty-msg { text-align: center; padding: 36px 20px; color: #888; font-size: 14px; }
+.cp-msg.error { background: #fdecec; color: #9b2c2c; border: 1px solid #f1bcbc; padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; }
+.customer-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 14px; }
+.customer-bar .field { display: flex; flex-direction: column; gap: 3px; }
+.customer-bar label { font-size: 12px; color: #555; font-weight: 600; }
+.customer-bar input, .customer-bar select { padding: 7px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: #fff; }
+.field-row-label { font-size: 12px; color: #6c3483; font-weight: 600; margin-bottom: 4px; }
+.footer-fields { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.footer-fields .field { display: flex; flex-direction: column; gap: 2px; }
+.footer-fields label { font-size: 11px; color: #6c3483; font-weight: 600; }
+.footer-fields input { padding: 6px; border: 1px solid #ddd; border-radius: 6px; }
+.modal h3 { font-size: 16px; }
 </style>
 </head>
-<body>
+<body data-type="<?php echo $initialType; ?>">
 
 <div class="topbar">
-	<?php $branch = getBranchInfo(); ?>
-	<h2>🧁 <?php echo htmlspecialchars($branch['name']); ?> — New Order</h2>
+    <div class="topbar-brand">
+        <?php echo company_logo_html('top-logo'); ?>
+        <h2>New order</h2>
+    </div>
     <div class="topbar-right">
         <span style="font-size:13px;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:12px;">
             <?php echo getRoleName(); ?>
         </span>
         <a href="dashboard.php">Dashboard</a>
         <a href="order_list.php">Orders</a>
-        <a href="logout.php" style="background:#e74c3c;padding:6px 12px;border-radius:6px;">🚪</a>
+        <a href="logout.php" style="background:#e74c3c;padding:6px 12px;border-radius:6px;">Logout</a>
     </div>
 </div>
 
 <div class="pos-layout">
-    <!-- SIDEBAR WITH TABS -->
-    <div class="pos-sidebar">
+    <!-- CAKE PICKER: shown only for Cake orders, and only cakes marked in Cake Products -->
+    <div class="pos-sidebar show-cake">
         <div class="barcode-input-area">
-            <input type="text" id="barcodeInput" placeholder="📷 Scan Barcode..." 
+            <input type="text" id="barcodeInput" placeholder="Scan barcode"
                    style="width:100%;padding:6px;border:none;background:transparent;text-align:center;font-size:13px;"
                    onkeyup="if(event.key=='Enter') scanBarcode()">
-            <div class="kbd-hint">Press ENTER after scan</div>
+            <div class="kbd-hint">Press Enter after scan</div>
         </div>
-        
-        <input type="text" id="searchItems" class="search" placeholder="🔍 Search products...">
-        
+
+        <input type="text" id="searchItems" class="search" placeholder="Search cakes">
+
+        <?php if ($cakeSetupMissing): ?>
+        <div class="cp-msg error">The cake list is not set up yet. Run the database update, then mark cakes on the Cake Products page.</div>
+        <?php endif; ?>
+
         <div class="tab-row">
-            <button class="tab-btn active" onclick="switchTab('all', this)">📋 All</button>
-            <button class="tab-btn" onclick="switchTab('top', this)">⭐ Top</button>
+            <button type="button" class="tab-btn active" onclick="switchTab('all', this)">All cakes</button>
+            <button type="button" class="tab-btn" onclick="switchTab('top', this)">Top sellers</button>
         </div>
-        
-        <!-- ALL PRODUCTS -->
+
         <div id="tab-all" class="product-list" style="max-height: calc(100vh - 280px);">
             <?php foreach ($products as $p): ?>
-            <div class="product-item" 
-                 data-id="<?php echo $p['inv_id']; ?>"
+            <div class="product-item"
+                 data-id="<?php echo intval($p['inv_id']); ?>"
                  data-name="<?php echo htmlspecialchars($p['prod_name'], ENT_QUOTES); ?>"
                  data-price="<?php echo $p['retail_price']; ?>"
                  data-uom="<?php echo htmlspecialchars($p['uom'], ENT_QUOTES); ?>"
@@ -153,213 +162,248 @@ $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 
                 <div class="price">Rs. <?php echo number_format($p['retail_price'], 0); ?></div>
                 <div class="meta">
                     <?php echo htmlspecialchars($p['uom']); ?>
-                    <?php if (!empty($p['barcode'])): ?> | 🏷 <?php echo htmlspecialchars($p['barcode']); ?><?php endif; ?>
+                    <?php if (!empty($p['barcode'])): ?> &middot; <?php echo htmlspecialchars($p['barcode']); ?><?php endif; ?>
                 </div>
             </div>
             <?php endforeach; ?>
-            <?php if (empty($products)): ?>
+            <?php if (empty($products) && !$cakeSetupMissing): ?>
             <div style="text-align:center;padding:20px;color:#999;font-size:12px;">
-                No products. Check inventory table.
+                No cakes yet. Mark the cake products on the Cake Products page.
             </div>
             <?php endif; ?>
         </div>
-        
-        <!-- TOP SELLING -->
+
         <div id="tab-top" class="product-list" style="display:none;max-height: calc(100vh - 280px);">
             <?php if (empty($topSelling)): ?>
             <p style="text-align:center;color:#999;font-size:12px;padding:20px;">No sales data yet</p>
             <?php endif; ?>
-            <?php foreach ($topSelling as $idx => $t): ?>
+            <?php foreach ($topSelling as $t): ?>
             <div class="product-item"
-                 data-id="<?php echo $t['inv_id']; ?>"
+                 data-id="<?php echo intval($t['inv_id']); ?>"
                  data-name="<?php echo htmlspecialchars($t['category'], ENT_QUOTES); ?>"
                  data-price="<?php echo $t['retail_price']; ?>"
-                 data-uom="pcs"
+                 data-uom="<?php echo htmlspecialchars($t['uom'], ENT_QUOTES); ?>"
+                 data-barcode=""
                  onclick="addItemFromProduct(this)">
-                <div class="name">
-                    <?php if ($idx < 3): ?>
-                    <span style="color:#f39c12;">🏆</span>
-                    <?php endif; ?>
-                    <?php echo htmlspecialchars($t['category']); ?>
-                </div>
+                <div class="name"><?php echo htmlspecialchars($t['category']); ?></div>
                 <div class="price">Rs. <?php echo number_format($t['retail_price'], 0); ?></div>
-                <div class="meta">Sold <?php echo $t['cnt']; ?>x in last 30 days</div>
+                <div class="meta">Sold <?php echo intval($t['cnt']); ?> times in the last 30 days</div>
             </div>
             <?php endforeach; ?>
         </div>
     </div>
 
-    <!-- MAIN AREA -->
     <div class="pos-main">
-        <div class="stepper">
-            <div class="step active"><span>1</span> Draft</div>
-            <div class="line"></div>
-            <div class="step"><span>2</span> Order</div>
-            <div class="line"></div>
-            <div class="step"><span>3</span> Payment</div>
-            <div class="line"></div>
-            <div class="step"><span>4</span> Receipt</div>
+        <!-- ORDER TYPE -->
+        <div class="type-tabs">
+            <button type="button" class="type-tab" data-type="cake" onclick="selectType('cake')">Cake</button>
+            <button type="button" class="type-tab" data-type="lunch" onclick="selectType('lunch')">Lunch box</button>
+            <button type="button" class="type-tab" data-type="sweet" onclick="selectType('sweet')">Sweet box</button>
+            <button type="button" class="type-tab" data-type="eatable" onclick="selectType('eatable')">Eatable picture</button>
+            <button type="button" class="type-tab" data-type="other" onclick="selectType('other')">Other</button>
         </div>
 
-        <!-- CUSTOMER BAR ENHANCED -->
-        <div class="customer-bar">
-            <div class="field" style="position:relative;">
-                <label>📱 Phone (search by number)</label>
-                <input type="text" id="custCell" placeholder="0300-0000000" autocomplete="off"
-                       oninput="searchCustomer(this.value)" onblur="setTimeout(hideSuggest, 200)">
-                <div id="suggestBox" class="suggest-box" style="display:none;"></div>
+        <!-- CUSTOMER AND DELIVERY -->
+        <div style="margin:0 8px 8px;background:#fff;border:1px solid #e8e0f0;border-radius:8px;padding:12px 14px;">
+            <div class="customer-bar">
+                <div class="field" style="position:relative;">
+                    <label for="custCell">Phone (search by number)</label>
+                    <input type="text" id="custCell" placeholder="0300-0000000" autocomplete="off"
+                           oninput="searchCustomer(this.value)" onblur="setTimeout(hideSuggest, 200)">
+                    <div id="suggestBox" class="suggest-box" style="display:none;"></div>
+                </div>
+                <div class="field">
+                    <label for="custName">Customer name</label>
+                    <input type="text" id="custName" placeholder="Walk-in" value="Walk-in">
+                </div>
+                <div class="field">
+                    <label for="deliverDate">Delivery date</label>
+                    <input type="date" id="deliverDate" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>">
+                </div>
+                <div class="field">
+                    <label for="deliverTime">Delivery time</label>
+                    <input type="time" id="deliverTime" value="<?php echo date('H:i', strtotime('+30 minutes')); ?>">
+                </div>
+                <div class="field">
+                    <label for="deliveryType">Pickup or delivery</label>
+                    <select id="deliveryType" onchange="toggleDeliveryAddress()">
+                        <option value="pickup">Pickup</option>
+                        <option value="delivery">Home delivery</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="deliveryBranch">Delivery branch</label>
+                    <input type="text" id="deliveryBranch" maxlength="100" value="<?php echo htmlspecialchars($deliveryBranchDefault); ?>">
+                </div>
+                <div class="field">
+                    <label for="priority">Priority</label>
+                    <select id="priority">
+                        <?php foreach ($priorities as $pr): ?>
+                        <option value="<?php echo $pr; ?>"><?php echo ucfirst($pr); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
-            <div class="field">
-                <label>👤 Customer Name</label>
-                <input type="text" id="custName" placeholder="Walk-in" value="Walk-in">
-            </div>
-            <div class="field">
-                <label>📅 Delivery Date</label>
-                <input type="date" id="deliverDate" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>">
-            </div>
-            <div class="field">
-                <label>🕐 Time</label>
-                <input type="time" id="deliverTime" value="<?php echo date('H:i', strtotime('+30 minutes')); ?>">
-	    </div>
-            <div class="field">
-                <label>⚡ Priority</label>
-                <select id="priority">
-                    <?php foreach ($priorities as $p): ?>
-                    <option value="<?php echo $p; ?>"><?php echo ucfirst($p); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>🎉 Occasion</label>
-                <select id="occasion">
-                    <option value="">-- None --</option>
-                    <?php foreach ($occasions as $o): ?>
-                    <option value="<?php echo $o; ?>"><?php echo $o; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>📍 Source</label>
-                <select id="orderSource">
-                    <?php foreach ($sources as $k => $v): ?>
-                    <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>🚚 Type</label>
-                <select id="deliveryType" onchange="toggleDeliveryAddress()">
-                    <option value="pickup">Pickup</option>
-                    <option value="delivery">Home Delivery</option>
-                </select>
-            </div>
-        </div>
-        
-        <!-- DELIVERY ADDRESS ROW -->
-        <div id="deliveryAddrRow" style="background:#fff;margin:0 8px 8px;padding:10px 16px;border-radius:8px;border:1px solid #e8e0f0;display:none;">
-            <div class="field">
-                <label style="font-size:12px;font-weight:600;color:#6c3483;">📍 Delivery Address</label>
-                <input type="text" id="deliveryAddress" placeholder="Full delivery address..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+            <div id="deliveryAddrRow" style="display:none;margin-top:10px;">
+                <div class="field" style="display:flex;flex-direction:column;gap:3px;">
+                    <label style="font-size:12px;font-weight:600;color:#6c3483;" for="deliveryAddress">Delivery address</label>
+                    <input type="text" id="deliveryAddress" placeholder="Full delivery address" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                </div>
             </div>
         </div>
 
-        <!-- CUSTOMER INFO CARD -->
-        <div id="customerInfoCard" class="customer-info-card" style="margin:0 8px 8px;">
+        <details class="more-details" style="margin:0 8px 8px;">
+            <summary>More details (occasion, order source)</summary>
+            <div class="customer-bar" style="margin-top:10px;">
+                <div class="field">
+                    <label for="occasion">Occasion</label>
+                    <select id="occasion">
+                        <option value="">None</option>
+                        <?php foreach ($occasions as $o): ?>
+                        <option value="<?php echo $o; ?>"><?php echo $o; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="orderSource">Order source</label>
+                    <select id="orderSource">
+                        <?php foreach ($sources as $k => $v): ?>
+                        <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+        </details>
+
+        <div id="customerInfoCard" class="customer-info-card">
             <span id="customerInfoText"></span>
-            <button class="btn btn-sm btn-outline" style="float:right;margin-left:8px;" onclick="showCustomerHistory()">📜 View History</button>
+            <button type="button" class="btn btn-sm btn-outline" style="float:right;margin-left:8px;" onclick="showCustomerHistory()">View history</button>
         </div>
 
+        <!-- ITEMS -->
         <div class="transaction-area">
             <div class="transaction-header">
                 <div>
-                    <h3>Current Transaction</h3>
-                    <p>Order #<span id="billNo"><?php echo $nextBillNo; ?></span> • Customer: <span id="custDisplay">Walk-in</span></p>
+                    <h3 id="areaTitle">Cake items</h3>
+                    <p>Order #<span id="billNo">New</span> &middot; Customer: <span id="custDisplay">Walk-in</span></p>
                 </div>
                 <div>
-                    <button class="btn btn-sm btn-outline" onclick="showCustomerHistory()" id="historyBtn" style="display:none;">📜 Previous Orders</button>
-                    <button class="btn-clear" onclick="clearAll()">🗑 Clear All</button>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="showCustomerHistory()" id="historyBtn" style="display:none;">Previous orders</button>
+                    <button type="button" class="btn-clear" onclick="clearAll()">Clear all</button>
                 </div>
             </div>
-            <div id="cartItems" class="cart-items"></div>
-            <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;">
-                👈 Click products from the left, scan barcode, or search by customer phone
+
+            <!-- Cake, eatable picture and other items -->
+            <div class="show-cake show-eatable show-other">
+                <div id="cartItems" class="cart-items"></div>
+                <div id="emptyMsg" class="empty-msg"></div>
+                <div class="add-row show-cake"><button type="button" class="btn btn-sm btn-outline" onclick="addEatableItem()">+ Add eatable picture to this cake</button></div>
+                <div class="add-row show-eatable"><button type="button" class="btn btn-sm btn-primary" onclick="addEatableItem()">+ Add picture</button></div>
+                <div class="add-row show-other"><button type="button" class="btn btn-sm btn-primary" onclick="addOtherItem()">+ Add item</button></div>
+            </div>
+
+            <!-- Lunch and sweet boxes: box groups -->
+            <div class="show-box">
+                <div class="box-totals">
+                    <span>Total boxes: <strong id="boxTotalCount">0</strong></span>
+                    <span>Total: <strong id="boxTotalAmount">Rs. 0</strong></span>
+                </div>
+                <div id="boxGroups"></div>
+                <div class="add-row"><button type="button" class="btn btn-sm btn-primary" onclick="addBoxGroup()">+ Add box group</button></div>
+                <p class="muted" style="margin-top:8px;">
+                    One box group is one kind of box. Example: 6 boxes with set A and 6 boxes with set B are two box groups.
+                </p>
             </div>
         </div>
 
+        <!-- EXTRA CHARGES (all order types) -->
+        <div class="charges-card">
+            <h4>Extra charges (optional): delivery, decoration, packaging, and similar</h4>
+            <div id="chargeRows"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="addCharge()">+ Add charge</button>
+                <span class="box-summary">Charges: <span id="chargeTotal">Rs. 0</span></span>
+            </div>
+        </div>
+
+        <!-- TOTALS AND ACTIONS -->
         <div class="footer-bar">
             <div class="footer-inner">
                 <div class="totals">
-                    <div class="row">Subtotal <span id="subtotal">Rs. 0</span></div>
+                    <div class="row">Items <span id="subtotal">Rs. 0</span></div>
+                    <div class="row">Extra charges <span id="chargesDisplay">Rs. 0</span></div>
                     <div class="row">Discount <span id="discountDisplay">Rs. 0</span></div>
                     <div class="row grand">Total <span id="total">Rs. 0</span></div>
                     <div class="row" style="color:#27ae60;font-size:12px;">Advance <span id="advanceDisplay">Rs. 0</span></div>
-                    <div class="row" style="color:#e74c3c;font-size:12px;font-weight:bold;">Balance <span id="balanceDisplay">Rs. 0</span></div>
+                    <div class="row" style="color:#c0392b;font-size:13px;font-weight:bold;">Balance <span id="balanceDisplay">Rs. 0</span></div>
                 </div>
-                <div style="display:flex;gap:8px;align-items:flex-end;">
-                    <div class="field" style="display:flex;flex-direction:column;gap:2px;">
-                        <label style="font-size:11px;color:#6c3483;font-weight:600;">Discount %</label>
-                        <input type="number" id="discPercent" value="0" min="0" max="100" style="width:60px;padding:6px;border:1px solid #ddd;border-radius:6px;" onchange="applyDiscPercent()">
+                <div class="footer-fields">
+                    <div class="field">
+                        <label for="discPercent">Discount %</label>
+                        <input type="number" id="discPercent" value="0" min="0" max="100" style="width:70px;" onchange="applyDiscPercent()">
                     </div>
-                    <div class="field" style="display:flex;flex-direction:column;gap:2px;">
-                        <label style="font-size:11px;color:#6c3483;font-weight:600;">Flat Disc</label>
-                        <input type="number" id="flatDisc" value="0" min="0" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:6px;" onchange="calcTotals()">
+                    <div class="field">
+                        <label for="flatDisc">Discount Rs.</label>
+                        <input type="number" id="flatDisc" value="0" min="0" style="width:90px;" onchange="calcTotals()">
                     </div>
-                    <div class="field" style="display:flex;flex-direction:column;gap:2px;">
-                        <label style="font-size:11px;color:#6c3483;font-weight:600;">Advance Rs.</label>
-                        <input type="number" id="advance" value="0" min="0" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:6px;" onchange="toggleAdvanceMethod()">
+                    <div class="field">
+                        <label for="advance">Advance Rs.</label>
+                        <input type="number" id="advance" value="0" min="0" style="width:90px;" onchange="toggleAdvanceMethod()">
                     </div>
                 </div>
                 <div class="action-btns">
-                    <button class="btn-hold" onclick="saveOrder('hold')">⏸ Hold</button>
-                    <button class="btn-confirm" onclick="saveOrder('confirmed')">Confirm Order →</button>
+                    <button type="button" class="btn-hold" onclick="saveOrder('hold')">Hold (F10)</button>
+                    <button type="button" class="btn-confirm" id="confirmBtn" onclick="saveOrder('confirmed')">Confirm order (F9)</button>
                 </div>
             </div>
-            
-            <!-- ADVANCE PAYMENT METHOD -->
+
             <div id="advanceSection" class="advance-section">
-                <label style="font-size:12px;font-weight:600;color:#f39c12;">💰 Advance Payment Method</label>
+                <label style="font-size:12px;font-weight:600;color:#9a6700;">Advance payment method</label>
                 <div style="display:flex;gap:6px;margin-top:6px;">
-                    <button type="button" class="btn btn-sm btn-outline" data-method="cash" onclick="setAdvanceMethod('cash', this)">💵 Cash</button>
-                    <button type="button" class="btn btn-sm btn-outline" data-method="bank" onclick="setAdvanceMethod('bank', this)">🏦 Bank</button>
-                    <button type="button" class="btn btn-sm btn-outline" data-method="card" onclick="setAdvanceMethod('card', this)">💳 Card</button>
-                    <button type="button" class="btn btn-sm btn-outline" data-method="easypaisa" onclick="setAdvanceMethod('easypaisa', this)">📱 Easypaisa</button>
+                    <button type="button" class="btn btn-sm btn-outline" data-method="cash" onclick="setAdvanceMethod('cash', this)">Cash</button>
+                    <button type="button" class="btn btn-sm btn-outline" data-method="bank" onclick="setAdvanceMethod('bank', this)">Bank</button>
+                    <button type="button" class="btn btn-sm btn-outline" data-method="card" onclick="setAdvanceMethod('card', this)">Card</button>
+                    <button type="button" class="btn btn-sm btn-outline" data-method="easypaisa" onclick="setAdvanceMethod('easypaisa', this)">Easypaisa</button>
                 </div>
-                <small style="display:block;margin-top:4px;color:#888;">Advance will be recorded in GL ledger automatically</small>
+                <small style="display:block;margin-top:4px;color:#888;">The advance is recorded in the GL ledger automatically.</small>
             </div>
         </div>
     </div>
 </div>
+
+<datalist id="lunchNames"><?php foreach ($lunchNames as $n): ?><option value="<?php echo htmlspecialchars($n, ENT_QUOTES); ?>"><?php endforeach; ?></datalist>
+<datalist id="sweetNames"><?php foreach ($sweetNames as $n): ?><option value="<?php echo htmlspecialchars($n, ENT_QUOTES); ?>"><?php endforeach; ?></datalist>
+<datalist id="chargeNames"><?php foreach ($chargeNames as $n): ?><option value="<?php echo htmlspecialchars($n, ENT_QUOTES); ?>"><?php endforeach; ?></datalist>
 
 <!-- IMAGE MODAL -->
 <div class="modal-overlay" id="imageModal">
     <div class="modal">
-        <h3>📷 Attach Image</h3>
-        <!-- <input type="file" id="imageFile" accept="image/*" capture="environment" onchange="previewImage(this)" style="width:100%;padding:10px;border:1px dashed #6c3483;border-radius:8px;"> -->
-		<input type="file" id="imageFile" accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png" capture="environment" onchange="previewImage(this)" style="width:100%;padding:10px;border:1px dashed #6c3483;border-radius:8px;">
-		<small style="display:block;margin-top:6px;color:#888;font-size:11px;">
-			📌 Only JPG/PNG accepted. Images auto-resized to 1024px and converted to JPG.
-		</small>
+        <h3>Attach photo</h3>
+        <input type="file" id="imageFile" accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png" capture="environment" onchange="previewImage(this)" style="width:100%;padding:10px;border:1px dashed #6c3483;border-radius:8px;">
+        <small style="display:block;margin-top:6px;color:#888;font-size:11px;">
+            Only JPG or PNG. Images are resized to 1024 px and saved as JPG.
+        </small>
         <img id="imgPreview" class="img-preview" style="display:none;max-height:300px;margin-top:10px;">
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="closeImageModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="saveImage()">Save Image</button>
+            <button type="button" class="btn btn-outline" onclick="closeImageModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveImage()">Save photo</button>
         </div>
     </div>
 </div>
 
-<!-- AUDIO MODAL -->
+<!-- VOICE MODAL -->
 <div class="modal-overlay" id="audioModal">
     <div class="modal">
-        <h3>🎤 Voice Instructions</h3>
-        <p style="margin-bottom:12px;color:#888;font-size:13px;">Record voice note for chef</p>
+        <h3>Voice message</h3>
+        <p style="margin-bottom:12px;color:#888;font-size:13px;">Record a voice note for the kitchen</p>
         <div style="text-align:center;margin:20px 0;">
-            <button class="btn btn-danger" id="recordBtn" onclick="toggleRecord()" style="width:60px;height:60px;border-radius:50%;font-size:24px;">🎤</button>
+            <button type="button" class="btn btn-danger" id="recordBtn" onclick="toggleRecord()" style="width:90px;height:44px;">Record</button>
             <p id="recordStatus" style="margin-top:8px;font-size:12px;color:#888;">Click to record</p>
         </div>
         <audio id="audioPlayback" controls style="width:100%;display:none;margin:10px 0;"></audio>
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="closeAudioModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="saveAudio()">Save</button>
+            <button type="button" class="btn btn-outline" onclick="closeAudioModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveAudio()">Save</button>
         </div>
     </div>
 </div>
@@ -367,10 +411,10 @@ $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 
 <!-- CUSTOMER HISTORY MODAL -->
 <div class="modal-overlay" id="historyModal">
     <div class="modal" style="max-width:650px;">
-        <h3>📜 Customer Order History</h3>
+        <h3>Customer order history</h3>
         <div id="historyContent" style="max-height:400px;overflow-y:auto;"></div>
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="document.getElementById('historyModal').classList.remove('show')">Close</button>
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('historyModal').classList.remove('show')">Close</button>
         </div>
     </div>
 </div>
@@ -381,7 +425,10 @@ $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 
 var FLAVORS = <?php echo json_encode($flavors); ?>;
 var SHAPES = <?php echo json_encode($shapes); ?>;
 var UOMS = <?php echo json_encode($uoms); ?>;
+var currentType = '<?php echo $initialType; ?>';
 var itemCounter = 0;
+var boxCounter = 0;
+var lastItemsTotal = 0;
 var currentImageItem = null;
 var currentAudioItem = null;
 var mediaRecorder = null;
@@ -389,22 +436,120 @@ var audioChunks = [];
 var tempImageData = '';
 var selectedAdvanceMethod = '';
 var currentCustomerCell = '';
+var TYPE_TITLES = { cake: 'Cake items', lunch: 'Lunch boxes', sweet: 'Sweet boxes', eatable: 'Eatable pictures', other: 'Other items' };
 
-// ===== TABS =====
+// ===== HELPERS =====
+function esc(s) {
+    return String(s === undefined || s === null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function money(n) { return Math.round(n).toLocaleString('en-US'); }
+function isBoxType(t) { return t === 'lunch' || t === 'sweet'; }
+function removeEl(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
+function labelWrap(text, html, extraClass) {
+    return '<label' + (extraClass ? ' class="' + extraClass + '"' : '') + '>' + esc(text) + html + '</label>';
+}
+function selectHtml(cls, options, selected) {
+    var h = '<select class="' + cls + '"><option value="">Choose</option>';
+    for (var i = 0; i < options.length; i++) {
+        h += '<option value="' + esc(options[i]) + '"' + (options[i] === selected ? ' selected' : '') + '>' + esc(options[i]) + '</option>';
+    }
+    return h + '</select>';
+}
+function qtyControlHtml(id, qty) {
+    return '<div class="qty-control">' +
+        '<button type="button" onclick="changeQty(\'' + id + '\', -1)">-</button>' +
+        '<input type="number" class="qty-input" value="' + qty + '" min="1" step="1" onchange="updateQtyDirect(\'' + id + '\', this.value)">' +
+        '<button type="button" onclick="changeQty(\'' + id + '\', 1)">+</button>' +
+        '</div>';
+}
+function cardImageHtml(id, placeholder) {
+    return '<div class="item-image" id="imgArea_' + id + '" onclick="openImageModal(\'' + id + '\')">' +
+        '<span class="placeholder">' + esc(placeholder) + '</span><span class="upload-icon">+</span></div>';
+}
+function makeCard(id, kind) {
+    var div = document.createElement('div');
+    div.className = 'cart-item fade-in';
+    div.id = id;
+    div.dataset.kind = kind;
+    div.dataset.invId = 0;
+    div.dataset.name = '';
+    div.dataset.price = 0;
+    div.dataset.image = '';
+    div.dataset.audio = '';
+    return div;
+}
+function setCardImage(id, dataUrl) {
+    document.getElementById(id).dataset.image = dataUrl;
+    document.getElementById('imgArea_' + id).innerHTML = '<img src="' + dataUrl + '" alt="Photo"><span class="upload-icon">Change</span>';
+}
+
+// ===== ORDER TYPE =====
+function hasAnyItems() {
+    return document.querySelectorAll('#cartItems .cart-item').length > 0 ||
+           document.querySelectorAll('#boxGroups .box-group').length > 0;
+}
+function selectType(type) {
+    if (type === currentType) return;
+    if (hasAnyItems()) {
+        if (!confirm('Change order type?\n\nThe items you added will be removed.')) return;
+        clearItems();
+    }
+    setType(type);
+}
+function setType(type) {
+    currentType = type;
+    document.body.setAttribute('data-type', type);
+    var tabs = document.querySelectorAll('.type-tab');
+    for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.toggle('active', tabs[i].getAttribute('data-type') === type);
+    }
+    document.getElementById('areaTitle').textContent = TYPE_TITLES[type];
+    if (isBoxType(type) && document.querySelectorAll('#boxGroups .box-group').length === 0) {
+        addBoxGroup();
+    }
+    updateEmptyMessage();
+    calcTotals();
+    if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', 'index.php?type=' + type);
+    }
+}
+function clearItems() {
+    document.getElementById('cartItems').innerHTML = '';
+    document.getElementById('boxGroups').innerHTML = '';
+    updateEmptyMessage();
+    calcTotals();
+}
+function updateEmptyMessage() {
+    var box = document.getElementById('emptyMsg');
+    var hasCards = document.querySelectorAll('#cartItems .cart-item').length > 0;
+    box.style.display = (hasCards || isBoxType(currentType)) ? 'none' : 'block';
+    if (currentType === 'cake') {
+        box.textContent = 'Click a cake on the left, scan its barcode, or search by customer phone.';
+    } else if (currentType === 'eatable') {
+        box.textContent = 'Click "Add picture" to add an eatable picture with its photo.';
+    } else {
+        box.textContent = 'Click "Add item" to add an item.';
+    }
+}
+
+// ===== TABS (cake picker) =====
 function switchTab(tab, btn) {
-    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    var tabsBtn = document.querySelectorAll('.tab-btn');
+    for (var i = 0; i < tabsBtn.length; i++) tabsBtn[i].classList.remove('active');
     btn.classList.add('active');
     document.getElementById('tab-all').style.display = tab === 'all' ? '' : 'none';
     document.getElementById('tab-top').style.display = tab === 'top' ? '' : 'none';
 }
 
-// ===== BARCODE SCANNER =====
+// ===== BARCODE SCANNER (cakes only) =====
 function scanBarcode() {
     var code = document.getElementById('barcodeInput').value.trim();
     if (!code) return;
-    
     var found = false;
-    var items = document.querySelectorAll('.product-item');
+    var items = document.querySelectorAll('#tab-all .product-item');
     for (var i = 0; i < items.length; i++) {
         if (items[i].dataset.barcode === code) {
             addItemFromProduct(items[i]);
@@ -412,7 +557,6 @@ function scanBarcode() {
             break;
         }
     }
-    
     if (!found) showToast('Barcode not found: ' + code, 'error');
     document.getElementById('barcodeInput').value = '';
     document.getElementById('barcodeInput').focus();
@@ -423,28 +567,22 @@ var searchTimer = null;
 function searchCustomer(q) {
     clearTimeout(searchTimer);
     if (q.length < 2) { hideSuggest(); return; }
-    
     searchTimer = setTimeout(function() {
         fetch('customer_lookup.php?action=search&q=' + encodeURIComponent(q))
-        .then(function(r){return r.json();})
+        .then(function(r){ return r.json(); })
         .then(function(res) {
             var box = document.getElementById('suggestBox');
-            if (!res.customers || res.customers.length === 0) {
-                hideSuggest();
-                return;
-            }
-            
+            if (!res.customers || res.customers.length === 0) { hideSuggest(); return; }
             var html = '';
             for (var i = 0; i < res.customers.length; i++) {
                 var c = res.customers[i];
-                html += '<div class="suggest-item" onclick="selectCustomer(' + 
-                    "'" + c.cell.replace(/'/g, "\\'") + "', '" + c.name.replace(/'/g, "\\'") + "'" + ')">';
-                html += '<div class="name">' + c.name;
+                html += '<div class="suggest-item" onclick="selectCustomer(\'' + String(c.cell).replace(/'/g, "\\'") + '\', \'' + String(c.name).replace(/'/g, "\\'") + '\')">';
+                html += '<div class="name">' + esc(c.name);
                 if (c.is_vip) html += '<span class="badge-vip">VIP</span>';
                 if (c.is_loyal) html += '<span class="badge-loyal">LOYAL</span>';
                 html += '</div>';
-                html += '<div class="meta">📱 ' + c.cell + ' • ' + c.orders + ' orders • Spent Rs. ' + c.spent.toLocaleString() + '</div>';
-                if (c.fav_flavors) html += '<div class="meta">🍰 Likes: ' + c.fav_flavors + '</div>';
+                html += '<div class="meta">' + esc(c.cell) + ' &middot; ' + c.orders + ' orders &middot; Spent Rs. ' + Number(c.spent).toLocaleString('en-US') + '</div>';
+                if (c.fav_flavors) html += '<div class="meta">Likes: ' + esc(c.fav_flavors) + '</div>';
                 html += '</div>';
             }
             box.innerHTML = html;
@@ -452,7 +590,6 @@ function searchCustomer(q) {
         });
     }, 300);
 }
-
 function selectCustomer(cell, name) {
     document.getElementById('custCell').value = cell;
     document.getElementById('custName').value = name;
@@ -461,35 +598,31 @@ function selectCustomer(cell, name) {
     hideSuggest();
     showCustomerSummary(cell);
 }
-
 function hideSuggest() {
     document.getElementById('suggestBox').style.display = 'none';
 }
-
 function showCustomerSummary(cell) {
     fetch('customer_lookup.php?action=search&q=' + encodeURIComponent(cell))
-    .then(function(r){return r.json();})
+    .then(function(r){ return r.json(); })
     .then(function(res) {
         if (res.customers && res.customers.length > 0) {
             var c = res.customers[0];
-            var html = '🎉 <strong>' + c.name + '</strong> — ';
-            html += c.orders + ' previous orders, Total spent: <strong>Rs. ' + c.spent.toLocaleString() + '</strong>';
-            if (c.fav_flavors) html += ' • Favorite flavors: ' + c.fav_flavors;
-            if (c.is_vip) html += ' <span class="badge-vip">VIP Customer</span>';
-            if (c.last_order) html += ' • Last: ' + c.last_order;
+            var html = '<strong>' + esc(c.name) + '</strong> &mdash; ';
+            html += c.orders + ' previous orders, total spent <strong>Rs. ' + Number(c.spent).toLocaleString('en-US') + '</strong>';
+            if (c.fav_flavors) html += ' &middot; Favourite flavours: ' + esc(c.fav_flavors);
+            if (c.is_vip) html += ' <span class="badge-vip">VIP</span>';
+            if (c.last_order) html += ' &middot; Last order: ' + esc(c.last_order);
             document.getElementById('customerInfoText').innerHTML = html;
             document.getElementById('customerInfoCard').classList.add('show');
             document.getElementById('historyBtn').style.display = 'inline-block';
         }
     });
 }
-
 function showCustomerHistory() {
     var cell = document.getElementById('custCell').value;
     if (!cell) { showToast('Enter customer phone first', 'error'); return; }
-    
     fetch('customer_lookup.php?action=history&cell=' + encodeURIComponent(cell))
-    .then(function(r){return r.json();})
+    .then(function(r){ return r.json(); })
     .then(function(res) {
         var html = '';
         if (!res.orders || res.orders.length === 0) {
@@ -499,13 +632,13 @@ function showCustomerHistory() {
                 var o = res.orders[i];
                 html += '<div class="history-item">';
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-                html += '<strong>Bill #' + o.bill_no + '</strong>' + o.status_badge;
+                html += '<strong>Order #' + o.bill_no + '</strong>' + o.status_badge;
                 html += '</div>';
-                html += '<div style="margin-top:4px;color:#666;">📅 ' + o.date + ' • Rs. ' + o.total + '</div>';
-                html += '<div style="margin-top:2px;font-size:11px;color:#888;">📦 ' + o.items + '</div>';
-                if (o.flavors) html += '<div style="font-size:11px;color:#888;">🍰 ' + o.flavors + '</div>';
+                html += '<div style="margin-top:4px;color:#666;">' + esc(o.date) + ' &middot; Rs. ' + o.total + '</div>';
+                html += '<div style="margin-top:2px;font-size:11px;color:#888;">' + esc(o.items) + '</div>';
+                if (o.flavors) html += '<div style="font-size:11px;color:#888;">Flavours: ' + esc(o.flavors) + '</div>';
                 html += '<div style="margin-top:6px;">';
-                html += '<button class="btn btn-sm btn-primary" onclick="duplicateOrder(' + o.bill_no + ')">📋 Re-order Same Items</button>';
+                html += '<button type="button" class="btn btn-sm btn-primary" onclick="duplicateOrder(' + o.bill_no + ')">Copy this order</button>';
                 html += '</div>';
                 html += '</div>';
             }
@@ -515,40 +648,37 @@ function showCustomerHistory() {
     });
 }
 
+// Copy a previous order: its cakes, other items and box groups (eatable pictures and charges are not copied)
 function duplicateOrder(billNo) {
-    if (!confirm('Add all items from order #' + billNo + ' to current cart?')) return;
-    
     fetch('customer_lookup.php?action=duplicate&bill_no=' + billNo)
-    .then(function(r){return r.json();})
+    .then(function(r){ return r.json(); })
     .then(function(res) {
-        if (res.items && res.items.length > 0) {
-            for (var i = 0; i < res.items.length; i++) {
-                var it = res.items[i];
-                addItem(it.inv_id, it.name, it.price, it.uom || 'pcs');
-                // Set qty, flavor etc on last added item
-                setTimeout(function(item){
-                    return function() {
-                        var lastItem = document.querySelector('.cart-item:last-child');
-                        if (lastItem) {
-                            lastItem.querySelector('.qty-input').value = item.qty || 1;
-                            if (item.flavor) lastItem.querySelector('.flavor').value = item.flavor;
-                            if (item.shape) lastItem.querySelector('.shape').value = item.shape;
-                            if (item.tiers !== undefined && item.tiers !== null) {
-                                lastItem.querySelector('.tiers').value = item.tiers;
-                                var t = parseFloat(item.tiers);
-                                if (t > 0) {
-                                    lastItem.dataset.price = parseFloat(lastItem.dataset.price) / t;
-                                }
-                            }
-                            if (item.cake_message) lastItem.querySelector('.cake-msg').value = item.cake_message;
-                            calcTotals();
-                        }
-                    };
-                }(it), i * 50);
+        if (hasAnyItems() && !confirm('Replace the current items with a copy of order #' + billNo + '?')) return;
+        clearItems();
+        setType(res.type || 'cake');
+        // setType adds one empty box group for box types; the copy replaces it
+        document.getElementById('boxGroups').innerHTML = '';
+        calcTotals();
+        var skipped = 0;
+        var items = res.items || [];
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            if (it.kind === 'cake') {
+                addCakeItem(it.inv_id, it.name, it.price, it.uom, it);
+            } else if (it.kind === 'other') {
+                addOtherItem({ name: it.name, price: it.price, qty: it.qty, note: it.note });
+            } else {
+                skipped++;
             }
-            document.getElementById('historyModal').classList.remove('show');
-            showToast('Re-ordered ' + res.items.length + ' items', 'success');
         }
+        var boxes = res.boxes || [];
+        for (var b = 0; b < boxes.length; b++) {
+            addBoxGroup(boxes[b]);
+        }
+        document.getElementById('historyModal').classList.remove('show');
+        var msg = 'Copied from order #' + billNo;
+        if (skipped) msg += '. Eatable pictures are not copied; add the picture again.';
+        showToast(msg, 'success');
     });
 }
 
@@ -558,186 +688,333 @@ function toggleDeliveryAddress() {
     document.getElementById('deliveryAddrRow').style.display = type === 'delivery' ? '' : 'none';
 }
 
-// ===== CUSTOMER NAME UPDATE =====
 document.getElementById('custName').addEventListener('input', function() {
     document.getElementById('custDisplay').textContent = this.value || 'Walk-in';
 });
 
-// ===== ADD ITEM =====
+// ===== CAKE CARDS =====
 function addItemFromProduct(el) {
-    addItem(el.dataset.id, el.dataset.name, parseFloat(el.dataset.price), el.dataset.uom);
+    if (currentType !== 'cake') setType('cake');
+    addCakeItem(el.dataset.id, el.dataset.name, parseFloat(el.dataset.price) || 0, el.dataset.uom || '', null);
 }
 
-function addItem(invId, name, price, uom) {
-    document.getElementById('emptyMsg').style.display = 'none';
-    
+function addCakeItem(invId, name, basePrice, uom, preset) {
+    preset = preset || {};
     itemCounter++;
     var id = 'item_' + itemCounter;
-    var cart = document.getElementById('cartItems');
-    
-    var flavorOpts = '<option value="">Flavor...</option>';
-    for (var i = 0; i < FLAVORS.length; i++) flavorOpts += '<option value="' + FLAVORS[i] + '">' + FLAVORS[i] + '</option>';
-    
-    var shapeOpts = '<option value="">Shape...</option>';
-    for (var j = 0; j < SHAPES.length; j++) shapeOpts += '<option value="' + SHAPES[j] + '">' + SHAPES[j] + '</option>';
-    
-    var uomOpts = '';
-    for (var k = 0; k < UOMS.length; k++) {
-        var sel = (UOMS[k] === uom) ? 'selected' : '';
-        uomOpts += '<option value="' + UOMS[k] + '" ' + sel + '>' + UOMS[k] + '</option>';
-    }
-
-    var div = document.createElement('div');
-    div.className = 'cart-item fade-in';
-    div.id = id;
-    div.dataset.invId = invId;
-    div.dataset.price = price;
+    var div = makeCard(id, 'cake');
+    div.dataset.invId = invId || 0;
     div.dataset.name = name;
-    div.dataset.image = '';
+    div.dataset.price = basePrice;
+    div.dataset.image = preset.image_data || '';
     div.dataset.audio = '';
-    
-    div.innerHTML = 
-        '<div class="item-image" onclick="openImageModal(\'' + id + '\')" id="imgArea_' + id + '">' +
-            '<span class="placeholder">📷</span>' +
-            '<span class="upload-icon">+</span>' +
-        '</div>' +
+    div.innerHTML =
+        cardImageHtml(id, 'Photo') +
         '<div class="item-details">' +
             '<div class="item-top">' +
-                '<h4>' + name + '</h4>' +
-                '<button class="btn-play" onclick="openAudioModal(\'' + id + '\')" id="audioBtn_' + id + '">🎤</button>' +
-                '<button class="btn-play" style="display:none;" onclick="playAudio(\'' + id + '\')" id="audioPlay_' + id + '">▶</button>' +
-                '<input type="number" class="price-edit" value="' + price + '" min="0" step="1" ' +
-                    'style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-weight:bold;color:#6c3483;text-align:right;" ' +
-                    'onchange="updatePrice(\'' + id + '\', this.value)" title="Edit price">' +
-                '<button class="btn-remove" onclick="removeItem(\'' + id + '\')">✕</button>' +
+                '<h4>' + esc(name) + '</h4>' +
+                '<button type="button" class="btn-play" id="audioBtn_' + id + '" onclick="openAudioModal(\'' + id + '\')">Voice</button>' +
+                '<button type="button" class="btn-play" id="audioPlay_' + id + '" style="display:none;" onclick="playAudio(\'' + id + '\')">Play voice</button>' +
+                labelWrap('Price (Rs)', '<input type="number" class="price-edit" value="' + (num(basePrice) * (num(preset.tiers) || 1)) + '" min="0" step="1" onchange="updatePrice(\'' + id + '\', this.value)">') +
+                '<button type="button" class="btn-remove" onclick="removeItem(\'' + id + '\')">Remove</button>' +
             '</div>' +
-            '<div class="item-options">' +
-                '<select class="flavor" style="flex:1;min-width:100px;">' + flavorOpts + '</select>' +
-                '<select class="shape" style="flex:1;min-width:100px;">' + shapeOpts + '</select>' +
-                '<div class="qty-control">' +
-                    '<button onclick="changeQty(\'' + id + '\',-1)">−</button>' +
-                    '<input type="number" class="qty-input" value="1" min="1" style="width:55px;padding:3px;text-align:center;border:1px solid #ddd;border-radius:4px;font-weight:bold;" onchange="updateQtyDirect(\'' + id + '\', this.value)">' +
-                    '<button onclick="changeQty(\'' + id + '\',1)">+</button>' +
-                '</div>' +
+            '<div class="item-grid">' +
+                labelWrap('Flavour', selectHtml('flavor', FLAVORS, preset.flavor || '')) +
+                labelWrap('Shape', selectHtml('shape', SHAPES, preset.shape || '')) +
+                labelWrap('Unit', selectHtml('uom', UOMS, preset.uom || uom || '')) +
+                labelWrap('Weight', '<input type="number" class="tiers" value="' + (preset.tiers || 1) + '" min="0" step="0.25" oninput="calcTotals()">') +
+                labelWrap('Quantity', qtyControlHtml(id, preset.qty || 1)) +
+                labelWrap('Material (optional)', '<input type="text" class="material" maxlength="100" value="' + esc(preset.material || '') + '">') +
+                labelWrap('Cake message', '<input type="text" class="cake-msg" value="' + esc(preset.cake_message || '') + '" placeholder="Written on the cake">', 'span-2') +
+                labelWrap('Kitchen note', '<input type="text" class="note" value="' + esc(preset.note || '') + '" placeholder="Decoration, colour, allergy...">', 'span-2') +
             '</div>' +
-            '<div class="item-options">' +
-                '<select class="uom" style="width:90px;">' + uomOpts + '</select>' +
-                '<input type="number" class="tiers" value="1" min="0" style="width:55px;" title="UOM QTY" oninput="calcTotals()">' +
-                '<input type="text" class="cake-msg" placeholder="✍ Cake message (will be written on cake)..." style="flex:1;min-width:150px;">' +
-            '</div>' +
-            '<input type="text" class="note" placeholder="📝 Special Instructions (decorations, allergies, color, etc.)...">' +
         '</div>';
-    
-    cart.appendChild(div);
+    document.getElementById('cartItems').appendChild(div);
+    if (preset.image_data) setCardImage(id, preset.image_data);
+    updateEmptyMessage();
     calcTotals();
-    showToast('Added: ' + name, 'success');
-    
-    // Auto-focus on flavor of newly added item
-    setTimeout(function() {
-        var newItem = document.getElementById(id);
-        if (newItem) newItem.querySelector('.flavor').focus();
-    }, 100);
+    return id;
+}
+
+// ===== EATABLE PICTURE CARDS =====
+function addEatableItem(preset) {
+    if (currentType !== 'cake' && currentType !== 'eatable') setType('eatable');
+    preset = preset || {};
+    itemCounter++;
+    var id = 'item_' + itemCounter;
+    var div = makeCard(id, 'eatable');
+    div.dataset.name = 'Eatable picture';
+    div.dataset.price = num(preset.price);
+    div.innerHTML =
+        cardImageHtml(id, 'Add picture (required)') +
+        '<div class="item-details">' +
+            '<div class="item-top">' +
+                '<h4>Eatable picture</h4>' +
+                labelWrap('Price (Rs)', '<input type="number" class="price-edit" value="' + num(preset.price) + '" min="0" step="1" onchange="updatePrice(\'' + id + '\', this.value)">') +
+                '<button type="button" class="btn-remove" onclick="removeItem(\'' + id + '\')">Remove</button>' +
+            '</div>' +
+            '<div class="item-grid">' +
+                labelWrap('Size (optional)', '<input type="text" class="size" value="' + esc(preset.size || '') + '" placeholder="e.g. 8 x 10 inch">') +
+                labelWrap('Quantity', qtyControlHtml(id, preset.qty || 1)) +
+                labelWrap('Kitchen note', '<input type="text" class="note" value="' + esc(preset.note || '') + '">', 'span-2') +
+            '</div>' +
+        '</div>';
+    document.getElementById('cartItems').appendChild(div);
+    updateEmptyMessage();
+    calcTotals();
+    return id;
+}
+
+// ===== OTHER ITEM CARDS =====
+function addOtherItem(preset) {
+    if (currentType !== 'other') setType('other');
+    preset = preset || {};
+    itemCounter++;
+    var id = 'item_' + itemCounter;
+    var div = makeCard(id, 'other');
+    div.dataset.name = preset.name || '';
+    div.dataset.price = num(preset.price);
+    div.innerHTML =
+        '<div class="item-details">' +
+            '<div class="item-top">' +
+                '<h4>Other item</h4>' +
+                labelWrap('Price (Rs)', '<input type="number" class="price-edit" value="' + num(preset.price) + '" min="0" step="1" onchange="updatePrice(\'' + id + '\', this.value)">') +
+                '<button type="button" class="btn-remove" onclick="removeItem(\'' + id + '\')">Remove</button>' +
+            '</div>' +
+            '<div class="item-grid">' +
+                labelWrap('Description', '<input type="text" class="desc" value="' + esc(preset.name || '') + '" placeholder="What is it?">', 'span-2') +
+                labelWrap('Quantity', qtyControlHtml(id, preset.qty || 1)) +
+                labelWrap('Kitchen note', '<input type="text" class="note" value="' + esc(preset.note || '') + '">', 'span-2') +
+            '</div>' +
+        '</div>';
+    document.getElementById('cartItems').appendChild(div);
+    updateEmptyMessage();
+    calcTotals();
+    return id;
+}
+
+function unitMultiplier(item) {
+    if (item.dataset.kind === 'cake') {
+        var t = item.querySelector('.tiers');
+        var w = t ? num(t.value) : 1;
+        return w > 0 ? w : 0;
+    }
+    return 1;
 }
 
 function updatePrice(id, newPrice) {
     var item = document.getElementById(id);
-    var newP = parseFloat(newPrice) || 0;
-    var tInput = item.querySelector('.tiers');
-    var tiers = (tInput && tInput.value !== '') ? parseFloat(tInput.value) : 1;
-    item.dataset.price = tiers > 0 ? newP / tiers : newP;
+    var m = unitMultiplier(item);
+    var p = num(newPrice);
+    item.dataset.price = m > 0 ? p / m : p;
     calcTotals();
 }
 
 function updateQtyDirect(id, newQty) {
-    var q = parseInt(newQty) || 1;
+    var q = parseInt(newQty, 10) || 1;
     if (q < 1) q = 1;
-    var item = document.getElementById(id);
-    item.querySelector('.qty-input').value = q;
+    document.getElementById(id).querySelector('.qty-input').value = q;
     calcTotals();
 }
 
 function removeItem(id) {
-    var el = document.getElementById(id);
-    if (el) el.remove();
+    removeEl(document.getElementById(id));
+    updateEmptyMessage();
     calcTotals();
-    if (document.querySelectorAll('.cart-item').length === 0) {
-        document.getElementById('emptyMsg').style.display = 'block';
-    }
 }
 
 function changeQty(id, delta) {
-    var item = document.getElementById(id);
-    var input = item.querySelector('.qty-input');
-    var q = parseInt(input.value) + delta;
+    var input = document.getElementById(id).querySelector('.qty-input');
+    var q = (parseInt(input.value, 10) || 1) + delta;
     if (q < 1) { removeItem(id); return; }
     input.value = q;
     calcTotals();
 }
 
+// ===== BOX GROUPS (lunch and sweet boxes) =====
+function addBoxGroup(preset) {
+    preset = preset || {};
+    boxCounter++;
+    var gid = 'box_' + boxCounter;
+    var div = document.createElement('div');
+    div.className = 'box-group';
+    div.id = gid;
+    div.innerHTML =
+        '<div class="box-group-head">' +
+            '<span class="box-title">Box group</span>' +
+            labelWrap('Number of boxes', '<input type="number" class="box-count" min="1" step="1" value="' + (preset.boxes || 1) + '" oninput="calcTotals()">') +
+            labelWrap('Name (optional)', '<input type="text" class="box-name" value="' + esc(preset.name || '') + '" placeholder="e.g. Office set">') +
+            '<button type="button" class="btn-remove" onclick="removeBoxGroup(\'' + gid + '\')">Remove group</button>' +
+        '</div>' +
+        '<div class="box-items-head"><span>Item</span><span>Qty per box</span><span class="hide-sweet">Price per piece (Rs)</span><span></span></div>' +
+        '<div class="box-items"></div>' +
+        '<div class="box-group-foot">' +
+            '<button type="button" class="btn btn-sm btn-outline" onclick="addBoxItem(\'' + gid + '\')">+ Add item</button>' +
+            '<span class="box-summary"></span>' +
+        '</div>';
+    document.getElementById('boxGroups').appendChild(div);
+    var items = (preset.items && preset.items.length) ? preset.items : [{}];
+    for (var i = 0; i < items.length; i++) addBoxItem(gid, items[i]);
+    calcTotals();
+    return gid;
+}
+
+function addBoxItem(gid, preset) {
+    preset = preset || {};
+    var group = document.getElementById(gid);
+    var listId = currentType === 'sweet' ? 'sweetNames' : 'lunchNames';
+    var row = document.createElement('div');
+    row.className = 'box-item-row';
+    row.innerHTML =
+        '<input type="text" class="bi-name" list="' + listId + '" placeholder="Item name" value="' + esc(preset.name || '') + '" oninput="calcTotals()">' +
+        '<input type="number" class="bi-qty" min="1" step="1" title="Quantity in each box" value="' + (preset.qty || 1) + '" oninput="calcTotals()">' +
+        '<input type="number" class="bi-price hide-sweet" min="0" step="1" title="Price for one piece" placeholder="Rs" value="' + (preset.price ? preset.price : '') + '" oninput="calcTotals()">' +
+        '<button type="button" class="btn-remove" onclick="removeBoxItem(this)">Remove</button>';
+    group.querySelector('.box-items').appendChild(row);
+    calcTotals();
+}
+
+function removeBoxItem(btn) {
+    removeEl(btn.parentNode);
+    calcTotals();
+}
+
+function removeBoxGroup(gid) {
+    removeEl(document.getElementById(gid));
+    if (document.querySelectorAll('#boxGroups .box-group').length === 0) addBoxGroup();
+    calcTotals();
+}
+
+function boxGroupNumbers(group) {
+    var boxes = Math.max(0, Math.floor(num(group.querySelector('.box-count').value)));
+    var each = 0;
+    var rows = group.querySelectorAll('.box-item-row');
+    for (var i = 0; i < rows.length; i++) {
+        var name = rows[i].querySelector('.bi-name').value.trim();
+        if (!name) continue;
+        var perBox = Math.max(1, num(rows[i].querySelector('.bi-qty').value) || 1);
+        var price = currentType === 'sweet' ? 0 : num(rows[i].querySelector('.bi-price').value);
+        each += price * perBox;
+    }
+    return { boxes: boxes, each: each, total: each * boxes };
+}
+
+// ===== EXTRA CHARGES =====
+function addCharge(preset) {
+    preset = preset || {};
+    var row = document.createElement('div');
+    row.className = 'charge-row';
+    row.innerHTML =
+        '<input type="text" class="ch-label" list="chargeNames" placeholder="Label, e.g. Delivery" value="' + esc(preset.label || '') + '" oninput="calcTotals()">' +
+        '<input type="number" class="ch-amount" min="0" step="1" placeholder="Rs" value="' + (preset.amount ? preset.amount : '') + '" oninput="calcTotals()">' +
+        '<button type="button" class="btn-remove" onclick="removeCharge(this)">Remove</button>';
+    document.getElementById('chargeRows').appendChild(row);
+    calcTotals();
+}
+function removeCharge(btn) {
+    removeEl(btn.parentNode);
+    calcTotals();
+}
+function collectCharges() {
+    var out = [];
+    var rows = document.querySelectorAll('#chargeRows .charge-row');
+    for (var i = 0; i < rows.length; i++) {
+        var amt = num(rows[i].querySelector('.ch-amount').value);
+        if (amt > 0) {
+            out.push({ label: rows[i].querySelector('.ch-label').value.trim(), amount: amt });
+        }
+    }
+    return out;
+}
+
 // ===== CALCULATIONS =====
 function calcTotals() {
-    var subtotal = 0;
-    var items = document.querySelectorAll('.cart-item');
-    for (var i = 0; i < items.length; i++) {
-        var basePrice = parseFloat(items[i].dataset.price) || 0;
-        var tInput = items[i].querySelector('.tiers');
-        var tiers = (tInput && tInput.value !== '') ? parseFloat(tInput.value) : 1;
-        var totalItemPrice = basePrice * tiers;
-        
-        var priceEdit = items[i].querySelector('.price-edit');
-        if (priceEdit) {
-            priceEdit.value = totalItemPrice;
-        }
-
-        var qty = parseInt(items[i].querySelector('.qty-input').value) || 1;
-        subtotal += totalItemPrice * qty;
+    // Cake, eatable and other cards
+    var itemsTotal = 0;
+    var cards = document.querySelectorAll('#cartItems .cart-item');
+    for (var i = 0; i < cards.length; i++) {
+        var item = cards[i];
+        var unit = num(item.dataset.price) * unitMultiplier(item);
+        var pe = item.querySelector('.price-edit');
+        if (pe) pe.value = Math.round(unit * 100) / 100;
+        var qtyEl = item.querySelector('.qty-input');
+        var qty = qtyEl ? (parseInt(qtyEl.value, 10) || 1) : 1;
+        itemsTotal += unit * qty;
     }
-    var discount = parseInt(document.getElementById('flatDisc').value) || 0;
-    var advance = parseInt(document.getElementById('advance').value) || 0;
-    var total = subtotal - discount;
+
+    // Box groups: lunch boxes are priced; sweet boxes are priced after weighing (no price entered)
+    var boxCount = 0;
+    var boxTotal = 0;
+    var groups = document.querySelectorAll('#boxGroups .box-group');
+    for (var g = 0; g < groups.length; g++) {
+        var t = boxGroupNumbers(groups[g]);
+        boxCount += t.boxes;
+        boxTotal += t.total;
+        groups[g].querySelector('.box-title').textContent = 'Box group ' + (g + 1);
+        groups[g].querySelector('.box-summary').textContent = currentType === 'sweet'
+            ? t.boxes + ' boxes. Priced after weighing.'
+            : t.boxes + ' boxes. Each box Rs. ' + money(t.each) + '. Group total Rs. ' + money(t.total) + '.';
+    }
+    itemsTotal += boxTotal;
+    lastItemsTotal = itemsTotal;
+    document.getElementById('boxTotalCount').textContent = boxCount;
+    document.getElementById('boxTotalAmount').textContent = currentType === 'sweet' ? 'After weighing' : 'Rs. ' + money(boxTotal);
+
+    // Extra charges
+    var charges = 0;
+    var chargeRows = document.querySelectorAll('#chargeRows .charge-row');
+    for (var c = 0; c < chargeRows.length; c++) {
+        var amt = num(chargeRows[c].querySelector('.ch-amount').value);
+        if (amt > 0) charges += amt;
+    }
+    document.getElementById('chargeTotal').textContent = 'Rs. ' + money(charges);
+
+    var discount = parseInt(document.getElementById('flatDisc').value, 10) || 0;
+    var advance = parseInt(document.getElementById('advance').value, 10) || 0;
+    var total = Math.max(0, itemsTotal + charges - discount);
     var balance = total - advance;
-    
-    document.getElementById('subtotal').textContent = 'Rs. ' + subtotal.toLocaleString();
-    document.getElementById('discountDisplay').textContent = 'Rs. ' + discount.toLocaleString();
-    document.getElementById('total').textContent = 'Rs. ' + Math.max(0, total).toLocaleString();
-    document.getElementById('advanceDisplay').textContent = 'Rs. ' + advance.toLocaleString();
-    document.getElementById('balanceDisplay').textContent = 'Rs. ' + Math.max(0, balance).toLocaleString();
+    var isSweet = currentType === 'sweet';
+
+    document.getElementById('subtotal').textContent = isSweet ? 'After weighing' : 'Rs. ' + money(itemsTotal);
+    document.getElementById('chargesDisplay').textContent = 'Rs. ' + money(charges);
+    document.getElementById('discountDisplay').textContent = 'Rs. ' + money(discount);
+    if (isSweet) {
+        document.getElementById('total').textContent = total > 0 ? 'Rs. ' + money(total) + ' + weighing' : 'After weighing';
+        document.getElementById('balanceDisplay').textContent = 'After weighing';
+    } else {
+        document.getElementById('total').textContent = 'Rs. ' + money(total);
+        document.getElementById('balanceDisplay').textContent = 'Rs. ' + money(Math.max(0, balance));
+    }
+    document.getElementById('advanceDisplay').textContent = 'Rs. ' + money(advance);
 }
 
 function applyDiscPercent() {
-    var pct = parseFloat(document.getElementById('discPercent').value) || 0;
-    var subtotal = 0;
-    var items = document.querySelectorAll('.cart-item');
-    for (var i = 0; i < items.length; i++) {
-        var basePrice = parseFloat(items[i].dataset.price) || 0;
-        var tInput = items[i].querySelector('.tiers');
-        var tiers = (tInput && tInput.value !== '') ? parseFloat(tInput.value) : 1;
-        var totalItemPrice = basePrice * tiers;
-        subtotal += totalItemPrice * (parseInt(items[i].querySelector('.qty-input').value) || 1);
-    }
-    var disc = Math.round(subtotal * pct / 100);
-    document.getElementById('flatDisc').value = disc;
+    var pct = num(document.getElementById('discPercent').value);
+    document.getElementById('flatDisc').value = Math.round(lastItemsTotal * pct / 100);
     calcTotals();
 }
 
 function toggleAdvanceMethod() {
-    var adv = parseInt(document.getElementById('advance').value) || 0;
+    var adv = parseInt(document.getElementById('advance').value, 10) || 0;
     document.getElementById('advanceSection').classList.toggle('show', adv > 0);
     calcTotals();
 }
 
 function setAdvanceMethod(method, btn) {
     selectedAdvanceMethod = method;
-    document.querySelectorAll('#advanceSection .btn').forEach(function(b){ 
-        b.classList.remove('btn-warning'); b.classList.add('btn-outline'); 
-    });
-    btn.classList.remove('btn-outline'); btn.classList.add('btn-warning');
+    var buttons = document.querySelectorAll('#advanceSection .btn');
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove('btn-warning');
+        buttons[i].classList.add('btn-outline');
+    }
+    btn.classList.remove('btn-outline');
+    btn.classList.add('btn-warning');
 }
 
 function clearAll() {
-    if (!confirm('Clear all items?')) return;
-    document.getElementById('cartItems').innerHTML = '';
-    document.getElementById('emptyMsg').style.display = 'block';
+    if (!confirm('Clear all items, charges and discounts?')) return;
+    clearItems();
+    document.getElementById('chargeRows').innerHTML = '';
     document.getElementById('advance').value = 0;
     document.getElementById('flatDisc').value = 0;
     document.getElementById('discPercent').value = 0;
@@ -746,7 +1023,7 @@ function clearAll() {
     calcTotals();
 }
 
-// ===== IMAGE / AUDIO (kept same as before) =====
+// ===== IMAGE / AUDIO =====
 function openImageModal(itemId) {
     currentImageItem = itemId;
     document.getElementById('imageModal').classList.add('show');
@@ -762,99 +1039,58 @@ function closeImageModal() {
 
 function previewImage(input) {
     if (!input.files || !input.files[0]) return;
-    
     var file = input.files[0];
-    
-    // ============================================
-    // VALIDATE FILE TYPE - Only allow JPG/JPEG/PNG
-    // ============================================
     var allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     var allowedExts = /\.(jpg|jpeg|png)$/i;
-    
     if (allowedTypes.indexOf(file.type) === -1 && !allowedExts.test(file.name)) {
-        showToast('❌ Only JPG, JPEG, or PNG images are allowed!', 'error');
+        showToast('Only JPG or PNG images are allowed.', 'error');
         input.value = '';
         return;
     }
-    
-    // ============================================
-    // VALIDATE FILE SIZE (max 20MB before processing)
-    // ============================================
     var maxFileSizeMB = 20;
     if (file.size > maxFileSizeMB * 1024 * 1024) {
-        showToast('❌ Image too large! Max ' + maxFileSizeMB + 'MB allowed.', 'error');
+        showToast('Image too large. Maximum ' + maxFileSizeMB + ' MB.', 'error');
         input.value = '';
         return;
     }
-    
-    var fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-    showToast('📤 Processing ' + fileSizeMB + ' MB image...', 'info');
-    
+    showToast('Processing image...', 'info');
     var reader = new FileReader();
     reader.onload = function(e) {
         var img = new Image();
         img.onload = function() {
-            // ============================================
-            // RESIZE: Max 1024px on longest side
-            // ============================================
             var canvas = document.createElement('canvas');
             var maxSize = 1024;
             var w = img.width, h = img.height;
-            
             if (w > h) {
-                if (w > maxSize) { 
-                    h = Math.round(h * maxSize / w); 
-                    w = maxSize; 
-                }
+                if (w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
             } else {
-                if (h > maxSize) { 
-                    w = Math.round(w * maxSize / h); 
-                    h = maxSize; 
-                }
+                if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; }
             }
-            
             canvas.width = w;
             canvas.height = h;
-            
-            // ============================================
-            // CONVERT TO JPG with white background
-            // (in case original is PNG with transparency)
-            // ============================================
             var ctx = canvas.getContext('2d');
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, w, h);
             ctx.drawImage(img, 0, 0, w, h);
-            
-            // Force JPEG output at 75% quality
             tempImageData = canvas.toDataURL('image/jpeg', 0.75);
-            
-            // Calculate compressed size
-            var compressedKB = Math.round((tempImageData.length * 3 / 4) / 1024);
-            
             document.getElementById('imgPreview').src = tempImageData;
             document.getElementById('imgPreview').style.display = 'block';
-            
-            showToast('✅ Image ready! Resized to ' + w + 'x' + h + 'px (' + compressedKB + ' KB)', 'success');
+            showToast('Photo ready (' + w + ' x ' + h + ' px)', 'success');
         };
         img.onerror = function() {
-            showToast('❌ Invalid image file', 'error');
+            showToast('Invalid image file', 'error');
             input.value = '';
         };
         img.src = e.target.result;
     };
-    reader.onerror = function() {
-        showToast('❌ Failed to read file', 'error');
-    };
+    reader.onerror = function() { showToast('Could not read the file', 'error'); };
     reader.readAsDataURL(file);
 }
 
 function saveImage() {
     if (!tempImageData || !currentImageItem) { closeImageModal(); return; }
-    var item = document.getElementById(currentImageItem);
-    item.dataset.image = tempImageData;
-    document.getElementById('imgArea_' + currentImageItem).innerHTML = 
-        '<img src="' + tempImageData + '"><span class="upload-icon">✎</span>';
-    showToast('Image attached', 'success');
+    setCardImage(currentImageItem, tempImageData);
+    showToast('Photo attached', 'success');
     closeImageModal();
 }
 
@@ -875,7 +1111,7 @@ function closeAudioModal() {
 function toggleRecord() {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
-        document.getElementById('recordBtn').textContent = '🎤';
+        document.getElementById('recordBtn').textContent = 'Record';
         document.getElementById('recordStatus').textContent = 'Recording saved';
     } else {
         if (!navigator.mediaDevices) { showToast('Microphone not supported', 'error'); return; }
@@ -896,19 +1132,19 @@ function toggleRecord() {
                 stream.getTracks().forEach(function(t) { t.stop(); });
             };
             mediaRecorder.start();
-            document.getElementById('recordBtn').textContent = '⏹';
-            document.getElementById('recordStatus').textContent = '🔴 Recording...';
-        }).catch(function() { showToast('Microphone denied', 'error'); });
+            document.getElementById('recordBtn').textContent = 'Stop';
+            document.getElementById('recordStatus').textContent = 'Recording...';
+        }).catch(function() { showToast('Microphone access was denied', 'error'); });
     }
 }
 
 function saveAudio() {
     if (currentAudioItem) {
         var item = document.getElementById(currentAudioItem);
-        if (item.dataset.audio) {
+        if (item && item.dataset.audio) {
             document.getElementById('audioBtn_' + currentAudioItem).style.display = 'none';
             document.getElementById('audioPlay_' + currentAudioItem).style.display = 'inline-block';
-            showToast('Voice note saved', 'success');
+            showToast('Voice message saved', 'success');
         }
     }
     closeAudioModal();
@@ -919,75 +1155,138 @@ function playAudio(itemId) {
     if (audioData) new Audio(audioData).play();
 }
 
-// ===== SAVE ORDER =====
-function collectOrderData() {
-    var items = [];
-    var elements = document.querySelectorAll('.cart-item');
-    for (var i = 0; i < elements.length; i++) {
-        var item = elements[i];
-        var tInput = item.querySelector('.tiers');
-        var tVal = (tInput && tInput.value !== '') ? parseFloat(tInput.value) : 1;
-        items.push({
-            inv_id: item.dataset.invId,
-            name: item.dataset.name,
-            category: item.dataset.name,
-            price: parseFloat(item.querySelector('.price-edit').value) || 0,
-            qty: parseInt(item.querySelector('.qty-input').value) || 1,
-            flavor: item.querySelector('.flavor').value,
-            shape: item.querySelector('.shape').value,
-            uom: item.querySelector('.uom').value,
-            tiers: tVal,
-            cake_message: item.querySelector('.cake-msg').value,
-            note: item.querySelector('.note').value,
-            image_data: item.dataset.image || '',
-            audio_data: item.dataset.audio || ''
+// ===== COLLECT ORDER DATA =====
+function collectItems() {
+    var list = [];
+    var cards = document.querySelectorAll('#cartItems .cart-item');
+    for (var i = 0; i < cards.length; i++) {
+        var item = cards[i];
+        var kind = item.dataset.kind;
+        var entry = {
+            kind: kind,
+            inv_id: parseInt(item.dataset.invId, 10) || 0,
+            name: '',
+            price: num(item.querySelector('.price-edit').value),
+            qty: parseInt(item.querySelector('.qty-input').value, 10) || 1,
+            note: item.querySelector('.note') ? item.querySelector('.note').value.trim() : '',
+            image_data: item.dataset.image || ''
+        };
+        if (kind === 'cake') {
+            entry.name = item.dataset.name;
+            entry.flavor = item.querySelector('.flavor').value;
+            entry.shape = item.querySelector('.shape').value;
+            entry.uom = item.querySelector('.uom').value;
+            entry.tiers = num(item.querySelector('.tiers').value) || 1;
+            entry.material = item.querySelector('.material').value.trim();
+            entry.cake_message = item.querySelector('.cake-msg').value.trim();
+            entry.audio_data = item.dataset.audio || '';
+        } else if (kind === 'eatable') {
+            entry.name = 'Eatable picture';
+            entry.size = item.querySelector('.size').value.trim();
+        } else {
+            entry.name = item.querySelector('.desc').value.trim();
+        }
+        list.push(entry);
+    }
+    return list;
+}
+
+function collectBoxes() {
+    var out = [];
+    var groups = document.querySelectorAll('#boxGroups .box-group');
+    for (var g = 0; g < groups.length; g++) {
+        var items = [];
+        var rows = groups[g].querySelectorAll('.box-item-row');
+        for (var r = 0; r < rows.length; r++) {
+            var name = rows[r].querySelector('.bi-name').value.trim();
+            if (!name) continue;
+            items.push({
+                name: name,
+                qty: Math.max(1, parseInt(rows[r].querySelector('.bi-qty').value, 10) || 1),
+                price: currentType === 'sweet' ? 0 : num(rows[r].querySelector('.bi-price').value)
+            });
+        }
+        out.push({
+            name: groups[g].querySelector('.box-name').value.trim(),
+            boxes: Math.floor(num(groups[g].querySelector('.box-count').value)),
+            items: items
         });
     }
-    return items;
+    return out;
+}
+
+// ===== SAVE ORDER =====
+function resetAfterSave() {
+    clearItems();
+    document.getElementById('chargeRows').innerHTML = '';
+    document.getElementById('advance').value = 0;
+    document.getElementById('flatDisc').value = 0;
+    document.getElementById('discPercent').value = 0;
+    document.getElementById('advanceSection').classList.remove('show');
+    selectedAdvanceMethod = '';
+    calcTotals();
 }
 
 function saveOrder(status) {
-    var items = collectOrderData();
-	console.log('called');
-    if (items.length === 0) { showToast('Cart is empty!', 'error'); return; }
-    
-    var advance = parseInt(document.getElementById('advance').value) || 0;
-    if (advance > 0 && !selectedAdvanceMethod) {
-        showToast('Select advance payment method', 'error');
-        return;
+    var type = currentType;
+    var items = collectItems();
+    var boxes = isBoxType(type) ? collectBoxes() : [];
+    var charges = collectCharges();
+
+    if (!isBoxType(type) && items.length === 0) { showToast('Add an item first.', 'error'); return; }
+    if (isBoxType(type) && boxes.length === 0) { showToast('Add a box group first.', 'error'); return; }
+
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'cake' && (!items[i].name || items[i].tiers <= 0)) {
+            showToast('Enter the weight for each cake.', 'error');
+            return;
+        }
+        if (items[i].kind === 'eatable' && !items[i].image_data) {
+            showToast('Add the picture for each eatable picture.', 'error');
+            return;
+        }
+        if (items[i].kind === 'other' && !items[i].name) {
+            showToast('Describe each other item.', 'error');
+            return;
+        }
     }
-    
-    var custName = document.getElementById('custName').value || 'Walk-in';
-    var custCell = document.getElementById('custCell').value;
-    var deliveryType = document.getElementById('deliveryType').value;
-    var deliveryAddress = document.getElementById('deliveryAddress') ? document.getElementById('deliveryAddress').value : '';
-    
-    if (deliveryType === 'delivery' && !deliveryAddress) {
-        showToast('Enter delivery address', 'error');
-        return;
+    for (var b = 0; b < boxes.length; b++) {
+        if (boxes[b].boxes < 1) { showToast('Box group ' + (b + 1) + ': enter how many boxes.', 'error'); return; }
+        if (boxes[b].items.length === 0) { showToast('Box group ' + (b + 1) + ': add at least one item.', 'error'); return; }
     }
 
+    var advance = parseInt(document.getElementById('advance').value, 10) || 0;
+    if (advance > 0 && !selectedAdvanceMethod) { showToast('Select the advance payment method.', 'error'); return; }
+
+    var deliveryType = document.getElementById('deliveryType').value;
+    var deliveryAddress = document.getElementById('deliveryAddress').value.trim();
+    if (deliveryType === 'delivery' && !deliveryAddress) { showToast('Enter the delivery address.', 'error'); return; }
+
     var data = {
+        type: type,
         items: items,
+        boxes: boxes,
+        charges: charges,
         status: status,
-        party_detail: custName,
-        cell_no: custCell,
+        party_detail: document.getElementById('custName').value.trim() || 'Walk-in',
+        cell_no: document.getElementById('custCell').value.trim(),
         deliver_date: document.getElementById('deliverDate').value,
         delivery_time: document.getElementById('deliverTime').value,
         priority: document.getElementById('priority').value,
-        flat_disc: parseInt(document.getElementById('flatDisc').value) || 0,
+        flat_disc: parseInt(document.getElementById('flatDisc').value, 10) || 0,
         advance: advance,
         advance_method: selectedAdvanceMethod,
         occasion: document.getElementById('occasion').value,
         delivery_type: deliveryType,
         delivery_address: deliveryAddress,
+        delivery_branch: document.getElementById('deliveryBranch').value.trim(),
         source: document.getElementById('orderSource').value
     };
 
     showToast('Saving order...', 'info');
-    
-    var btn = document.querySelector('.btn-confirm');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
+    var btn = document.getElementById('confirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
 
     fetch('save_order.php', {
         method: 'POST',
@@ -996,27 +1295,26 @@ function saveOrder(status) {
     })
     .then(function(r) { return r.json(); })
     .then(function(res) {
+        btn.disabled = false;
+        btn.textContent = 'Confirm order (F9)';
         if (res.success) {
-            showToast('✅ Order #' + res.bill_no + ' saved!', 'success');
+            showToast('Order #' + res.bill_no + ' saved', 'success');
             if (status === 'confirmed') {
-                if (confirm('Order #' + res.bill_no + ' saved!\n\nPrint receipt now?')) {
-                    window.open('receipt.php?bill=' + res.bill_no, '_blank');
+                if (confirm('Order #' + res.bill_no + ' saved.\n\nPrint the invoice now?')) {
+                    window.open('invoice.php?bill=' + res.bill_no, '_blank');
                 }
-                setTimeout(function() { window.location.href = 'index.php'; }, 1500);
+                setTimeout(function() { window.location.href = 'index.php?type=' + type; }, 800);
             } else {
-                document.getElementById('cartItems').innerHTML = '';
-                document.getElementById('emptyMsg').style.display = 'block';
-                calcTotals();
-                if (btn) { btn.disabled = false; btn.textContent = 'Confirm Order →'; }
+                resetAfterSave();
             }
         } else {
-            showToast('Error: ' + res.message, 'error');
-            if (btn) { btn.disabled = false; btn.textContent = 'Confirm Order →'; }
+            showToast(res.message || 'Could not save the order.', 'error');
         }
     })
-    .catch(function() { 
-        showToast('Network error', 'error'); 
-        if (btn) { btn.disabled = false; btn.textContent = 'Confirm Order →'; }
+    .catch(function() {
+        btn.disabled = false;
+        btn.textContent = 'Confirm order (F9)';
+        showToast('Network error. The order was not saved.', 'error');
     });
 }
 
@@ -1027,10 +1325,10 @@ function showToast(msg, type) {
     setTimeout(function() { toast.classList.remove('show'); }, 3500);
 }
 
-// ===== SEARCH PRODUCTS =====
+// ===== SEARCH CAKES =====
 document.getElementById('searchItems').addEventListener('input', function(e) {
     var q = e.target.value.toLowerCase();
-    var items = document.querySelectorAll('.pos-sidebar .product-item');
+    var items = document.querySelectorAll('#tab-all .product-item');
     for (var i = 0; i < items.length; i++) {
         var text = items[i].textContent.toLowerCase();
         items[i].style.display = text.indexOf(q) > -1 ? '' : 'none';
@@ -1039,24 +1337,18 @@ document.getElementById('searchItems').addEventListener('input', function(e) {
 
 // ===== KEYBOARD SHORTCUTS =====
 document.addEventListener('keydown', function(e) {
-    // F2 = focus barcode
     if (e.key === 'F2') { e.preventDefault(); document.getElementById('barcodeInput').focus(); }
-    // F4 = focus customer search
     if (e.key === 'F4') { e.preventDefault(); document.getElementById('custCell').focus(); }
-    // F9 = Confirm Order
     if (e.key === 'F9') { e.preventDefault(); saveOrder('confirmed'); }
-    // F10 = Hold
     if (e.key === 'F10') { e.preventDefault(); saveOrder('hold'); }
-    // Esc = clear barcode
     if (e.key === 'Escape') { document.getElementById('barcodeInput').value = ''; }
 });
 
-// Show keyboard shortcuts hint on load
-setTimeout(function(){
-    showToast('💡 Shortcuts: F2=Barcode | F4=Customer | F9=Confirm | F10=Hold', 'info');
-}, 1000);
-
-// Auto-focus barcode on load
+// ===== START =====
+setType(currentType);
+setTimeout(function() {
+    showToast('Shortcuts: F2 barcode, F4 customer, F9 confirm, F10 hold', 'info');
+}, 800);
 document.getElementById('barcodeInput').focus();
 </script>
 </body>

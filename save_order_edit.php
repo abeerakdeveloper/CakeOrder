@@ -75,7 +75,7 @@ try {
              status, off_bill_no, off_dateent, flat_disc, pay_date, 
              order_type, inv_id, qty, ext_pay, flavor, flavor_amt, 
              priority, category, tiers, shape, cake_message, retail_price,
-             image_data, thumb_data, audio_data, uom, payment_method)
+             image_data, thumb_data, audio_data, uom, payment_method, sale_type)
             VALUES 
             ($billNo, CURDATE(), NOW(), '$deliverDate', '$deliveryTime',
              $amount, $advance, 0, '$cellNo', '$partyDetail', '[ADDED LATER by $user] $itemNote',
@@ -83,7 +83,7 @@ try {
              '$status', 0, NOW(), $flatDisc, '$deliverDate',
              '$orderType', $invId, $qty, 0, '$flavor', 0,
              '$priority', '$category', $tiers, '$shape', '$cakeMsg', $price,
-             NULL, NULL, NULL, '$uom', NULL)";
+             NULL, NULL, NULL, '$uom', NULL, 'cake')";
         
         if (!mysqli_query($mysqli, $sql)) {
             throw new Exception('Insert failed: ' . mysqli_error($mysqli));

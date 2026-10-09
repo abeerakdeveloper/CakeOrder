@@ -344,3 +344,89 @@ table tr:hover { background: #faf8fd; }
 
 .fade-in { animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+/* ============================================================
+   ORDER TYPES, BOX GROUPS, CHARGES, LOGO
+   Added for the order-type screens. Other pages are unchanged.
+   ============================================================ */
+.brand-logo { max-width: 170px; max-height: 72px; display: block; margin: 0 auto; }
+.brand-logo-text { font-size: 15px; font-weight: 700; color: #6c3483; }
+.section-label { font-size: 11px; color: #888; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; margin: 4px 0 8px; }
+.muted { color: #777; font-size: 13px; line-height: 1.5; }
+
+/* Dashboard: one tile per order type */
+.type-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.type-tile {
+    display: block; background: #fff; border: 1px solid #e3d9ec; border-radius: 8px;
+    padding: 14px 16px; text-decoration: none; color: #2d2d2d;
+}
+.type-tile strong { display: block; font-size: 15px; color: #6c3483; margin-bottom: 4px; }
+.type-tile span { font-size: 12px; color: #777; line-height: 1.4; }
+.type-tile:hover { border-color: #6c3483; background: #fbf8fe; }
+
+/* New order: type selector */
+.type-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 8px 12px; }
+.type-tab {
+    padding: 9px 16px; border: 1px solid #d6c8e3; background: #fff; border-radius: 6px;
+    cursor: pointer; font-weight: 600; font-size: 13px; color: #6c3483;
+}
+.type-tab.active { background: #6c3483; color: #fff; border-color: #6c3483; }
+.type-tab:hover:not(.active) { background: #f5f0fa; }
+
+/* Show a block only for the chosen order type (body[data-type]) */
+.show-cake, .show-eatable, .show-other, .show-box, .show-lunch, .show-sweet { display: none; }
+body[data-type="cake"] .show-cake,
+body[data-type="eatable"] .show-eatable,
+body[data-type="other"] .show-other,
+body[data-type="lunch"] .show-box,
+body[data-type="sweet"] .show-box,
+body[data-type="lunch"] .show-lunch,
+body[data-type="sweet"] .show-sweet { display: block; }
+body[data-type="sweet"] .hide-sweet { display: none !important; }
+.add-row { text-align: right; margin: 6px 0 0; }
+
+/* Customer and delivery area */
+.more-details { margin: 8px 8px 10px; background: #fff; border: 1px solid #e8e0f0; border-radius: 8px; padding: 8px 14px; }
+.more-details summary { cursor: pointer; color: #6c3483; font-weight: 600; font-size: 13px; }
+.more-details .field-grid { margin-top: 10px; }
+
+/* Cake and eatable cards: labelled grid */
+.item-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; margin-top: 8px; }
+.item-grid label, .mini-label { font-size: 12px; color: #555; display: flex; flex-direction: column; gap: 3px; }
+.item-grid .span-2 { grid-column: span 2; }
+.item-grid input, .item-grid select { padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: #fff; }
+.item-top label { flex-direction: row; align-items: center; gap: 6px; }
+.item-top .price-edit { width: 110px; padding: 5px 6px; border: 1px solid #ddd; border-radius: 4px; font-weight: bold; color: #6c3483; text-align: right; }
+
+/* Box groups (lunch and sweet boxes) */
+.box-totals { display: flex; gap: 28px; flex-wrap: wrap; font-size: 14px; margin: 4px 0 12px; }
+.box-totals strong { color: #6c3483; }
+.box-group { background: #fff; border: 1px solid #e3d9ec; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.box-group-head { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.box-group-head label { font-size: 12px; color: #555; display: flex; flex-direction: column; gap: 3px; }
+.box-group-head .box-count { width: 110px; }
+.box-group-head .box-name { width: 220px; }
+.box-group-head .box-title { font-weight: 700; color: #6c3483; font-size: 14px; margin-right: auto; }
+.box-group input { padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: #fff; }
+.box-items-head, .box-item-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 130px 80px; gap: 8px; align-items: center; }
+body[data-type="sweet"] .box-items-head, body[data-type="sweet"] .box-item-row { grid-template-columns: minmax(0, 1fr) 110px 80px; }
+.box-items-head { font-size: 11px; color: #888; margin: 12px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.box-item-row { margin-bottom: 6px; }
+.box-group-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; flex-wrap: wrap; gap: 8px; }
+.box-summary { font-size: 13px; color: #6c3483; font-weight: 600; }
+
+/* Extra charges (all order types) */
+.charges-card { background: #fff; border: 1px solid #e8e0f0; border-radius: 8px; padding: 10px 14px; margin: 0 8px 10px; }
+.charges-card h4 { font-size: 13px; color: #555; margin-bottom: 8px; }
+.charge-row { display: grid; grid-template-columns: minmax(0, 1fr) 140px 84px; gap: 8px; margin-bottom: 6px; }
+.charge-row input { padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
+
+/* Sweet boxes: weighing step on the payment page */
+.weigh-box { background: #fff8e1; border: 1px solid #f0d28a; border-radius: 8px; padding: 16px; }
+.weigh-box h3 { font-size: 16px; color: #6c3483; margin-bottom: 6px; }
+.weigh-input { width: 100%; padding: 12px; font-size: 18px; border: 2px solid #6c3483; border-radius: 8px; text-align: center; margin-top: 6px; }
+
+/* Quick filter chips (order list and kitchen) */
+.chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+.chip { display: inline-block; padding: 6px 12px; border: 1px solid #d6c8e3; border-radius: 16px; font-size: 12px; color: #6c3483; text-decoration: none; background: #fff; }
+.chip.active { background: #6c3483; color: #fff; border-color: #6c3483; }
+.chip:hover:not(.active) { background: #f5f0fa; }
