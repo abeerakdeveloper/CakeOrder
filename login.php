@@ -2,6 +2,7 @@
 session_start();
 
 require_once 'db.php';
+require_once 'company.php';
 
 $error = '';
 
@@ -50,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
 body {
-    background: linear-gradient(135deg, #6c3483 0%, #9b59b6 100%);
+    background: #6c3483;
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -76,9 +77,20 @@ body {
     color: #888;
     font-size: 13px;
 }
-.logo .icon {
-    font-size: 56px;
+.logo-mark {
     margin-bottom: 8px;
+}
+.login-logo {
+    display: block;
+    margin: 0 auto;
+    max-height: 72px;
+    max-width: 220px;
+}
+.login-logo-text {
+    display: block;
+    color: #6c3483;
+    font-size: 20px;
+    font-weight: bold;
 }
 .form-group {
     margin-bottom: 16px;
@@ -162,16 +174,16 @@ body {
 		?>
 
        <div class="logo">
-			<div class="icon">🧁</div>
+			<div class="logo-mark"><?php echo company_logo_html('login-logo'); ?></div>
 			<h1><?php echo htmlspecialchars($brName); ?></h1>
 			<?php if (!empty($brAddr)): ?>
-			<p style="font-size:12px;color:#888;line-height:1.4;">📍 <?php echo htmlspecialchars($brAddr); ?></p>
+			<p style="font-size:12px;color:#888;line-height:1.4;"><?php echo htmlspecialchars($brAddr); ?></p>
 			<?php endif; ?>
 			<p style="margin-top:4px;">POS System</p>
 		</div>
     
     <?php if ($error): ?>
-    <div class="error">⚠ <?php echo htmlspecialchars($error); ?></div>
+    <div class="error"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
     
 		
@@ -186,7 +198,7 @@ body {
             <label>PASSWORD</label>
             <input type="password" name="mpass" placeholder="Enter password" required>
         </div>
-        <button type="submit" class="btn-login">🔐 LOGIN</button>
+        <button type="submit" class="btn-login">LOGIN</button>
     </form>
     
 	<div style="
@@ -229,7 +241,7 @@ body {
 					font-size:16px;
 					font-weight:bold;
 			   ">
-				📊 View Presentation
+				View Presentation
 			</a>
 
 			<a href="https://ZeeSOL.co.uk/BestPOS/presentation/training_manual.html"
@@ -245,7 +257,7 @@ body {
 					font-size:16px;
 					font-weight:bold;
 			   ">
-				📘 Training Manual
+				Training Manual
 			</a>
 
 		</div>

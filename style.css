@@ -306,7 +306,7 @@ table tr:hover { background: #faf8fd; }
 .bar-chart { width: 100%; }
 .bar-row { display: flex; align-items: center; margin-bottom: 8px; }
 .bar-label { width: 80px; font-size: 12px; text-align: right; padding-right: 10px; }
-.bar-fill { height: 22px; background: linear-gradient(90deg, #a855f7, #d8b4fe); border-radius: 4px; min-width: 4px; }
+.bar-fill { height: 22px; background: #9b59b6; border-radius: 4px; min-width: 4px; }
 .bar-value { margin-left: 6px; font-size: 11px; color: #888; }
 
 /* PICKUP QUEUE */

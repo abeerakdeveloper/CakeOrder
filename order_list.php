@@ -209,12 +209,12 @@ $pageTitle = 'Order List';
                         $priorityLabel = 'Normal';
                         
                         if ($o['priority'] == 'vip') {
-                            $rowBg = 'background:linear-gradient(90deg,#fff8e1,#fff);';
+                            $rowBg = 'background:#fff8e1;';
                             $priorityIcon = '';
                             $priorityColor = '#f39c12';
                             $priorityLabel = 'VIP';
                         } else if ($o['priority'] == 'urgent') {
-                            $rowBg = 'background:linear-gradient(90deg,#ffebee,#fff);';
+                            $rowBg = 'background:#ffebee;';
                             $priorityIcon = '';
                             $priorityColor = '#e74c3c';
                             $priorityLabel = 'Urgent';

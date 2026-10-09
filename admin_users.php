@@ -46,13 +46,13 @@ $pageTitle = 'User Management';
 <?php include 'includes/header.php'; ?>
 
         <?php if (isset($_GET['saved'])): ?>
-        <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:16px;">✅ Saved!</div>
+        <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:16px;">Saved!</div>
         <?php endif; ?>
 
         <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;">
             <!-- ADD/EDIT FORM -->
             <div class="data-card">
-                <h4 id="formTitle">➕ Add New User</h4>
+                <h4 id="formTitle">Add New User</h4>
                 <form method="POST" style="margin-top:16px;">
                     <input type="hidden" name="id" id="userId" value="0">
                     <div class="form-group" style="margin-bottom:12px;">
@@ -71,7 +71,7 @@ $pageTitle = 'User Management';
                             <option value="3">3 - Admin</option>
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width:100%;">💾 Save</button>
+                    <button type="submit" class="btn btn-primary" style="width:100%;">Save</button>
                     <button type="button" class="btn btn-outline" style="width:100%;margin-top:8px;" onclick="resetForm()">Cancel</button>
                 </form>
             </div>
@@ -101,9 +101,9 @@ $pageTitle = 'User Management';
                                 <?php echo $u['role']; ?> - <?php echo $rName; ?>
                             </span></td>
                             <td>
-                                <button class="btn btn-sm btn-info" onclick="editUser(<?php echo $u['id']; ?>, '<?php echo htmlspecialchars($u['user'], ENT_QUOTES); ?>', <?php echo $u['role']; ?>)">✎ Edit</button>
+                                <button class="btn btn-sm btn-info" onclick="editUser(<?php echo $u['id']; ?>, '<?php echo htmlspecialchars($u['user'], ENT_QUOTES); ?>', <?php echo $u['role']; ?>)">Edit</button>
                                 <?php if ($u['id'] != 1 && $u['user'] != $_SESSION['user']): ?>
-                                <a href="?delete=<?php echo $u['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete user <?php echo htmlspecialchars($u['user']); ?>?')">🗑 Delete</a>
+                                <a href="?delete=<?php echo $u['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete user <?php echo htmlspecialchars($u['user']); ?>?')">Delete</a>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -117,7 +117,7 @@ $pageTitle = 'User Management';
 
 <script>
 function editUser(id, user, role) {
-    document.getElementById('formTitle').textContent = '✎ Edit User: ' + user;
+    document.getElementById('formTitle').textContent = 'Edit User: ' + user;
     document.getElementById('userId').value = id;
     document.getElementById('userInput').value = user;
     document.getElementById('roleInput').value = role;
@@ -126,7 +126,7 @@ function editUser(id, user, role) {
     window.scrollTo(0, 0);
 }
 function resetForm() {
-    document.getElementById('formTitle').textContent = '➕ Add New User';
+    document.getElementById('formTitle').textContent = 'Add New User';
     document.getElementById('userId').value = 0;
     document.getElementById('userInput').value = '';
     document.getElementById('passInput').value = '';

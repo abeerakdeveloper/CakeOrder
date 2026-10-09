@@ -29,7 +29,7 @@ if ($res) {
 <body>
 <?php $branch = getBranchInfo(); ?>
 <div class="topbar" style="background:#27ae60;">
-     <h2>🚚 <?php echo htmlspecialchars($branch['name']); ?> — Pickup Queue</h2>
+     <h2><?php echo htmlspecialchars($branch['name']); ?> — Pickup Queue</h2>
     <div class="topbar-right">
         <span>Ready: <?php echo $readyCount; ?></span>
         <a href="dashboard.php">Dashboard</a>
@@ -42,10 +42,10 @@ if ($res) {
     <nav class="sidebar-nav">
        
 		<div class="brand">
-			<h3 style="font-size:15px;line-height:1.2;">🚚 <?php echo htmlspecialchars($branch['name']); ?></h3>
+			<h3 style="font-size:15px;line-height:1.2;"><?php echo htmlspecialchars($branch['name']); ?></h3>
 			<?php if (!empty($branch['address'])): ?>
 			<small style="color:#888;font-size:10px;display:block;margin-top:4px;line-height:1.3;">
-				📍 <?php echo htmlspecialchars($branch['address']); ?>
+				<?php echo htmlspecialchars($branch['address']); ?>
 			</small>
 			<?php endif; ?>
 			<small style="color:#6c3483;font-size:11px;display:block;margin-top:6px;font-weight:600;">
@@ -54,17 +54,16 @@ if ($res) {
 		</div>
 
 
-        <a href="dashboard.php"><span class="icon">📊</span><span class="label">Dashboard</span></a>
-        <a href="index.php"><span class="icon">➕</span><span class="label">New Order</span></a>
-        <a href="order_list.php"><span class="icon">📋</span><span class="label">Order List</span></a>
-        <a href="kitchen_display.php"><span class="icon">👨‍🍳</span><span class="label">Kitchen</span></a>
-        <a href="pickup_queue.php" class="active"><span class="icon">🚚</span><span class="label">Pickup Queue</span></a>
+        <a href="dashboard.php"><span class="label">Dashboard</span></a>
+        <a href="index.php"><span class="label">New Order</span></a>
+        <a href="order_list.php"><span class="label">Order List</span></a>
+        <a href="kitchen_display.php"><span class="label">Kitchen</span></a>
+        <a href="pickup_queue.php" class="active"><span class="label">Pickup Queue</span></a>
     </nav>
 
     <div class="main-content">
         <?php if (empty($pickups)): ?>
         <div style="text-align:center;padding:80px;color:#999;">
-            <div style="font-size:60px;margin-bottom:16px;">📦</div>
             <h3>No orders ready for pickup</h3>
         </div>
         <?php endif; ?>
@@ -76,12 +75,12 @@ if ($res) {
                 <div class="customer"><?php echo htmlspecialchars($o['party_detail'] ? $o['party_detail'] : 'Walk-in'); ?></div>
                 <div style="margin:8px 0;"><?php echo getStatusBadge($o['status']); ?></div>
                 <div style="font-size:12px;color:#555;margin:8px 0;"><?php echo htmlspecialchars($o['items']); ?></div>
-                <div class="time">🕐 <?php echo $o['delivery_time']; ?> | 📅 <?php echo date('d M', strtotime($o['deliver_date'])); ?></div>
+                <div class="time"><?php echo $o['delivery_time']; ?> | <?php echo date('d M', strtotime($o['deliver_date'])); ?></div>
                 <div style="margin-top:12px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
                     <?php if ($o['status'] == 'ready'): ?>
-                    <button class="btn btn-sm btn-success" onclick="markDelivered(<?php echo $o['bill_no']; ?>)">✅ Delivered</button>
+                    <button class="btn btn-sm btn-success" onclick="markDelivered(<?php echo $o['bill_no']; ?>)">Delivered</button>
                     <?php endif; ?>
-                    <a href="payment.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-primary">💰 Pay</a>
+                    <a href="payment.php?bill=<?php echo $o['bill_no']; ?>" class="btn btn-sm btn-primary">Pay</a>
                 </div>
             </div>
             <?php endforeach; ?>
