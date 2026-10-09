@@ -439,7 +439,7 @@ function cancelOrder(billNo) {
 
 // ===== ADMIN DELETE =====
 function adminDelete(billNo) {
-    if (!confirm(' ADMIN: PERMANENTLY DELETE order #' + billNo + '?\n\nThis cannot be undone!')) return;
+    if (!confirm('ADMIN: PERMANENTLY DELETE order #' + billNo + '?\n\nThis cannot be undone!')) return;
     var reason = prompt('Reason for deletion:');
     if (!reason) return;
     fetch('admin_delete_order.php', {
