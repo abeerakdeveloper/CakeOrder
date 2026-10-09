@@ -38,12 +38,12 @@ $priorities = array('normal', 'urgent', 'vip');
 $occasions = array('Birthday', 'Anniversary', 'Wedding', 'Engagement', 'Baby Shower', 'Graduation', 'Corporate', 'Other');
 $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>BestPOS</title>
-<link rel="stylesheet" href="style.css">
+<?php
+$pageTitle = 'Other (Classic POS)';
+$pageKey   = 'pos';
+$preCss    = array('style.css');
+include 'includes/app_shell.php';
+?>
 <style>
 /* Customer suggestion dropdown */
 .suggest-box {
@@ -102,41 +102,48 @@ $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 
 }
 
 .barcode-input-area {
-    background: #fff; padding: 10px; border-radius: 8px;
-    border: 2px dashed #6c3483; margin-bottom: 8px; text-align: center;
+    background: #fbfdff; padding: 10px; border-radius: 10px;
+    border: 2px dashed var(--blue-line); margin-bottom: 10px; text-align: center;
 }
+.barcode-input-area input { color: var(--text); font-weight: 600; }
+.product-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tabs button.active { background: #fff; color: var(--blue); box-shadow: 0 1px 3px rgba(22,40,63,.12); }
+.product-list .product-item { margin-bottom: 0; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.product-list .product-item:hover { border-color: var(--blue); background: var(--blue-soft); }
+.product-list .product-item .name { color: var(--text); }
+.product-list .product-item .price { color: var(--blue); min-width: 0; text-align: left; font-size: 13px; }
+.pos-sidebar { width: auto; background: none; border: none; padding: 0; overflow: visible; }
+.transaction-area { margin: 0; border: 1px solid var(--line); }
+.footer-bar { margin: 12px 0 0; border: 1px solid var(--line); }
+.customer-bar { margin: 0 0 12px; border: 1px solid var(--line); }
+#customerInfoCard { margin: 0 0 12px !important; }
 </style>
-</head>
-<body>
 
-<div class="topbar">
-	<?php $branch = getBranchInfo(); ?>
-	<h2>🧁 <?php echo htmlspecialchars($branch['name']); ?> — New Order</h2>
-    <div class="topbar-right">
-        <span style="font-size:13px;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:12px;">
-            <?php echo getRoleName(); ?>
-        </span>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="order_list.php">Orders</a>
-        <a href="logout.php" style="background:#e74c3c;padding:6px 12px;border-radius:6px;">🚪</a>
+<div class="page-head">
+    <div class="ph-ic">🧾</div>
+    <div>
+        <h2>Other — Classic POS</h2>
+        <p>Full-featured counter sale: barcode, search, per-item photo &amp; voice notes.</p>
     </div>
+    <div class="spacer"></div>
+    <a class="btn btn-outline" href="index.php">＋ New Order</a>
 </div>
 
-<div class="pos-layout">
+<div class="order-cols" style="grid-template-columns:300px minmax(0,1fr);align-items:start;">
     <!-- SIDEBAR WITH TABS -->
-    <div class="pos-sidebar">
+    <div class="card side-panel pos-sidebar" style="position:sticky;top:80px;max-height:calc(100vh - 110px);overflow-y:auto;">
         <div class="barcode-input-area">
-            <input type="text" id="barcodeInput" placeholder="📷 Scan Barcode..." 
+            <input type="text" id="barcodeInput" placeholder="📷 Scan Barcode..."
                    style="width:100%;padding:6px;border:none;background:transparent;text-align:center;font-size:13px;"
                    onkeyup="if(event.key=='Enter') scanBarcode()">
-            <div class="kbd-hint">Press ENTER after scan</div>
+            <div class="kbd-hint">Press ENTER after scan (F2)</div>
         </div>
-        
-        <input type="text" id="searchItems" class="search" placeholder="🔍 Search products...">
-        
-        <div class="tab-row">
-            <button class="tab-btn active" onclick="switchTab('all', this)">📋 All</button>
-            <button class="tab-btn" onclick="switchTab('top', this)">⭐ Top</button>
+
+        <input type="text" id="searchItems" class="inp" style="margin-bottom:10px;" placeholder="🔍 Search products...">
+
+        <div class="tabs" style="margin-bottom:10px;">
+            <button class="active" onclick="switchTab('all', this)">📋 All</button>
+            <button onclick="switchTab('top', this)">⭐ Top</button>
         </div>
         
         <!-- ALL PRODUCTS -->
@@ -190,81 +197,88 @@ $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 
     </div>
 
     <!-- MAIN AREA -->
-    <div class="pos-main">
-        <div class="stepper">
-            <div class="step active"><span>1</span> Draft</div>
-            <div class="line"></div>
-            <div class="step"><span>2</span> Order</div>
-            <div class="line"></div>
-            <div class="step"><span>3</span> Payment</div>
-            <div class="line"></div>
-            <div class="step"><span>4</span> Receipt</div>
+    <div>
+        <!-- CUSTOMER BAR ENHANCED -->
+        <div class="card customer-bar" style="display:block;">
+            <div class="grid-4">
+                <div class="fld" style="position:relative;">
+                    <label>📱 Phone (search by number)</label>
+                    <input type="text" class="inp" id="custCell" placeholder="0300-0000000" autocomplete="off"
+                           oninput="searchCustomer(this.value)" onblur="setTimeout(hideSuggest, 200)">
+                    <div id="suggestBox" class="suggest-box" style="display:none;"></div>
+                </div>
+                <div class="fld">
+                    <label>👤 Customer Name</label>
+                    <input type="text" class="inp" id="custName" placeholder="Walk-in" value="Walk-in">
+                </div>
+                <div class="fld">
+                    <label>📅 Delivery Date</label>
+                    <input type="date" class="inp" id="deliverDate" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>">
+                </div>
+                <div class="fld">
+                    <label>🕐 Time</label>
+                    <input type="time" class="inp" id="deliverTime" value="<?php echo date('H:i', strtotime('+30 minutes')); ?>">
+                </div>
+            </div>
+            <div class="row mt12" style="align-items:center;flex-wrap:nowrap;">
+                <div class="fld" style="flex:0 0 auto;">
+                    <label>🚚 Type</label>
+                    <div class="seg">
+                        <button type="button" class="on" data-type="pickup" onclick="pickType('pickup', this)">🛍 Pickup</button>
+                        <button type="button" data-type="delivery" onclick="pickType('delivery', this)">🚚 Delivery</button>
+                    </div>
+                </div>
+                <div class="spacer"></div>
+                <button class="collapse-btn" onclick="toggleCollapse('moreOpts', this)">▾ More options</button>
+            </div>
+            <div class="collapse-body" id="moreOpts">
+                <div class="grid-4 mt12">
+                    <div class="fld">
+                        <label>⚡ Priority</label>
+                        <select class="inp" id="priority">
+                            <?php foreach ($priorities as $p): ?>
+                            <option value="<?php echo $p; ?>"><?php echo ucfirst($p); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="fld">
+                        <label>🎉 Occasion</label>
+                        <select class="inp" id="occasion">
+                            <option value="">-- None --</option>
+                            <?php foreach ($occasions as $o): ?>
+                            <option value="<?php echo $o; ?>"><?php echo $o; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="fld">
+                        <label>📍 Source</label>
+                        <select class="inp" id="orderSource">
+                            <?php foreach ($sources as $k => $v): ?>
+                            <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="fld">
+                        <label>🚚 Type (legacy)</label>
+                        <select class="inp" id="deliveryType" onchange="toggleDeliveryAddress()">
+                            <option value="pickup">Pickup</option>
+                            <option value="delivery">Home Delivery</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- CUSTOMER BAR ENHANCED -->
-        <div class="customer-bar">
-            <div class="field" style="position:relative;">
-                <label>📱 Phone (search by number)</label>
-                <input type="text" id="custCell" placeholder="0300-0000000" autocomplete="off"
-                       oninput="searchCustomer(this.value)" onblur="setTimeout(hideSuggest, 200)">
-                <div id="suggestBox" class="suggest-box" style="display:none;"></div>
-            </div>
-            <div class="field">
-                <label>👤 Customer Name</label>
-                <input type="text" id="custName" placeholder="Walk-in" value="Walk-in">
-            </div>
-            <div class="field">
-                <label>📅 Delivery Date</label>
-                <input type="date" id="deliverDate" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>">
-            </div>
-            <div class="field">
-                <label>🕐 Time</label>
-                <input type="time" id="deliverTime" value="<?php echo date('H:i', strtotime('+30 minutes')); ?>">
-	    </div>
-            <div class="field">
-                <label>⚡ Priority</label>
-                <select id="priority">
-                    <?php foreach ($priorities as $p): ?>
-                    <option value="<?php echo $p; ?>"><?php echo ucfirst($p); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>🎉 Occasion</label>
-                <select id="occasion">
-                    <option value="">-- None --</option>
-                    <?php foreach ($occasions as $o): ?>
-                    <option value="<?php echo $o; ?>"><?php echo $o; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>📍 Source</label>
-                <select id="orderSource">
-                    <?php foreach ($sources as $k => $v): ?>
-                    <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>🚚 Type</label>
-                <select id="deliveryType" onchange="toggleDeliveryAddress()">
-                    <option value="pickup">Pickup</option>
-                    <option value="delivery">Home Delivery</option>
-                </select>
-            </div>
-        </div>
-        
         <!-- DELIVERY ADDRESS ROW -->
-        <div id="deliveryAddrRow" style="background:#fff;margin:0 8px 8px;padding:10px 16px;border-radius:8px;border:1px solid #e8e0f0;display:none;">
-            <div class="field">
-                <label style="font-size:12px;font-weight:600;color:#6c3483;">📍 Delivery Address</label>
-                <input type="text" id="deliveryAddress" placeholder="Full delivery address..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+        <div id="deliveryAddrRow" class="card" style="margin:0 0 12px;display:none;">
+            <div class="fld">
+                <label style="font-size:12px;font-weight:600;color:var(--blue);">📍 Delivery Address</label>
+                <input type="text" class="inp" id="deliveryAddress" placeholder="Full delivery address...">
             </div>
         </div>
 
         <!-- CUSTOMER INFO CARD -->
-        <div id="customerInfoCard" class="customer-info-card" style="margin:0 8px 8px;">
+        <div id="customerInfoCard" class="customer-info-card card" style="margin:0 0 12px;">
             <span id="customerInfoText"></span>
             <button class="btn btn-sm btn-outline" style="float:right;margin-left:8px;" onclick="showCustomerHistory()">📜 View History</button>
         </div>
@@ -375,8 +389,6 @@ $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 
     </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
 <script>
 var FLAVORS = <?php echo json_encode($flavors); ?>;
 var SHAPES = <?php echo json_encode($shapes); ?>;
@@ -392,10 +404,17 @@ var currentCustomerCell = '';
 
 // ===== TABS =====
 function switchTab(tab, btn) {
-    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('.tabs button').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     document.getElementById('tab-all').style.display = tab === 'all' ? '' : 'none';
     document.getElementById('tab-top').style.display = tab === 'top' ? '' : 'none';
+}
+
+// ===== PICKUP / DELIVERY SEGMENT =====
+function pickType(t, btn) {
+    document.getElementById('deliveryType').value = t;
+    setOrderType(t, btn);
+    toggleDeliveryAddress();
 }
 
 // ===== BARCODE SCANNER =====
@@ -1059,5 +1078,5 @@ setTimeout(function(){
 // Auto-focus barcode on load
 document.getElementById('barcodeInput').focus();
 </script>
-</body>
-</html>
+
+<?php include 'includes/app_footer.php'; ?>

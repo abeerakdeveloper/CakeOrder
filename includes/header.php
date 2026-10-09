@@ -36,6 +36,18 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <a href="index.php" class="<?php echo $currentPage=='index.php' ? 'active' : ''; ?>">
             <span class="icon">➕</span><span class="label">New Order</span>
         </a>
+        <a href="order_cake.php">
+            <span class="icon">🎂</span><span class="label">Cake Order</span>
+        </a>
+        <a href="order_box.php?type=lunchbox">
+            <span class="icon">🍱</span><span class="label">Lunch Box</span>
+        </a>
+        <a href="order_box.php?type=sweetsbox">
+            <span class="icon">🍬</span><span class="label">Sweets Box</span>
+        </a>
+        <a href="order_eatables.php">
+            <span class="icon">🍽️</span><span class="label">Eatables</span>
+        </a>
         <?php endif; ?>
         
         <a href="order_list.php" class="<?php echo $currentPage=='order_list.php' ? 'active' : ''; ?>">
