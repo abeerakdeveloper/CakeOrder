@@ -51,6 +51,7 @@
     var catalogSeq = 0;
     var catalogAll = null;
     var catalogLoading = false;
+    var catalogError = false;
     var toastTimer = null;
     var activeCardId = '';
     var activeGroupId = '';
@@ -89,6 +90,52 @@
         var s = String(name || '').trim();
         return s ? s.charAt(0).toUpperCase() : '';
     }
+    // ===== ITEM SEARCH HELPERS =====
+    // The product list from get_products.php. Anything else (an error page, a login page) counts as a failed search.
+    function productsFrom(res) {
+        if (!res || !Array.isArray(res.products)) throw new Error('no product list');
+        return res.products;
+    }
+    // Inventory rows in the shape the suggestion lists use
+    function inventoryItems(products) {
+        var out = [];
+        for (var i = 0; i < (products || []).length; i++) {
+            var p = products[i];
+            out.push({
+                name: String(p.prod_name || ''),
+                price: num(p.retail_price),
+                uom: p.uom || '',
+                barcode: (p.barcode === null || p.barcode === undefined) ? '' : String(p.barcode),
+                src: 'inv'
+            });
+        }
+        return out;
+    }
+    // Words typed in a search, in lower case. Every word must appear (so "choc cake" finds "Chocolate Cake").
+    function searchWords(q) {
+        return String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
+    }
+    function matchesWords(text, words) {
+        var t = String(text || '').toLowerCase();
+        for (var i = 0; i < words.length; i++) if (t.indexOf(words[i]) === -1) return false;
+        return true;
+    }
+    function hasName(items, name) {
+        var lower = String(name || '').toLowerCase();
+        for (var i = 0; i < items.length; i++) if (String(items[i].name).toLowerCase() === lower) return true;
+        return false;
+    }
+    // Position of the item whose name or barcode is exactly the text typed (-1 if none)
+    function exactIndex(items, q) {
+        var text = String(q || '').trim();
+        if (text === '') return -1;
+        var lower = text.toLowerCase();
+        for (var i = 0; i < items.length; i++) {
+            if ((items[i].barcode !== '' && items[i].barcode === text) || String(items[i].name).toLowerCase() === lower) return i;
+        }
+        return -1;
+    }
+
     function field(text, control, cls) {
         return '<label class="field' + (cls ? ' ' + cls : '') + '"><span class="lbl">' + esc(text) + '</span>' + control + '</label>';
     }
@@ -194,13 +241,11 @@
 
     // ===== CAKE PICKER (cakes from Cake Products only) =====
     function cakeMatches(q) {
-        var lower = q.toLowerCase();
+        var words = searchWords(q);
         var out = [];
         for (var i = 0; i < CAKES.length; i++) {
             var c = CAKES[i];
-            var name = String(c.name || '').toLowerCase();
-            var code = c.barcode ? String(c.barcode) : '';
-            if (name.indexOf(lower) !== -1 || (code !== '' && code.indexOf(q) !== -1)) out.push(c);
+            if (matchesWords(String(c.name || '') + ' ' + (c.barcode ? String(c.barcode) : ''), words)) out.push(c);
         }
         return out;
     }
@@ -224,7 +269,7 @@
         var hits = cakeMatches(q).slice(0, 40);
         if (!hits.length) {
             box.innerHTML = '<div class="suggest-empty"></div>';
-            box.firstChild.textContent = 'No cake matches "' + q + '". Check the name or the barcode.';
+            box.firstChild.textContent = 'No cake matches "' + q + '". For other items, choose Lunch box, Sweet box or Other.';
             box.hidden = false;
             return;
         }
@@ -268,7 +313,7 @@
             input.focus();
             return;
         }
-        showToast('No cake matches "' + q + '". Check the name or the barcode.', 'error');
+        showToast('No cake matches "' + q + '". For other items, choose Lunch box, Sweet box or Other.', 'error');
     }
     function pickCakeSuggestion(el) {
         var p = findCakeById(el.getAttribute('data-id'));
@@ -637,7 +682,7 @@
                 removeHeadHtml(card.id) +
             '</div>' +
             '<div class="item-grid">' +
-                field('Description', '<input type="text" class="desc" placeholder="What is it?" value="' + esc(preset.name || '') + '">', 'span-2') +
+                fieldDiv('Description', '<div class="desc-wrap"><input type="text" class="desc" autocomplete="off" placeholder="Type a name to search items, or describe it" value="' + esc(preset.name || '') + '" aria-label="Description"><div class="suggest" data-kind="desc" hidden></div></div>', 'span-2') +
                 field('Price (Rs)', '<input type="number" class="price-edit" min="0" step="1" value="' + esc(num(preset.price)) + '">') +
                 fieldDiv('Quantity', qtyControlHtml(card.id, preset.qty || 1)) +
                 fieldDiv('Total (Rs)', '<div class="readout line-amount">Rs. 0</div>') +
@@ -808,60 +853,69 @@
         return { boxes: boxes, each: each, total: each * boxes };
     }
 
-    // Item name search on a box row: inventory first, then names used before
+    // Item name search on a box row, and on the Other item description.
+    // Inventory matches come first, then names used before (sets only).
     function suggestBoxFor(input) {
         if (input.id === 'cakeSearch') return $('cakeSuggest');
         if (input.id === 'custCell') return $('suggestBox');
+        if (input.classList.contains('desc')) {
+            var wrap = closestEl(input, '.desc-wrap');
+            return wrap ? wrap.querySelector('.suggest') : null;
+        }
         var row = closestEl(input, '.box-row');
         return row ? row.querySelector('.suggest') : null;
     }
-    function scheduleBoxSearch(input) {
+    // Runs the item search after a short pause while typing. With pickNow (Enter pressed before the list
+    // was ready, for example a fast barcode scan), the highlighted match is picked as soon as results arrive.
+    function scheduleBoxSearch(input, delay, pickNow) {
         clearTimeout(boxSearchTimer);
         var q = input.value.trim();
         var box = suggestBoxFor(input);
-        if (!q) { hideBox(box); return; }
+        if (!q) { boxSearchSeq++; hideBox(box); return; }
         var seq = ++boxSearchSeq;
         boxSearchTimer = setTimeout(function () {
-            if (q.length < 2) { renderBoxSuggest(input, [], q); return; }
             getJson('get_products.php?search=' + encodeURIComponent(q)).then(function (res) {
                 if (seq !== boxSearchSeq) return;
-                renderBoxSuggest(input, (res && res.products) || [], q);
+                var el = renderBoxSuggest(input, inventoryItems(productsFrom(res)), q, false);
+                if (pickNow && el) pickSuggestion(el);
             }).catch(function () {
-                if (seq === boxSearchSeq) renderBoxSuggest(input, [], q);
+                if (seq === boxSearchSeq) renderBoxSuggest(input, [], q, true);
             });
-        }, 250);
+        }, delay);
     }
-    function renderBoxSuggest(input, products, q) {
+    // Shows the suggestions for the text in the field. Returns the highlighted item, if there is one.
+    function renderBoxSuggest(input, inv, q, failed) {
         var box = suggestBoxFor(input);
-        if (!box || input.value.trim() !== q) return;
-        var list = [];
-        var i;
-        for (i = 0; i < products.length && list.length < 12; i++) {
-            list.push({ name: String(products[i].prod_name || ''), price: num(products[i].retail_price), uom: products[i].uom || '', src: 'inv' });
-        }
-        var lower = q.toLowerCase();
-        var past = PAST_NAMES[currentType] || [];
+        if (!box || input.value.trim() !== q) return null;
+        var isDesc = input.classList.contains('desc');
+        var words = searchWords(q);
+        var list = inv.slice(0, 12);
+        var past = isDesc ? [] : (PAST_NAMES[currentType] || []);
         var pastAdded = 0;
-        for (i = 0; i < past.length && pastAdded < 5; i++) {
+        for (var i = 0; i < past.length && pastAdded < 5; i++) {
             var nm = String(past[i] || '');
-            if (nm === '' || nm.toLowerCase().indexOf(lower) === -1) continue;
-            var dup = false;
-            for (var k = 0; k < list.length; k++) if (list[k].name.toLowerCase() === nm.toLowerCase()) dup = true;
-            if (dup) continue;
-            list.push({ name: nm, price: 0, uom: '', src: 'past' });
+            if (nm === '' || !matchesWords(nm, words) || hasName(list, nm)) continue;
+            list.push({ name: nm, price: 0, uom: '', barcode: '', src: 'past' });
             pastAdded++;
         }
         box.innerHTML = '';
-        if (!list.length) {
+        box.removeAttribute('data-q');
+        if (!failed && !list.length && isDesc) { box.hidden = true; return null; }
+        if (failed || !list.length) {
             box.innerHTML = '<div class="suggest-empty"></div>';
-            box.firstChild.textContent = 'No matching item. You can type the name yourself.';
+            box.firstChild.textContent = failed ? 'Could not search items. Try again.' : 'No matching item. You can type the name yourself.';
             box.hidden = false;
-            return;
+            return null;
         }
+        // An exact name or barcode is highlighted first. Otherwise the first match is highlighted,
+        // except in the free-text description, where Enter must not replace what the user typed.
+        var exact = exactIndex(list, q);
+        var active = exact >= 0 ? exact : (isDesc ? -1 : 0);
+        var activeEl = null;
         for (i = 0; i < list.length; i++) {
             var it = list[i];
             var el = document.createElement('div');
-            el.className = 'suggest-item';
+            el.className = 'suggest-item' + (i === active ? ' is-active' : '');
             el.setAttribute('data-name', it.name);
             el.setAttribute('data-price', String(it.price));
             el.setAttribute('data-src', it.src);
@@ -871,9 +925,28 @@
                 ? (it.price ? 'Rs. ' + money(it.price) : '') + (it.uom ? ' / ' + it.uom : '')
                 : 'Used before';
             box.appendChild(el);
+            if (i === active) activeEl = el;
         }
+        box.setAttribute('data-q', q);
         box.hidden = false;
+        return activeEl;
     }
+    // Other item: the name and the inventory price fill in the item. The item is not linked to inventory.
+    function pickDescSuggestion(el) {
+        var card = closestEl(el, '.item-card');
+        if (!card) return;
+        card.querySelector('.desc').value = el.getAttribute('data-name');
+        var price = num(el.getAttribute('data-price'));
+        if (price > 0 && el.getAttribute('data-src') === 'inv') {
+            var rounded = Math.round(price);
+            card.querySelector('.price-edit').value = rounded;
+            updatePrice(card.id, rounded);
+        }
+        hideBox(closestEl(el, '.suggest'));
+        setActiveCard(card);
+        calcTotals();
+    }
+
     function pickBoxSuggestion(el) {
         var row = closestEl(el, '.box-row');
         if (!row) return;
@@ -914,18 +987,26 @@
             list.appendChild(row);
         }
     }
+    // A message in place of the list, for example when a search fails
+    function renderCatalogMessage(headText, text) {
+        $('catalogHead').textContent = headText;
+        var list = $('catalogList');
+        list.innerHTML = '';
+        var p = document.createElement('p');
+        p.className = 'hint';
+        p.textContent = text;
+        list.appendChild(p);
+    }
     // The default list is the finished products (the same list the search uses), loaded once per page
     function loadCatalog() {
         if (catalogAll !== null || catalogLoading) return;
         catalogLoading = true;
         getJson('get_products.php').then(function (res) {
-            var products = (res && res.products) || [];
-            catalogAll = [];
-            for (var i = 0; i < products.length; i++) {
-                catalogAll.push({ name: String(products[i].prod_name || ''), price: num(products[i].retail_price), uom: products[i].uom || '', src: 'inv' });
-            }
+            catalogAll = inventoryItems(productsFrom(res));
+            catalogError = false;
         }).catch(function () {
             catalogAll = [];
+            catalogError = true;
         }).then(function () {
             catalogLoading = false;
             if (isBoxType(currentType) && !$('catalogSearch').value.trim()) renderDefaultItems();
@@ -933,36 +1014,70 @@
     }
     function renderDefaultItems() {
         if (catalogAll === null) { loadCatalog(); return; }
+        if (catalogError) {
+            renderCatalogMessage('All items', 'Could not load the item list. Refresh the page to try again.');
+            return;
+        }
         renderCatalogRows(catalogAll, 'All items');
     }
+    // Inventory matches first, then names used before that are not in inventory
+    function renderCatalogResults(q, inv) {
+        var items = inv.slice(0, 40);
+        var words = searchWords(q);
+        var past = PAST_NAMES[currentType] || [];
+        for (var i = 0; i < past.length && items.length < 40; i++) {
+            var nm = String(past[i] || '');
+            if (nm !== '' && matchesWords(nm, words) && !hasName(items, nm)) {
+                items.push({ name: nm, price: 0, uom: '', barcode: '', src: 'past' });
+            }
+        }
+        renderCatalogRows(items, 'Search results');
+    }
+    // Any text searches the inventory, from the first letter on
     function scheduleCatalogSearch() {
         clearTimeout(catalogTimer);
         var q = $('catalogSearch').value.trim();
         var seq = ++catalogSeq;
         if (!q) { renderDefaultItems(); return; }
         catalogTimer = setTimeout(function () {
-            if (q.length < 2) {
-                var past = PAST_NAMES[currentType] || [];
-                var filtered = [];
-                for (var i = 0; i < past.length && filtered.length < 10; i++) {
-                    if (String(past[i]).toLowerCase().indexOf(q.toLowerCase()) !== -1) filtered.push({ name: String(past[i]), price: 0, uom: '', src: 'past' });
-                }
-                renderCatalogRows(filtered, 'Search results');
-                return;
-            }
             getJson('get_products.php?search=' + encodeURIComponent(q)).then(function (res) {
                 if (seq !== catalogSeq) return;
-                var items = [];
-                var products = (res && res.products) || [];
-                for (var j = 0; j < products.length && items.length < 40; j++) {
-                    items.push({ name: String(products[j].prod_name || ''), price: num(products[j].retail_price), uom: products[j].uom || '', src: 'inv' });
-                }
-                renderCatalogRows(items, 'Search results');
+                renderCatalogResults(q, inventoryItems(productsFrom(res)));
             }).catch(function () {
-                if (seq === catalogSeq) renderCatalogRows([], 'Search results');
+                if (seq === catalogSeq) renderCatalogMessage('Search results', 'Could not search items. Try again.');
             });
         }, 250);
     }
+    // Enter adds the item whose name or barcode is exactly what was typed. A barcode scanner ends with Enter.
+    function catalogEnter() {
+        var q = $('catalogSearch').value.trim();
+        if (!q) return;
+        clearTimeout(catalogTimer);
+        var seq = ++catalogSeq;
+        getJson('get_products.php?search=' + encodeURIComponent(q)).then(function (res) {
+            if (seq !== catalogSeq) return;
+            var items = inventoryItems(productsFrom(res));
+            var idx = exactIndex(items, q);
+            if (idx >= 0) {
+                addBoxItem(ensureActiveGroup(), { name: items[idx].name, price: items[idx].price });
+                clearCatalogSearch();
+                showToast('Added ' + items[idx].name + '.', 'success');
+            } else if (items.length) {
+                showToast('Click Add on the item you need.', 'info');
+            } else {
+                showToast('No item matches "' + q + '". Check the name or the barcode.', 'error');
+            }
+        }).catch(function () {
+            if (seq === catalogSeq) showToast('Could not search items. Try again.', 'error');
+        });
+    }
+    function clearCatalogSearch() {
+        clearTimeout(catalogTimer);
+        catalogSeq++;
+        $('catalogSearch').value = '';
+        renderDefaultItems();
+    }
+
     function catalogAdd(row) {
         if (!row) return;
         var name = row.getAttribute('data-name') || '';
@@ -1631,6 +1746,7 @@
         if (parentId === 'cakeSuggest') pickCakeSuggestion(el);
         else if (parentId === 'suggestBox') selectCustomer(el.getAttribute('data-cell'), el.getAttribute('data-name'));
         else if (kind === 'box') pickBoxSuggestion(el);
+        else if (kind === 'desc') pickDescSuggestion(el);
     }
 
     // ===== EVENTS =====
@@ -1688,8 +1804,14 @@
         if (t.classList.contains('bi-name')) {
             var av = closestEl(t, '.bi-wrap');
             if (av) av.querySelector('.avatar-sm').textContent = initialOf(t.value);
-            scheduleBoxSearch(t);
+            scheduleBoxSearch(t, 250);
             calcTotals();
+            return;
+        }
+        if (t.classList.contains('desc')) {
+            scheduleBoxSearch(t, 250);
+            var dc = closestEl(t, '.item-card');
+            if (dc && dc.id === activeCardId) $('previewCaption').textContent = cardTitle(dc);
             return;
         }
         if (t.classList.contains('price-edit')) {
@@ -1735,7 +1857,11 @@
 
     document.addEventListener('keydown', function (e) {
         var t = e.target;
-        var isSearch = t && t.tagName === 'INPUT' && (t.id === 'cakeSearch' || t.id === 'custCell' || t.classList.contains('bi-name'));
+        if (t && t.tagName === 'INPUT' && t.id === 'catalogSearch') {
+            if (e.key === 'Enter') { e.preventDefault(); catalogEnter(); return; }
+            if (e.key === 'Escape') { clearCatalogSearch(); return; }
+        }
+        var isSearch = t && t.tagName === 'INPUT' && (t.id === 'cakeSearch' || t.id === 'custCell' || t.classList.contains('bi-name') || t.classList.contains('desc'));
         if (isSearch) {
             var box = suggestBoxFor(t);
             if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(box, 1); return; }
@@ -1747,8 +1873,18 @@
             }
             if (e.key === 'Enter') {
                 if (t.id === 'cakeSearch') { e.preventDefault(); submitCakeSearch(); return; }
-                var active = (box && !box.hidden) ? box.querySelector('.suggest-item.is-active') : null;
-                if (active) { e.preventDefault(); pickSuggestion(active); }
+                if (t.id === 'custCell') {
+                    var customer = (box && !box.hidden) ? box.querySelector('.suggest-item.is-active') : null;
+                    if (customer) { e.preventDefault(); pickSuggestion(customer); }
+                    return;
+                }
+                // Item name (box row or Other description): pick the highlighted item. If the list is not
+                // ready yet (a fast barcode scan), search now and pick the match.
+                e.preventDefault();
+                var ready = box && !box.hidden && box.getAttribute('data-q') === t.value.trim();
+                var active = ready ? box.querySelector('.suggest-item.is-active') : null;
+                if (active) pickSuggestion(active);
+                else scheduleBoxSearch(t, 0, true);
                 return;
             }
         }
@@ -1756,6 +1892,18 @@
         if (e.key === 'F4') { e.preventDefault(); $('custCell').focus(); }
         if (e.key === 'F9') { e.preventDefault(); saveOrder('confirmed'); }
         if (e.key === 'F10' && !EDIT) { e.preventDefault(); saveOrder('hold'); }
+    });
+
+    // A suggestion list closes when focus leaves its field, so a stale list cannot cover the fields below it
+    document.addEventListener('focusout', function (e) {
+        var t = e.target;
+        if (!t || t.tagName !== 'INPUT') return;
+        if (t.id === 'cakeSearch') { hideBox($('cakeSuggest')); return; }
+        if (t.classList.contains('bi-name') || t.classList.contains('desc')) {
+            clearTimeout(boxSearchTimer);
+            boxSearchSeq++;
+            hideBox(suggestBoxFor(t));
+        }
     });
 
     function bindStatic() {

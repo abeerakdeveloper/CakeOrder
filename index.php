@@ -88,7 +88,7 @@ if ($editBill > 0) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Order #<?php echo $editBill; ?> - <?php echo htmlspecialchars($COMPANY['name']); ?></title>
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="order_screen.css?v=3">
+<link rel="stylesheet" href="order_screen.css?v=4">
 </head>
 <body class="ord-page">
 <div class="topbar">
@@ -195,7 +195,7 @@ $roleName = getRoleName();
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?php echo htmlspecialchars($pageTitle); ?> - <?php echo htmlspecialchars($COMPANY['name']); ?></title>
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="order_screen.css?v=3">
+<link rel="stylesheet" href="order_screen.css?v=4">
 </head>
 <body class="ord-page" data-type="<?php echo htmlspecialchars($initialType); ?>" data-mode="<?php echo $edit ? 'edit' : 'new'; ?>">
 
@@ -550,6 +550,6 @@ $roleName = getRoleName();
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>window.ORDER_CONFIG = <?php echo $screenConfigJson; ?>;</script>
-<script src="order_screen.js?v=3"></script>
+<script src="order_screen.js?v=4"></script>
 </body>
 </html>

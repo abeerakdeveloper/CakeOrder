@@ -280,6 +280,7 @@
 .ord-page .box-row { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: #fbfcfe; }
 .ord-page .bi-wrap { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .ord-page .bi-wrap .bi-name { flex: 1; min-width: 0; }
+.ord-page .desc-wrap { position: relative; }
 .ord-page .btn-x {
     width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #7a8497; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
