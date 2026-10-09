@@ -1,4 +1,4 @@
-/* New order screen (index.php). Builds the order form, keeps the totals up to date and sends
+/* New order screen (index.php). Builds the order form, keeps the summary up to date and sends
    the same data to save_order.php and save_order_edit.php as before. Business rules stay on the server. */
 (function () {
     'use strict';
@@ -11,17 +11,26 @@
     var CAKES = CFG.cakes || [];
     var TOP_SELLERS = CFG.topSellers || [];
     var PAST_NAMES = { lunch: CFG.lunchNames || [], sweet: CFG.sweetNames || [] };
-    var TYPE_TITLES = {
-        cake: 'Cakes',
-        eatable: 'Eatable pictures',
-        other: 'Other items',
-        lunch: 'Lunch boxes',
-        sweet: 'Sweet boxes'
+    var PRESET_CHARGES = CFG.presetCharges || [];
+    var HEADS = {
+        cake: ['Create Cake Order', 'Select a category, flavour and other details to create a new cake order.'],
+        lunch: ['Create Lunch Box Order', 'Build lunch box sets and quantities in a few steps.'],
+        sweet: ['Create Sweet Box Order', 'Build sweet box sets. Sweet boxes are priced after weighing.'],
+        eatable: ['Create Eatable Picture Order', 'Add each picture with its photo, size and quantity.'],
+        other: ['Create Other Order', 'Add the items that are not cakes or boxes.']
     };
-    var TYPE_HINTS = {
-        cake: 'Search for a cake above, or scan its barcode. Each cake you add appears here.',
+    var CARDS_TITLE = { cake: 'Cake details', eatable: 'Eatable pictures', other: 'Other items' };
+    var HINTS = {
+        cake: 'Choose a category above, or search for a cake. Each cake you add appears here.',
         eatable: 'Click "Add picture" to add an eatable picture with its photo.',
         other: 'Click "Add item" to add an item.'
+    };
+    var ICON = {
+        x: '<svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>',
+        minus: '<svg class="ico" aria-hidden="true"><use href="#i-minus"/></svg>',
+        plus: '<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>',
+        upload: '<svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg>',
+        mic: '<svg class="ico" aria-hidden="true"><use href="#i-mic"/></svg>'
     };
 
     var currentType = CFG.type || 'cake';
@@ -38,7 +47,13 @@
     var searchTimer = null;
     var boxSearchTimer = null;
     var boxSearchSeq = 0;
+    var catalogTimer = null;
+    var catalogSeq = 0;
+    var catalogAll = null;
+    var catalogLoading = false;
     var toastTimer = null;
+    var activeCardId = '';
+    var activeGroupId = '';
 
     // ===== HELPERS =====
     function $(id) { return document.getElementById(id); }
@@ -49,7 +64,7 @@
     }
     function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
     function money(n) { return Math.round(n).toLocaleString('en-US'); }
-function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
+    function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     function isBoxType(t) { return t === 'lunch' || t === 'sweet'; }
     function removeEl(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
     function closestEl(el, sel) {
@@ -70,8 +85,15 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 3500);
     }
     function hideBox(box) { if (box) box.hidden = true; }
+    function initialOf(name) {
+        var s = String(name || '').trim();
+        return s ? s.charAt(0).toUpperCase() : '';
+    }
     function field(text, control, cls) {
         return '<label class="field' + (cls ? ' ' + cls : '') + '"><span class="lbl">' + esc(text) + '</span>' + control + '</label>';
+    }
+    function fieldDiv(text, control, cls) {
+        return '<div class="field' + (cls ? ' ' + cls : '') + '"><span class="lbl">' + esc(text) + '</span>' + control + '</div>';
     }
     function selectHtml(cls, options, selected) {
         var h = '<select class="' + cls + '"><option value="">Choose</option>';
@@ -81,15 +103,21 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         return h + '</select>';
     }
     function qtyControlHtml(id, qty) {
-        return '<div class="qty-control">' +
-            '<button type="button" data-action="qty" data-id="' + esc(id) + '" data-delta="-1" aria-label="Less">-</button>' +
+        return '<div class="stepper qty-control">' +
+            '<button type="button" data-action="qty" data-id="' + esc(id) + '" data-delta="-1" aria-label="Less">' + ICON.minus + '</button>' +
             '<input type="number" class="qty-input" min="1" step="1" value="' + esc(qty) + '" aria-label="Quantity">' +
-            '<button type="button" data-action="qty" data-id="' + esc(id) + '" data-delta="1" aria-label="More">+</button>' +
+            '<button type="button" data-action="qty" data-id="' + esc(id) + '" data-delta="1" aria-label="More">' + ICON.plus + '</button>' +
             '</div>';
     }
-    function headHtml(title, id) {
-        return '<div class="item-head"><h3 class="item-title">' + esc(title) + '</h3>' +
-            '<button type="button" class="btn-text danger" data-action="remove-item" data-id="' + esc(id) + '">Remove</button></div>';
+    function shapeChipsHtml(id, selected) {
+        var h = '<input type="hidden" class="shape" value="' + esc(selected) + '"><div class="chips">';
+        for (var i = 0; i < SHAPES.length; i++) {
+            h += '<button type="button" class="chip' + (SHAPES[i] === selected ? ' is-active' : '') + '" data-action="shape" data-id="' + esc(id) + '" data-value="' + esc(SHAPES[i]) + '">' + esc(SHAPES[i]) + '</button>';
+        }
+        return h + '</div>';
+    }
+    function removeHeadHtml(id) {
+        return '<button type="button" class="btn-text danger" data-action="remove-item" data-id="' + esc(id) + '">Remove</button>';
     }
 
     // ===== ORDER TYPE =====
@@ -121,13 +149,23 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
             tabs[i].classList.toggle('is-active', on);
             tabs[i].setAttribute('aria-pressed', on ? 'true' : 'false');
         }
-        $('itemsTitle').textContent = TYPE_TITLES[type];
-        $('boxTitle').textContent = TYPE_TITLES[type];
+        if (!EDIT) {
+            $('pageTitle').textContent = HEADS[type][0];
+            $('pageSub').textContent = HEADS[type][1];
+        }
+        $('cardsTitle').textContent = CARDS_TITLE[type] || '';
+        var sweet = type === 'sweet';
+        $('boxTitle').textContent = sweet ? 'Sweet Box Sets' : 'Lunch Box Sets';
+        $('setCountLabel').textContent = sweet ? 'Sweet Box Sets' : 'Lunch Box Sets';
+        $('boxTotalLabel').textContent = sweet ? 'Total Sweet Boxes' : 'Total Lunch Boxes';
         $('addEatableBtn').textContent = type === 'cake' ? '+ Add eatable picture to this cake' : '+ Add picture';
+        $('work').classList.toggle('has-catalog', isBoxType(type));
+        $('itemsLabel').textContent = isBoxType(type) ? 'Boxes total' : 'Items total';
         applyTypeVisibility(type);
         if (isBoxType(type) && $('boxGroups').querySelectorAll('.box-group').length === 0) {
             addBoxGroup();
         }
+        if (isBoxType(type)) renderDefaultItems();
         updateEmptyMessage();
         calcTotals();
         if (!EDIT && window.history && window.history.replaceState) {
@@ -137,6 +175,9 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     function clearItems() {
         $('cartItems').innerHTML = '';
         $('boxGroups').innerHTML = '';
+        activeCardId = '';
+        activeGroupId = '';
+        showPreview(null);
         updateEmptyMessage();
         calcTotals();
     }
@@ -144,7 +185,11 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         var box = $('emptyMsg');
         var hasCards = $('cartItems').querySelectorAll('.item-card').length > 0;
         box.hidden = hasCards || isBoxType(currentType);
-        box.textContent = TYPE_HINTS[currentType] || '';
+        box.textContent = HINTS[currentType] || '';
+    }
+    function newOrder() {
+        if (hasAnyItems() && !confirm('Start a new order? The items you added will be removed.')) return;
+        window.location.href = 'index.php?type=cake';
     }
 
     // ===== CAKE PICKER (cakes from Cake Products only) =====
@@ -231,27 +276,43 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         clearCakeSearch();
         $('cakeSearch').focus();
     }
-    function renderTopSellers() {
-        var wrap = $('topSellers');
+    function renderTiles() {
+        var wrap = $('tiles');
         wrap.innerHTML = '';
-        if (!TOP_SELLERS.length) { wrap.hidden = true; return; }
-        var label = document.createElement('span');
-        label.className = 'lbl';
-        label.textContent = 'Top sellers (last 30 days):';
-        wrap.appendChild(label);
-        for (var i = 0; i < TOP_SELLERS.length; i++) {
-            var t = TOP_SELLERS[i];
+        var seen = {};
+        var list = [];
+        for (var t = 0; t < TOP_SELLERS.length; t++) {
+            list.push({ id: TOP_SELLERS[t].id, name: TOP_SELLERS[t].name, price: TOP_SELLERS[t].price, uom: TOP_SELLERS[t].uom, top: true });
+            seen[String(TOP_SELLERS[t].id)] = true;
+        }
+        for (var c = 0; c < CAKES.length && list.length < 150; c++) {
+            if (seen[String(CAKES[c].id)]) continue;
+            list.push({ id: CAKES[c].id, name: CAKES[c].name, price: CAKES[c].price, uom: CAKES[c].uom, top: false });
+        }
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i];
             var b = document.createElement('button');
             b.type = 'button';
-            b.className = 'chip';
-            b.setAttribute('data-action', 'top-seller');
-            b.setAttribute('data-id', String(t.id));
-            b.setAttribute('data-name', t.name);
-            b.setAttribute('data-price', String(t.price));
-            b.setAttribute('data-uom', t.uom || '');
-            b.title = 'Sold ' + t.sold + ' times in the last 30 days';
-            b.textContent = t.name;
+            b.className = 'tile';
+            b.setAttribute('data-action', 'tile');
+            b.setAttribute('data-id', String(it.id));
+            b.setAttribute('data-name', String(it.name || ''));
+            b.setAttribute('data-price', String(it.price || 0));
+            b.setAttribute('data-uom', String(it.uom || ''));
+            b.innerHTML = '<span class="t-name"></span><span class="t-meta"></span><span class="t-count" hidden></span>';
+            b.querySelector('.t-name').textContent = it.name || '';
+            b.querySelector('.t-meta').textContent = (it.top ? 'Top seller, ' : '') + 'Rs. ' + money(it.price || 0) + (it.uom ? ' / ' + it.uom : '');
             wrap.appendChild(b);
+        }
+    }
+    function updateTileCounts(counts) {
+        var tiles = $('tiles').querySelectorAll('.tile');
+        for (var i = 0; i < tiles.length; i++) {
+            var c = counts[tiles[i].getAttribute('data-id')] || 0;
+            var badge = tiles[i].querySelector('.t-count');
+            badge.textContent = String(c);
+            badge.hidden = c === 0;
+            tiles[i].classList.toggle('is-active', c > 0);
         }
     }
 
@@ -264,6 +325,12 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
                 renderCustomers((res && res.customers) || []);
             }).catch(function () { hideBox($('suggestBox')); });
         }, 300);
+    }
+    function tagEl(text, cls) {
+        var s = document.createElement('span');
+        s.className = 'tag ' + cls;
+        s.textContent = text;
+        return s;
     }
     function renderCustomers(list) {
         var box = $('suggestBox');
@@ -287,19 +354,21 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         }
         box.hidden = false;
     }
-    function tagEl(text, cls) {
-        var s = document.createElement('span');
-        s.className = 'tag ' + cls;
-        s.textContent = text;
-        return s;
-    }
     function selectCustomer(cell, name) {
         $('custCell').value = cell;
         $('custName').value = name;
-        $('custDisplay').textContent = name;
         currentCustomerCell = cell;
         hideBox($('suggestBox'));
         showCustomerSummary(cell);
+    }
+    function addNewCustomer() {
+        $('custCell').value = '';
+        $('custName').value = 'Walk-in';
+        currentCustomerCell = '';
+        $('customerInfoCard').hidden = true;
+        hideBox($('suggestBox'));
+        $('custName').focus();
+        $('custName').select();
     }
     function showCustomerSummary(cell) {
         getJson('customer_lookup.php?action=search&q=' + encodeURIComponent(cell)).then(function (res) {
@@ -322,7 +391,7 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
             box.innerHTML = '';
             var orders = (res && res.orders) || [];
             if (!orders.length) {
-                box.innerHTML = '<p class="muted center">No previous orders</p>';
+                box.innerHTML = '<p class="hint center">No previous orders</p>';
             }
             for (var i = 0; i < orders.length; i++) {
                 var o = orders[i];
@@ -330,23 +399,23 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
                 el.className = 'hist-item';
                 // status_badge is HTML made by the server
                 el.innerHTML = '<div class="hist-head"><strong>Order #' + esc(o.bill_no) + '</strong>' + (o.status_badge || '') + '</div>' +
-                    '<div class="muted" style="margin-top:4px;">' + esc(o.date) + ' &middot; Rs. ' + esc(o.total) + '</div>' +
-                    '<div class="muted" style="margin-top:2px;font-size:12px;">' + esc(o.items) + '</div>' +
-                    (o.flavors ? '<div class="muted" style="font-size:12px;">Flavours: ' + esc(o.flavors) + '</div>' : '') +
-                    '<div style="margin-top:8px;"><button type="button" class="btn btn-primary btn-sm" data-action="copy-order" data-bill="' + esc(o.bill_no) + '">Copy this order</button></div>';
+                    '<div class="hint" style="margin-top:4px;">' + esc(o.date) + ' &middot; Rs. ' + esc(o.total) + '</div>' +
+                    '<div class="hint">' + esc(o.items) + '</div>' +
+                    (o.flavors ? '<div class="hint">Flavours: ' + esc(o.flavors) + '</div>' : '') +
+                    '<div style="margin-top:8px;"><button type="button" class="btn btn-outline btn-sm" data-action="copy-order" data-bill="' + esc(o.bill_no) + '">Copy this order</button></div>';
                 box.appendChild(el);
             }
             $('historyModal').classList.add('show');
         }).catch(function () { showToast('Could not load the order history.', 'error'); });
     }
 
-    // Copy a previous order: its cakes, other items and box groups (eatable pictures and charges are not copied)
+    // Copy a previous order: its cakes, other items and box sets (eatable pictures and charges are not copied)
     function duplicateOrder(billNo) {
         getJson('customer_lookup.php?action=duplicate&bill_no=' + billNo).then(function (res) {
             if (hasAnyItems() && !confirm('Replace the current items with a copy of order #' + billNo + '?')) return;
             clearItems();
             setType((res && res.type) || 'cake');
-            // setType adds one empty box group for box types; the copy replaces it
+            // setType adds one empty set for box types; the copy replaces it
             $('boxGroups').innerHTML = '';
             calcTotals();
             var skipped = 0;
@@ -363,12 +432,30 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
             }
             var boxes = (res && res.boxes) || [];
             for (var b = 0; b < boxes.length; b++) addBoxGroup(boxes[b]);
+            if (isBoxType(currentType) && $('boxGroups').querySelectorAll('.box-group').length === 0) addBoxGroup();
             $('historyModal').classList.remove('show');
             var msg = 'Copied from order #' + billNo;
             if (skipped) msg += '. Eatable pictures are not copied; add the picture again.';
             showToast(msg, 'success');
         }).catch(function () { showToast('Could not copy the order.', 'error'); });
     }
+
+    // ===== DELIVERY (pickup or delivery) =====
+    function syncDelivery() {
+        var v = $('deliveryType').value;
+        var buttons = document.querySelectorAll('[data-action="delivery"]');
+        for (var i = 0; i < buttons.length; i++) {
+            var on = buttons[i].getAttribute('data-value') === v;
+            buttons[i].classList.toggle('is-active', on);
+            buttons[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+        $('deliveryAddrRow').hidden = v !== 'delivery';
+    }
+    function setDeliveryType(value) {
+        $('deliveryType').value = value === 'delivery' ? 'delivery' : 'pickup';
+        syncDelivery();
+    }
+    function toggleDeliveryAddress() { syncDelivery(); }
 
     // ===== CARDS: CAKES, EATABLE PICTURES, OTHER ITEMS =====
     function makeCard(kind) {
@@ -385,42 +472,82 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         card.dataset.rowId = 0;
         return card;
     }
-    function setCardImage(id, dataUrl) {
-        var card = $(id);
-        card.dataset.image = dataUrl;
-        refreshPhoto(card);
+    function cardPhotoSrc(card) {
+        if (card.dataset.image) return card.dataset.image;
+        var rowId = parseInt(card.dataset.rowId, 10) || 0;
+        if (card.dataset.keepImage === '1' && rowId > 0) return 'show_image.php?type=thumb&id=' + rowId;
+        return '';
     }
-    function showSavedImage(cardId, rowId) {
-        var card = $(cardId);
-        card.dataset.keepImage = '1';
-        refreshPhoto(card);
+    function cardTitle(card) {
+        if (card.dataset.kind === 'cake') return card.dataset.name || 'Cake';
+        if (card.dataset.kind === 'eatable') return 'Eatable picture';
+        var d = card.querySelector('.desc');
+        return (d && d.value.trim()) || 'Other item';
+    }
+    function showPreview(card) {
+        var box = $('previewBox');
+        var src = card ? cardPhotoSrc(card) : '';
+        box.innerHTML = '';
+        if (src) {
+            var img = document.createElement('img');
+            img.alt = 'Photo of the item';
+            img.src = src;
+            box.appendChild(img);
+        } else {
+            var span = document.createElement('span');
+            span.className = 'preview-empty';
+            span.textContent = 'Upload a reference photo to see it here.';
+            box.appendChild(span);
+        }
+        $('previewChangeBtn').hidden = !(card && src);
+        $('previewCaption').textContent = card ? cardTitle(card) : '';
+    }
+    function setActiveCard(card) {
+        if (!card) return;
+        var all = $('cartItems').querySelectorAll('.item-card');
+        for (var i = 0; i < all.length; i++) all[i].classList.toggle('is-active', all[i] === card);
+        activeCardId = card.id;
+        showPreview(card);
     }
     function refreshPhoto(card) {
         var slot = card.querySelector('.photo-slot');
         if (!slot) return;
-        var src = '';
-        if (card.dataset.image) {
-            src = card.dataset.image;
-        } else if (card.dataset.keepImage === '1' && parseInt(card.dataset.rowId, 10) > 0) {
-            src = 'show_image.php?type=thumb&id=' + parseInt(card.dataset.rowId, 10);
-        }
+        var src = cardPhotoSrc(card);
         if (src) {
             slot.innerHTML = '<div class="photo-thumb"><img alt="Photo" src="' + esc(src) + '">' +
-                '<button type="button" class="btn-text" data-action="photo" data-id="' + esc(card.id) + '">Change photo</button></div>';
+                '<div><p class="hint">Photo added</p>' +
+                '<button type="button" class="btn-text" data-action="photo" data-id="' + esc(card.id) + '">Change image</button></div></div>';
         } else if (card.dataset.kind === 'eatable') {
-            slot.innerHTML = '<button type="button" class="btn-photo required" data-action="photo" data-id="' + esc(card.id) + '">Add picture (required)</button>';
+            slot.innerHTML = '<button type="button" class="btn-photo dropzone required" data-action="photo" data-id="' + esc(card.id) + '">' +
+                '<span class="up">' + ICON.upload + '</span><strong>Add picture (required)</strong><small>Click to choose a JPG or PNG</small></button>';
         } else {
-            slot.innerHTML = '<button type="button" class="btn-photo" data-action="photo" data-id="' + esc(card.id) + '">Add photo (optional)</button>';
+            slot.innerHTML = '<button type="button" class="btn-photo dropzone" data-action="photo" data-id="' + esc(card.id) + '">' +
+                '<span class="up">' + ICON.upload + '</span><strong>Upload or choose a reference image</strong><small>Click to choose a JPG or PNG</small></button>';
         }
+        if (card.id === activeCardId) showPreview(card);
+    }
+    function setCardImage(id, dataUrl) {
+        var card = $(id);
+        if (!card) return;
+        card.dataset.image = dataUrl;
+        refreshPhoto(card);
+        setActiveCard(card);
+    }
+    function showSavedImage(cardId, rowId) {
+        var card = $(cardId);
+        if (!card) return;
+        card.dataset.keepImage = '1';
+        refreshPhoto(card);
     }
     function setVoiceButtons(card, hasVoice) {
         var rec = card.querySelector('.btn-voice');
         var play = card.querySelector('.btn-play-voice');
-        if (rec) rec.textContent = hasVoice ? 'Re-record voice' : 'Voice message';
+        if (rec) rec.lastChild.textContent = hasVoice ? 'Re-record voice' : 'Voice message';
         if (play) play.hidden = !hasVoice;
     }
     function showSavedAudio(cardId, rowId) {
         var card = $(cardId);
+        if (!card) return;
         card.dataset.audioUrl = 'show_image.php?type=audio&id=' + rowId;
         setVoiceButtons(card, true);
     }
@@ -434,32 +561,34 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         card.dataset.rowId = preset.id || 0;
         card.dataset.image = preset.image_data || '';
         var tiers = preset.tiers || 1;
-        card.innerHTML = headHtml(name || 'Cake', card.id) +
-            '<div class="item-body">' +
-                '<div class="photo-slot"></div>' +
-                '<div class="fields">' +
-                    '<div class="form-grid g3">' +
-                        field('Flavour', selectHtml('flavor', FLAVORS, preset.flavor || '')) +
-                        field('Shape', selectHtml('shape', SHAPES, preset.shape || '')) +
-                        field('Quantity', qtyControlHtml(card.id, preset.qty || 1)) +
-                        field('Unit', selectHtml('uom', UOMS, preset.uom || uom || '')) +
-                        field('Weight', '<input type="number" class="tiers" min="0" step="0.25" value="' + esc(tiers) + '">') +
-                        field('Price (Rs)', '<input type="number" class="price-edit" min="0" step="1" value="' + esc(num(basePrice) * tiers) + '">') +
-                        field('Cake message', '<input type="text" class="cake-msg" maxlength="200" placeholder="Written on the cake" value="' + esc(preset.cake_message || '') + '">', 'span-2') +
-                        field('Material (optional)', '<input type="text" class="material" maxlength="100" value="' + esc(preset.material || '') + '">') +
-                        field('Kitchen note', '<input type="text" class="note" placeholder="Decoration, colour, allergy" value="' + esc(preset.note || '') + '">', 'span-3') +
-                    '</div>' +
-                    '<div class="voice-row">' +
-                        '<button type="button" class="btn btn-secondary btn-sm btn-voice" data-action="voice" data-id="' + esc(card.id) + '">Voice message</button>' +
-                        '<button type="button" class="btn btn-secondary btn-sm btn-play-voice" data-action="play-voice" data-id="' + esc(card.id) + '" hidden>Play voice message</button>' +
-                    '</div>' +
-                '</div>' +
+        card.innerHTML =
+            '<div class="item-head">' +
+                '<div><h3 class="item-title">' + esc(name || 'Cake') + '</h3><p class="item-sub">Cake</p></div>' +
+                removeHeadHtml(card.id) +
+            '</div>' +
+            '<div class="item-grid">' +
+                field('Flavour', selectHtml('flavor', FLAVORS, preset.flavor || '')) +
+                field('Size and unit', selectHtml('uom', UOMS, preset.uom || uom || '')) +
+                field('Weight', '<input type="number" class="tiers" min="0" step="0.25" value="' + esc(tiers) + '">') +
+                fieldDiv('Shape', shapeChipsHtml(card.id, preset.shape || ''), 'span-3') +
+                fieldDiv('Quantity', qtyControlHtml(card.id, preset.qty || 1)) +
+                field('Price per cake (Rs)', '<input type="number" class="price-edit" min="0" step="1" value="' + esc(num(basePrice) * tiers) + '">') +
+                fieldDiv('Total (Rs)', '<div class="readout line-amount">Rs. 0</div>') +
+                field('Cake message', '<input type="text" class="cake-msg" maxlength="200" placeholder="Written on the cake" value="' + esc(preset.cake_message || '') + '">', 'span-2') +
+                field('Material (optional)', '<input type="text" class="material" maxlength="100" value="' + esc(preset.material || '') + '">') +
+                field('Kitchen note', '<input type="text" class="note" placeholder="Decoration, colour, allergy" value="' + esc(preset.note || '') + '">', 'span-3') +
+            '</div>' +
+            '<div class="photo-slot"></div>' +
+            '<div class="voice-row">' +
+                '<button type="button" class="btn btn-outline btn-sm btn-voice" data-action="voice" data-id="' + esc(card.id) + '">' + ICON.mic + 'Voice message</button>' +
+                '<button type="button" class="btn btn-outline btn-sm btn-play-voice" data-action="play-voice" data-id="' + esc(card.id) + '" hidden>Play voice message</button>' +
             '</div>';
         $('cartItems').appendChild(card);
         if (preset.image_data) setCardImage(card.id, preset.image_data);
         if (preset.has_image && preset.id) showSavedImage(card.id, preset.id);
         if (preset.has_audio && preset.id) showSavedAudio(card.id, preset.id);
         refreshPhoto(card);
+        setActiveCard(card);
         updateEmptyMessage();
         calcTotals();
         return card.id;
@@ -473,19 +602,23 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         card.dataset.name = 'Eatable picture';
         card.dataset.price = num(preset.price);
         card.dataset.rowId = preset.id || 0;
-        card.innerHTML = headHtml('Eatable picture', card.id) +
-            '<div class="item-body">' +
-                '<div class="photo-slot"></div>' +
-                '<div class="fields"><div class="form-grid g3">' +
-                    field('Price (Rs)', '<input type="number" class="price-edit" min="0" step="1" value="' + esc(num(preset.price)) + '">') +
-                    field('Size (optional)', '<input type="text" class="size" placeholder="e.g. 8 x 10 inch" value="' + esc(preset.size || '') + '">') +
-                    field('Quantity', qtyControlHtml(card.id, preset.qty || 1)) +
-                    field('Kitchen note', '<input type="text" class="note" value="' + esc(preset.note || '') + '">', 'span-3') +
-                '</div></div>' +
-            '</div>';
+        card.innerHTML =
+            '<div class="item-head">' +
+                '<div><h3 class="item-title">Eatable picture</h3><p class="item-sub">Add the picture and its size</p></div>' +
+                removeHeadHtml(card.id) +
+            '</div>' +
+            '<div class="item-grid">' +
+                field('Price (Rs)', '<input type="number" class="price-edit" min="0" step="1" value="' + esc(num(preset.price)) + '">') +
+                field('Size (optional)', '<input type="text" class="size" placeholder="e.g. 8 x 10 inch" value="' + esc(preset.size || '') + '">') +
+                fieldDiv('Quantity', qtyControlHtml(card.id, preset.qty || 1)) +
+                fieldDiv('Total (Rs)', '<div class="readout line-amount">Rs. 0</div>') +
+                field('Kitchen note', '<input type="text" class="note" value="' + esc(preset.note || '') + '">', 'span-3') +
+            '</div>' +
+            '<div class="photo-slot"></div>';
         $('cartItems').appendChild(card);
         if (preset.has_image && preset.id) showSavedImage(card.id, preset.id);
         refreshPhoto(card);
+        setActiveCard(card);
         updateEmptyMessage();
         calcTotals();
         return card.id;
@@ -498,17 +631,30 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         card.dataset.name = preset.name || '';
         card.dataset.price = num(preset.price);
         card.dataset.rowId = preset.id || 0;
-        card.innerHTML = headHtml('Other item', card.id) +
-            '<div class="item-body no-photo"><div class="fields"><div class="form-grid g3">' +
+        card.innerHTML =
+            '<div class="item-head">' +
+                '<div><h3 class="item-title">Other item</h3></div>' +
+                removeHeadHtml(card.id) +
+            '</div>' +
+            '<div class="item-grid">' +
                 field('Description', '<input type="text" class="desc" placeholder="What is it?" value="' + esc(preset.name || '') + '">', 'span-2') +
                 field('Price (Rs)', '<input type="number" class="price-edit" min="0" step="1" value="' + esc(num(preset.price)) + '">') +
-                field('Quantity', qtyControlHtml(card.id, preset.qty || 1)) +
-                field('Kitchen note', '<input type="text" class="note" value="' + esc(preset.note || '') + '">', 'span-2') +
-            '</div></div></div>';
+                fieldDiv('Quantity', qtyControlHtml(card.id, preset.qty || 1)) +
+                fieldDiv('Total (Rs)', '<div class="readout line-amount">Rs. 0</div>') +
+                field('Kitchen note', '<input type="text" class="note" value="' + esc(preset.note || '') + '">', 'span-3') +
+            '</div>';
         $('cartItems').appendChild(card);
+        setActiveCard(card);
         updateEmptyMessage();
         calcTotals();
         return card.id;
+    }
+
+    function addCakeFromShape(card, value) {
+        var input = card.querySelector('.shape');
+        if (input) input.value = value;
+        var chips = card.querySelectorAll('.chip');
+        for (var i = 0; i < chips.length; i++) chips[i].classList.toggle('is-active', chips[i].getAttribute('data-value') === value);
     }
 
     function unitMultiplier(item) {
@@ -521,52 +667,74 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     }
     function updatePrice(id, newPrice) {
         var item = $(id);
+        if (!item) return;
         var m = unitMultiplier(item);
         var p = num(newPrice);
         item.dataset.price = m > 0 ? p / m : p;
         calcTotals();
     }
     function updateQtyDirect(id, newQty) {
+        var card = $(id);
+        if (!card) return;
         var q = parseInt(newQty, 10) || 1;
         if (q < 1) q = 1;
-        $(id).querySelector('.qty-input').value = q;
+        card.querySelector('.qty-input').value = q;
         calcTotals();
     }
     function removeItem(id) {
         removeEl($(id));
+        if (activeCardId === id) {
+            activeCardId = '';
+            var rest = $('cartItems').querySelectorAll('.item-card');
+            if (rest.length) setActiveCard(rest[rest.length - 1]); else showPreview(null);
+        }
         updateEmptyMessage();
         calcTotals();
     }
     function changeQty(id, delta) {
-        var input = $(id).querySelector('.qty-input');
+        var card = $(id);
+        if (!card) return;
+        var input = card.querySelector('.qty-input');
         var q = (parseInt(input.value, 10) || 1) + delta;
         if (q < 1) { removeItem(id); return; }
         input.value = q;
         calcTotals();
     }
 
-    // ===== BOX GROUPS (lunch and sweet boxes) =====
+    // ===== BOX SETS (lunch and sweet boxes) =====
     function addBoxGroup(preset) {
         preset = preset || {};
         boxCounter++;
         var gid = 'box_' + boxCounter;
+        var lunch = currentType === 'lunch';
+        var boxes = preset.boxes || 1;
         var div = document.createElement('div');
-        div.className = 'box-group' + (currentType === 'lunch' ? ' price-col' : '');
+        div.className = 'set-card box-group' + (lunch ? ' price-col' : '');
         div.id = gid;
         div.innerHTML =
-            '<div class="box-group-head">' +
-                '<h3 class="box-title">Box group</h3>' +
-                field('Number of boxes', '<input type="number" class="box-count" min="1" step="1" value="' + esc(preset.boxes || 1) + '">', 'box-count-field') +
-                '<button type="button" class="btn-text danger" data-action="remove-group" data-id="' + gid + '">Remove group</button>' +
+            '<div class="set-head">' +
+                '<span class="set-badge box-no">1</span>' +
+                '<div class="set-title"><h3 class="box-title">Set 1</h3><p class="box-sub"></p></div>' +
+                '<div class="set-qty"><span class="lbl">Quantity</span>' +
+                    '<div class="stepper">' +
+                        '<button type="button" data-action="box-step" data-id="' + gid + '" data-delta="-1" aria-label="Fewer boxes">' + ICON.minus + '</button>' +
+                        '<input type="number" class="box-count" min="1" step="1" value="' + esc(boxes) + '" aria-label="Number of boxes">' +
+                        '<button type="button" data-action="box-step" data-id="' + gid + '" data-delta="1" aria-label="More boxes">' + ICON.plus + '</button>' +
+                    '</div>' +
+                    '<span class="unit-note">(' + (lunch ? 'lunch' : 'sweet') + ' boxes)</span>' +
+                '</div>' +
+                '<button type="button" class="btn-text danger" data-action="remove-group" data-id="' + gid + '">Remove set</button>' +
             '</div>' +
+            '<p class="set-items-lbl">Items in this set</p>' +
             '<div class="box-cols"><span>Item (type to search)</span><span>Qty per box</span>' +
-                (currentType === 'lunch' ? '<span>Price each (Rs)</span>' : '') + '<span></span></div>' +
+                (lunch ? '<span>Price each (Rs)</span>' : '') + '<span></span></div>' +
             '<div class="box-rows"></div>' +
             '<div class="box-foot">' +
-                '<button type="button" class="btn btn-secondary btn-sm" data-action="add-box-item" data-id="' + gid + '">+ Add item</button>' +
+                '<button type="button" class="btn btn-outline btn-sm" data-action="add-box-item" data-id="' + gid + '">' + ICON.plus + 'Add item</button>' +
                 '<span class="box-summary"></span>' +
             '</div>';
         $('boxGroups').appendChild(div);
+        activeGroupId = gid;
         var items = (preset.items && preset.items.length) ? preset.items : [{}];
         for (var i = 0; i < items.length; i++) addBoxItem(gid, items[i]);
         calcTotals();
@@ -576,20 +744,23 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     function addBoxItem(gid, preset) {
         preset = preset || {};
         var group = $(gid);
+        if (!group) return;
+        var name = preset.name || '';
         var row = document.createElement('div');
         row.className = 'box-row';
         row.dataset.rowId = preset.id || 0;
         var priceHtml = currentType === 'lunch'
-            ? '<input type="number" class="bi-price" min="0" step="1" placeholder="Rs" title="Price for one piece" value="' + (preset.price ? esc(preset.price) : '') + '">'
+            ? '<input type="number" class="bi-price" min="0" step="1" placeholder="Rs" title="Price for one piece" value="' + (preset.price ? esc(preset.price) : '') + '" aria-label="Price each">'
             : '';
         row.innerHTML =
             '<div class="bi-wrap">' +
-                '<input type="text" class="bi-name" autocomplete="off" placeholder="Type an item name" value="' + esc(preset.name || '') + '" aria-label="Item name">' +
+                '<span class="avatar-sm" aria-hidden="true">' + esc(initialOf(name)) + '</span>' +
+                '<input type="text" class="bi-name" autocomplete="off" placeholder="Type an item name" value="' + esc(name) + '" aria-label="Item name">' +
                 '<div class="suggest" data-kind="box" hidden></div>' +
             '</div>' +
-            '<input type="number" class="bi-qty" min="1" step="1" title="Quantity in each box" value="' + esc(preset.qty || 1) + '" aria-label="Quantity per box">' +
+            '<input type="number" class="bi-qty" min="1" step="1" title="Quantity in each box" value="' + esc(preset.qty || 1) + '" aria-label="Quantity in each box">' +
             priceHtml +
-            '<button type="button" class="btn-text danger" data-action="remove-box-item">Remove</button>';
+            '<button type="button" class="btn-x" data-action="remove-box-item" aria-label="Remove item">' + ICON.x + '</button>';
         group.querySelector('.box-rows').appendChild(row);
         calcTotals();
     }
@@ -600,8 +771,27 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     }
     function removeBoxGroup(gid) {
         removeEl($(gid));
+        if (activeGroupId === gid) activeGroupId = '';
         if ($('boxGroups').querySelectorAll('.box-group').length === 0) addBoxGroup();
         calcTotals();
+    }
+    function stepBoxes(gid, delta) {
+        var group = $(gid);
+        if (!group) return;
+        var input = group.querySelector('.box-count');
+        var v = (parseInt(input.value, 10) || 1) + delta;
+        if (v < 1) v = 1;
+        input.value = v;
+        calcTotals();
+    }
+    function ensureActiveGroup() {
+        if (activeGroupId && $(activeGroupId)) return activeGroupId;
+        var groups = $('boxGroups').querySelectorAll('.box-group');
+        if (groups.length) {
+            activeGroupId = groups[groups.length - 1].id;
+            return activeGroupId;
+        }
+        return addBoxGroup();
     }
     function boxGroupNumbers(group) {
         var boxes = Math.max(0, Math.floor(num(group.querySelector('.box-count').value)));
@@ -618,7 +808,7 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         return { boxes: boxes, each: each, total: each * boxes };
     }
 
-    // Item name search for box rows: inventory first, then names used before
+    // Item name search on a box row: inventory first, then names used before
     function suggestBoxFor(input) {
         if (input.id === 'cakeSearch') return $('cakeSuggest');
         if (input.id === 'custCell') return $('suggestBox');
@@ -692,21 +882,150 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         var price = num(el.getAttribute('data-price'));
         if (priceEl && el.getAttribute('data-src') === 'inv' && price > 0) priceEl.value = Math.round(price);
         hideBox(closestEl(el, '.suggest'));
+        row.querySelector('.avatar-sm').textContent = initialOf(row.querySelector('.bi-name').value);
         row.querySelector('.bi-qty').focus();
         calcTotals();
     }
 
-    // ===== EXTRA CHARGES (totals panel) =====
+    // ===== ITEM CATALOGUE (lunch and sweet boxes) =====
+    function renderCatalogRows(items, headText) {
+        $('catalogHead').textContent = headText;
+        var list = $('catalogList');
+        list.innerHTML = '';
+        if (!items.length) {
+            list.innerHTML = '<p class="hint">No items found.</p>';
+            return;
+        }
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            var row = document.createElement('div');
+            row.className = 'catalog-row';
+            row.innerHTML = '<span class="avatar-sm" aria-hidden="true"></span>' +
+                '<div class="cat-main"><div class="cat-name"></div><div class="cat-meta"></div></div>' +
+                '<button type="button" class="btn btn-outline btn-sm" data-action="catalog-add">Add</button>';
+            row.querySelector('.avatar-sm').textContent = initialOf(it.name);
+            row.querySelector('.cat-name').textContent = it.name;
+            row.querySelector('.cat-meta').textContent = it.src === 'past'
+                ? 'Used before'
+                : (it.price ? 'Rs. ' + money(it.price) : '') + (it.uom ? ' / ' + it.uom : '');
+            row.setAttribute('data-name', it.name);
+            row.setAttribute('data-price', String(it.price || 0));
+            row.setAttribute('data-src', it.src);
+            list.appendChild(row);
+        }
+    }
+    // The default list is the finished products (the same list the search uses), loaded once per page
+    function loadCatalog() {
+        if (catalogAll !== null || catalogLoading) return;
+        catalogLoading = true;
+        getJson('get_products.php').then(function (res) {
+            var products = (res && res.products) || [];
+            catalogAll = [];
+            for (var i = 0; i < products.length; i++) {
+                catalogAll.push({ name: String(products[i].prod_name || ''), price: num(products[i].retail_price), uom: products[i].uom || '', src: 'inv' });
+            }
+        }).catch(function () {
+            catalogAll = [];
+        }).then(function () {
+            catalogLoading = false;
+            if (isBoxType(currentType) && !$('catalogSearch').value.trim()) renderDefaultItems();
+        });
+    }
+    function renderDefaultItems() {
+        if (catalogAll === null) { loadCatalog(); return; }
+        renderCatalogRows(catalogAll, 'All items');
+    }
+    function scheduleCatalogSearch() {
+        clearTimeout(catalogTimer);
+        var q = $('catalogSearch').value.trim();
+        var seq = ++catalogSeq;
+        if (!q) { renderDefaultItems(); return; }
+        catalogTimer = setTimeout(function () {
+            if (q.length < 2) {
+                var past = PAST_NAMES[currentType] || [];
+                var filtered = [];
+                for (var i = 0; i < past.length && filtered.length < 10; i++) {
+                    if (String(past[i]).toLowerCase().indexOf(q.toLowerCase()) !== -1) filtered.push({ name: String(past[i]), price: 0, uom: '', src: 'past' });
+                }
+                renderCatalogRows(filtered, 'Search results');
+                return;
+            }
+            getJson('get_products.php?search=' + encodeURIComponent(q)).then(function (res) {
+                if (seq !== catalogSeq) return;
+                var items = [];
+                var products = (res && res.products) || [];
+                for (var j = 0; j < products.length && items.length < 40; j++) {
+                    items.push({ name: String(products[j].prod_name || ''), price: num(products[j].retail_price), uom: products[j].uom || '', src: 'inv' });
+                }
+                renderCatalogRows(items, 'Search results');
+            }).catch(function () {
+                if (seq === catalogSeq) renderCatalogRows([], 'Search results');
+            });
+        }, 250);
+    }
+    function catalogAdd(row) {
+        if (!row) return;
+        var name = row.getAttribute('data-name') || '';
+        var price = num(row.getAttribute('data-price'));
+        if (row.getAttribute('data-src') === 'past' && currentType === 'lunch') {
+            // A name used before has no price saved: look it up in the item list
+            getJson('get_products.php?search=' + encodeURIComponent(name)).then(function (res) {
+                var found = null;
+                var products = (res && res.products) || [];
+                for (var i = 0; i < products.length; i++) {
+                    if (String(products[i].prod_name).toLowerCase() === name.toLowerCase()) { found = products[i]; break; }
+                }
+                addBoxItem(ensureActiveGroup(), { name: name, price: found ? num(found.retail_price) : 0 });
+            }).catch(function () {
+                addBoxItem(ensureActiveGroup(), { name: name, price: 0 });
+            });
+            return;
+        }
+        addBoxItem(ensureActiveGroup(), { name: name, price: price });
+    }
+
+    // ===== EXTRA CHARGES (order summary) =====
     function addCharge(preset) {
         preset = preset || {};
         var row = document.createElement('div');
         row.className = 'charge-row';
         row.dataset.rowId = preset.id || 0;
         row.innerHTML =
-            '<input type="text" class="ch-label" list="chargeNames" placeholder="Label, e.g. Delivery" value="' + esc(preset.label || '') + '" aria-label="Charge label">' +
+            '<input type="text" class="ch-label" list="chargeNames" placeholder="Name, e.g. Delivery" value="' + esc(preset.label || '') + '" aria-label="Charge name">' +
             '<input type="number" class="ch-amount" min="0" step="1" placeholder="Rs" value="' + (preset.amount ? esc(preset.amount) : '') + '" aria-label="Charge amount">' +
-            '<button type="button" class="btn-x" data-action="remove-charge" aria-label="Remove charge">x</button>';
+            '<button type="button" class="btn-x" data-action="remove-charge" aria-label="Remove charge">' + ICON.x + '</button>';
         $('chargeRows').appendChild(row);
+        calcTotals();
+    }
+    function renderChargePresets() {
+        var wrap = $('chargePresets');
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        for (var i = 0; i < PRESET_CHARGES.length; i++) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'chip';
+            b.setAttribute('data-action', 'charge-preset');
+            b.setAttribute('data-label', PRESET_CHARGES[i]);
+            b.textContent = '+ ' + PRESET_CHARGES[i];
+            wrap.appendChild(b);
+        }
+    }
+    // A preset adds its row once; pressing it again goes to the amount already there
+    function addChargePreset(label) {
+        var rows = $('chargeRows').querySelectorAll('.charge-row');
+        var row = null;
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].querySelector('.ch-label').value.trim() === label) row = rows[i];
+        }
+        if (!row) {
+            addCharge({ label: label });
+            row = $('chargeRows').lastChild;
+        }
+        row.querySelector('.ch-amount').focus();
+    }
+    function resetCharges() {
+        $('chargeRows').innerHTML = '';
         calcTotals();
     }
     function removeCharge(btn) {
@@ -725,6 +1044,56 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         return out;
     }
 
+    // ===== SUMMARY =====
+    function lineFor(item, unit, qty, amount) {
+        var kind = item.dataset.kind;
+        var name;
+        var meta;
+        if (kind === 'cake') {
+            var t = item.querySelector('.tiers');
+            var u = item.querySelector('.uom');
+            name = item.dataset.name || 'Cake';
+            meta = (t && t.value ? t.value + ' ' : '') + (u && u.value ? u.value + ' · ' : '') + qty + ' × Rs. ' + money(unit);
+        } else if (kind === 'eatable') {
+            var sz = item.querySelector('.size');
+            name = 'Eatable picture' + (sz && sz.value.trim() ? ' (' + sz.value.trim() + ')' : '');
+            meta = qty + ' × Rs. ' + money(unit);
+        } else {
+            name = cardTitle(item);
+            meta = qty + ' × Rs. ' + money(unit);
+        }
+        return { name: name, meta: meta, amount: amount };
+    }
+    function renderLines(lines) {
+        var wrap = $('orderLines');
+        wrap.innerHTML = '';
+        wrap.hidden = isBoxType(currentType) || lines.length === 0;
+        for (var i = 0; i < lines.length; i++) {
+            var row = document.createElement('div');
+            row.className = 'line-row';
+            row.innerHTML = '<div class="line-main"><div><div class="line-name"></div><div class="line-meta"></div></div></div><strong class="line-amt"></strong>';
+            row.querySelector('.line-name').textContent = lines[i].name;
+            row.querySelector('.line-meta').textContent = lines[i].meta;
+            row.querySelector('.line-amt').textContent = 'Rs. ' + money(lines[i].amount);
+            wrap.appendChild(row);
+        }
+    }
+    function renderBreakdown(rows, waiting) {
+        var wrap = $('setBreakdown');
+        wrap.innerHTML = '';
+        wrap.hidden = !isBoxType(currentType) || rows.length === 0;
+        for (var i = 0; i < rows.length; i++) {
+            var row = document.createElement('div');
+            row.className = 'line-row';
+            row.innerHTML = '<div class="line-main"><span class="set-badge sm"></span><div><div class="line-name"></div><div class="line-meta"></div></div></div><strong class="line-amt"></strong>';
+            row.querySelector('.set-badge').textContent = String(rows[i].no);
+            row.querySelector('.line-name').textContent = 'Set ' + rows[i].no;
+            row.querySelector('.line-meta').textContent = boxesText(rows[i].boxes);
+            row.querySelector('.line-amt').textContent = waiting ? 'After weighing' : 'Rs. ' + money(rows[i].total);
+            wrap.appendChild(row);
+        }
+    }
+
     // ===== CALCULATIONS =====
     function calcTotals() {
         // Sweet boxes are waiting for weighing until a weighed amount is saved (edit shows it)
@@ -733,6 +1102,8 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
 
         // Cake, eatable and other cards
         var itemsTotal = 0;
+        var lines = [];
+        var counts = {};
         var cards = $('cartItems').querySelectorAll('.item-card');
         for (var i = 0; i < cards.length; i++) {
             var item = cards[i];
@@ -741,26 +1112,41 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
             if (pe && document.activeElement !== pe) pe.value = Math.round(unit * 100) / 100;
             var qtyEl = item.querySelector('.qty-input');
             var qty = qtyEl ? (parseInt(qtyEl.value, 10) || 1) : 1;
-            itemsTotal += unit * qty;
+            var amount = unit * qty;
+            itemsTotal += amount;
+            var amtEl = item.querySelector('.line-amount');
+            if (amtEl) amtEl.textContent = 'Rs. ' + money(amount);
+            if (item.dataset.kind === 'cake') {
+                var key = String(item.dataset.invId);
+                counts[key] = (counts[key] || 0) + 1;
+            }
+            lines.push(lineFor(item, unit, qty, amount));
         }
 
-        // Box groups: lunch boxes are priced; sweet boxes are priced after weighing (no price entered)
+        // Box sets: lunch boxes are priced; sweet boxes are priced after weighing (no price entered)
         var boxCount = 0;
         var boxTotal = 0;
         var groups = $('boxGroups').querySelectorAll('.box-group');
+        var breakdown = [];
         for (var g = 0; g < groups.length; g++) {
-            var t = boxGroupNumbers(groups[g]);
-            boxCount += t.boxes;
-            boxTotal += t.total;
-            groups[g].querySelector('.box-title').textContent = 'Box group ' + (g + 1);
+            var t2 = boxGroupNumbers(groups[g]);
+            boxCount += t2.boxes;
+            boxTotal += t2.total;
+            groups[g].querySelector('.box-title').textContent = 'Set ' + (g + 1);
+            groups[g].querySelector('.box-no').textContent = String(g + 1);
+            groups[g].querySelector('.box-sub').textContent = boxesText(t2.boxes);
             groups[g].querySelector('.box-summary').textContent = waitingWeight
-                ? boxesText(t.boxes) + '. Priced after weighing.'
-                : boxesText(t.boxes) + '. Each box Rs. ' + money(t.each) + '. Group total Rs. ' + money(t.total) + '.';
+                ? 'Priced after weighing.'
+                : 'Each box Rs. ' + money(t2.each) + '. Group total Rs. ' + money(t2.total) + '.';
+            breakdown.push({ no: g + 1, boxes: t2.boxes, total: t2.total });
         }
         itemsTotal += boxTotal + weighed;
         lastItemsTotal = itemsTotal;
-        $('boxTotalCount').textContent = boxCount;
-        $('boxTotalAmount').textContent = waitingWeight ? 'After weighing' : 'Rs. ' + money(boxTotal + weighed);
+        $('setCount').textContent = String(groups.length);
+        $('boxTotalCount').textContent = String(boxCount);
+        renderBreakdown(breakdown, waitingWeight);
+        renderLines(lines);
+        updateTileCounts(counts);
 
         // Extra charges
         var charges = 0;
@@ -817,7 +1203,7 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     function clearAll() {
         if (!confirm('Clear all items, charges and discounts?')) return;
         clearItems();
-        $('chargeRows').innerHTML = '';
+        resetCharges();
         if (!EDIT) $('advance').value = 0;
         $('flatDisc').value = 0;
         $('discPercent').value = 0;
@@ -924,7 +1310,7 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
                 audio.hidden = false;
                 var reader = new FileReader();
                 reader.onload = function () {
-                    if (currentAudioItem) $(currentAudioItem).dataset.audio = reader.result;
+                    if (currentAudioItem && $(currentAudioItem)) $(currentAudioItem).dataset.audio = reader.result;
                 };
                 reader.readAsDataURL(blob);
                 stream.getTracks().forEach(function (t) { t.stop(); });
@@ -946,6 +1332,7 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     }
     function playAudio(itemId) {
         var el = $(itemId);
+        if (!el) return;
         var src = el.dataset.audio || el.dataset.audioUrl;
         if (src) new Audio(src).play();
     }
@@ -1018,7 +1405,7 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     // ===== SAVE ORDER =====
     function resetAfterSave() {
         clearItems();
-        $('chargeRows').innerHTML = '';
+        resetCharges();
         $('advance').value = 0;
         $('flatDisc').value = 0;
         $('discPercent').value = 0;
@@ -1050,8 +1437,8 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
             }
         }
         for (var b = 0; b < boxes.length; b++) {
-            if (boxes[b].boxes < 1) { showToast('Box group ' + (b + 1) + ': enter how many boxes.', 'error'); return null; }
-            if (boxes[b].items.length === 0) { showToast('Box group ' + (b + 1) + ': add at least one item.', 'error'); return null; }
+            if (boxes[b].boxes < 1) { showToast('Set ' + (b + 1) + ': enter how many boxes.', 'error'); return null; }
+            if (boxes[b].items.length === 0) { showToast('Set ' + (b + 1) + ': add at least one item.', 'error'); return null; }
         }
 
         var deliveryType = $('deliveryType').value;
@@ -1184,11 +1571,10 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         var h = E.header;
         $('custCell').value = h.cell_no;
         $('custName').value = h.party_detail;
-        $('custDisplay').textContent = h.party_detail || 'Walk-in';
         $('deliverDate').value = h.deliver_date;
         $('deliverTime').value = h.delivery_time;
         $('deliveryType').value = h.delivery_type;
-        toggleDeliveryAddress();
+        syncDelivery();
         $('deliveryAddress').value = h.delivery_address;
         $('deliveryBranch').value = h.delivery_branch;
         selectValue('priority', h.priority);
@@ -1197,7 +1583,6 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         $('flatDisc').value = h.flat_disc;
         $('discPercent').value = 0;
         $('advance').value = h.advance;
-        $('billNo').textContent = E.bill_no;
 
         // The order type of a saved order does not change
         var tabs = document.querySelectorAll('.type-tab');
@@ -1215,6 +1600,9 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
                 addOtherItem(it);
             }
         }
+        // The first cake is shown in the preview when the order opens
+        var firstCard = $('cartItems').querySelector('.item-card');
+        if (firstCard) setActiveCard(firstCard);
         for (var b = 0; b < E.boxes.length; b++) addBoxGroup(E.boxes[b]);
         for (var c = 0; c < E.charges.length; c++) addCharge(E.charges[c]);
 
@@ -1223,10 +1611,6 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
             $('weighedNote').hidden = false;
         }
         calcTotals();
-    }
-
-    function toggleDeliveryAddress() {
-        $('deliveryAddrRow').hidden = $('deliveryType').value !== 'delivery';
     }
 
     // ===== SUGGESTION KEYBOARD AND MOUSE =====
@@ -1242,31 +1626,27 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         for (var j = 0; j < items.length; j++) items[j].classList.toggle('is-active', j === next);
     }
     function pickSuggestion(el) {
+        var parentId = el.parentNode.id;
         var kind = el.parentNode.getAttribute('data-kind');
-        if (el.parentNode.id === 'cakeSuggest') pickCakeSuggestion(el);
-        else if (el.parentNode.id === 'suggestBox') selectCustomer(el.getAttribute('data-cell'), el.getAttribute('data-name'));
+        if (parentId === 'cakeSuggest') pickCakeSuggestion(el);
+        else if (parentId === 'suggestBox') selectCustomer(el.getAttribute('data-cell'), el.getAttribute('data-name'));
         else if (kind === 'box') pickBoxSuggestion(el);
     }
 
     // ===== EVENTS =====
     document.addEventListener('click', function (e) {
         var btn = closestEl(e.target, '[data-action]');
-        if (!btn) return;
+        if (!btn) {
+            var plain = closestEl(e.target, '.item-card');
+            if (plain) setActiveCard(plain);
+            return;
+        }
         var action = btn.getAttribute('data-action');
         var id = btn.getAttribute('data-id');
-        if (action === 'remove-item') removeItem(id);
-        else if (action === 'photo') openImageModal(id);
-        else if (action === 'voice') openAudioModal(id);
-        else if (action === 'play-voice') playAudio(id);
-        else if (action === 'qty') changeQty(id, parseInt(btn.getAttribute('data-delta'), 10));
-        else if (action === 'remove-group') removeBoxGroup(id);
-        else if (action === 'add-box-item') addBoxItem(id);
-        else if (action === 'remove-box-item') removeBoxItem(btn);
-        else if (action === 'remove-charge') removeCharge(btn);
-        else if (action === 'copy-order') duplicateOrder(parseInt(btn.getAttribute('data-bill'), 10));
-        else if (action === 'type') selectType(btn.getAttribute('data-type'));
-        else if (action === 'method') setAdvanceMethod(btn.getAttribute('data-method'), btn);
-        else if (action === 'top-seller') {
+        if (action === 'type') selectType(btn.getAttribute('data-type'));
+        else if (action === 'charge-preset') addChargePreset(btn.getAttribute('data-label'));
+        else if (action === 'delivery') setDeliveryType(btn.getAttribute('data-value'));
+        else if (action === 'tile') {
             addCakeFromCatalog({
                 id: btn.getAttribute('data-id'),
                 name: btn.getAttribute('data-name'),
@@ -1274,6 +1654,20 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
                 uom: btn.getAttribute('data-uom')
             });
         }
+        else if (action === 'remove-item') removeItem(id);
+        else if (action === 'photo') { setActiveCard($(id)); openImageModal(id); }
+        else if (action === 'voice') openAudioModal(id);
+        else if (action === 'play-voice') playAudio(id);
+        else if (action === 'qty') changeQty(id, parseInt(btn.getAttribute('data-delta'), 10));
+        else if (action === 'shape') addCakeFromShape($(id), btn.getAttribute('data-value'));
+        else if (action === 'remove-group') removeBoxGroup(id);
+        else if (action === 'box-step') stepBoxes(id, parseInt(btn.getAttribute('data-delta'), 10));
+        else if (action === 'add-box-item') { activeGroupId = id; addBoxItem(id); }
+        else if (action === 'remove-box-item') removeBoxItem(btn);
+        else if (action === 'catalog-add') catalogAdd(closestEl(btn, '.catalog-row'));
+        else if (action === 'remove-charge') removeCharge(btn);
+        else if (action === 'copy-order') duplicateOrder(parseInt(btn.getAttribute('data-bill'), 10));
+        else if (action === 'method') setAdvanceMethod(btn.getAttribute('data-method'), btn);
     });
 
     // Suggestions pick on mousedown so the input keeps focus and blur does not hide the list first
@@ -1288,10 +1682,16 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         var t = e.target;
         if (t.id === 'cakeSearch') { renderCakeSuggest(); return; }
         if (t.id === 'custCell') { searchCustomer(t.value.trim()); return; }
-        if (t.id === 'custName') { $('custDisplay').textContent = t.value || 'Walk-in'; return; }
+        if (t.id === 'catalogSearch') { scheduleCatalogSearch(); return; }
         if (t.id === 'advance') { toggleAdvanceMethod(); return; }
         if (t.id === 'discPercent') { applyDiscPercent(); return; }
-        if (t.classList.contains('bi-name')) { scheduleBoxSearch(t); calcTotals(); return; }
+        if (t.classList.contains('bi-name')) {
+            var av = closestEl(t, '.bi-wrap');
+            if (av) av.querySelector('.avatar-sm').textContent = initialOf(t.value);
+            scheduleBoxSearch(t);
+            calcTotals();
+            return;
+        }
         if (t.classList.contains('price-edit')) {
             var card = closestEl(t, '.item-card');
             if (card) updatePrice(card.id, t.value);
@@ -1302,7 +1702,6 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
 
     document.addEventListener('change', function (e) {
         var t = e.target;
-        if (t.id === 'deliveryType') { toggleDeliveryAddress(); return; }
         if (t.classList.contains('qty-input')) {
             var card = closestEl(t, '.item-card');
             if (card) updateQtyDirect(card.id, t.value);
@@ -1314,9 +1713,13 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
         }
     });
 
-    document.addEventListener('focus', function (e) {
+    document.addEventListener('focusin', function (e) {
+        var card = closestEl(e.target, '.item-card');
+        if (card) setActiveCard(card);
+        var group = closestEl(e.target, '.box-group');
+        if (group) activeGroupId = group.id;
         if (e.target.id === 'cakeSearch' && e.target.value.trim() !== '') renderCakeSuggest();
-    }, true);
+    });
 
     document.addEventListener('blur', function (e) {
         var t = e.target;
@@ -1356,16 +1759,15 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
     });
 
     function bindStatic() {
-        var tabs = document.querySelectorAll('.type-tab');
-        for (var i = 0; i < tabs.length; i++) {
-            tabs[i].setAttribute('data-action', 'type');
-        }
         $('addEatableBtn').addEventListener('click', function () { addEatableItem(); });
         $('addOtherBtn').addEventListener('click', function () { addOtherItem(); });
         $('addGroupBtn').addEventListener('click', function () { addBoxGroup(); });
         $('addChargeBtn').addEventListener('click', function () { addCharge(); });
         $('clearAllBtn').addEventListener('click', clearAll);
         $('historyBtn').addEventListener('click', showCustomerHistory);
+        $('addNewCustomerBtn').addEventListener('click', addNewCustomer);
+        if ($('newOrderBtn')) $('newOrderBtn').addEventListener('click', newOrder);
+        $('previewChangeBtn').addEventListener('click', function () { if (activeCardId) openImageModal(activeCardId); });
         $('confirmBtn').addEventListener('click', function () { saveOrder('confirmed'); });
         if ($('holdBtn')) $('holdBtn').addEventListener('click', function () { saveOrder('hold'); });
         $('imageFile').addEventListener('change', function () { previewImage(this); });
@@ -1379,14 +1781,13 @@ function boxesText(n) { return n + (n === 1 ? ' box' : ' boxes'); }
 
     // ===== START =====
     bindStatic();
-    renderTopSellers();
+    renderTiles();
+    renderChargePresets();
+    showPreview(null);
     if (EDIT) {
         applyEdit(EDIT);
     } else {
         setType(currentType);
         if (currentType === 'cake') $('cakeSearch').focus();
     }
-    setTimeout(function () {
-        showToast('Shortcuts: F2 cake search, F4 customer, F9 confirm, F10 hold', 'info');
-    }, 800);
 })();
