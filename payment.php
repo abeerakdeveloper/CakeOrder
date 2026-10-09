@@ -57,8 +57,8 @@ $waiting = ($order['has_sweet'] && !$order['has_weighed']);
 
     <div class="main-content">
         <div class="stepper" style="background:#fff;border-radius:10px;margin-bottom:16px;">
-            <div class="step done"><span>✓</span> Draft</div><div class="line"></div>
-            <div class="step done"><span>✓</span> Order</div><div class="line"></div>
+            <div class="step done"><span>1</span> Draft</div><div class="line"></div>
+            <div class="step done"><span>2</span> Order</div><div class="line"></div>
             <div class="step active"><span>3</span> Payment</div><div class="line"></div>
             <div class="step"><span>4</span> Receipt</div>
         </div>

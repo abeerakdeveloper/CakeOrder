@@ -168,10 +168,11 @@ if (!empty($billIds)) {
             background: #e74c3c;
             color: #fff;
             border: none;
-            width: 50px;
+            min-width: 50px;
             height: 50px;
-            border-radius: 50%;
-            font-size: 24px;
+            padding: 0 18px;
+            border-radius: 25px;
+            font-size: 16px;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
@@ -274,7 +275,7 @@ if (!empty($billIds)) {
                      <strong>Access Restricted:</strong> Kitchen staff cannot access Dashboard. Redirected to Kitchen
                     Display.
                     <button onclick="this.parentElement.style.display='none'"
-                        style="float:right;background:none;border:none;font-size:16px;cursor:pointer;color:#f39c12;">✕</button>
+                        style="float:right;background:none;border:none;font-size:16px;cursor:pointer;color:#f39c12;">Close</button>
                 </div>
             <?php endif; ?>
 
@@ -438,7 +439,7 @@ if (!empty($billIds)) {
 
         <!-- IMAGE VIEWER MODAL -->
         <div class="img-viewer-overlay" id="imgViewer" onclick="closeImageViewer(event)">
-            <button class="close-btn" onclick="closeImageViewer(event, true)">✕</button>
+            <button class="close-btn" onclick="closeImageViewer(event, true)">Close</button>
             <img id="viewerImage" src="" alt="">
             <div class="info" id="viewerInfo"></div>
         </div>
