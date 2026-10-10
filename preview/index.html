@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<!-- ============================================================
+     STATIC VISUAL PREVIEW ONLY (not part of the app).
+     Mirrors the new PHP screens with sample data so the look can
+     be approved before deploying. Real screens: dashboard.php,
+     order_cake.php, order_box.php, order_eatables.php, index.php
+     ============================================================ -->
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New UI Preview — Salman Bakers POS</title>
+<link rel="stylesheet" href="../assets/app.css">
+<style>
+.view { display: none; }
+.view.on { display: block; }
+.viewswitch { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 400;
+  background: #12294a; padding: 8px; border-radius: 14px; display: flex; gap: 6px; box-shadow: 0 12px 30px rgba(0,0,0,.3); }
+.viewswitch button { border: none; background: transparent; color: #b9c6d8; padding: 9px 14px; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.viewswitch button.on { background: #1f6ff2; color: #fff; }
+body { padding-bottom: 70px; }
+</style>
+</head>
+<body>
+
+<div class="app-topbar">
+    <div class="app-brand">
+        <div class="logo">🧁</div>
+        <div><h1>Salman Bakers</h1><small>Fresh Cakes • Sweet Moments</small></div>
+    </div>
+    <form class="app-topsearch" onsubmit="return false;">
+        <span class="ic">🔍</span><input type="text" placeholder="Search orders, customers...">
+    </form>
+    <div class="app-top-right">
+        <span class="app-chip">Admin</span>
+        <span class="app-avatar">A</span>
+        <span class="app-chip">Admin</span>
+        <a class="app-btn-logout" href="#">⎋ Logout</a>
+    </div>
+</div>
+
+<div class="app-layout">
+    <nav class="app-sidebar">
+        <div class="grp">Overview</div>
+        <a class="app-nav-item" id="nav-dash" href="#" onclick="show('dash');return false;"><span class="ic">📊</span> Dashboard</a>
+        <a class="app-nav-item" href="#"><span class="ic">🔍</span> Search Orders</a>
+        <a class="app-nav-item" href="#"><span class="ic">🕐</span> Check Status</a>
+        <div class="grp">New Order</div>
+        <a class="app-nav-item" id="nav-cake" href="#" onclick="show('cake');return false;"><span class="ic">🎂</span> Cake Order</a>
+        <a class="app-nav-item" id="nav-box" href="#" onclick="show('box');return false;"><span class="ic">🍱</span> Lunch Box</a>
+        <a class="app-nav-item" href="#" onclick="show('box');return false;"><span class="ic">🍬</span> Sweets Box</a>
+        <a class="app-nav-item" id="nav-eat" href="#" onclick="show('eat');return false;"><span class="ic">🍽️</span> Eatables</a>
+        <a class="app-nav-item" href="#"><span class="ic">🧾</span> Other (POS)</a>
+        <div class="grp">Production</div>
+        <a class="app-nav-item" href="#"><span class="ic">👨‍🍳</span> Kitchen</a>
+        <a class="app-nav-item" href="#"><span class="ic">🚚</span> Pickup Queue</a>
+        <div class="love"><span class="big">🧁</span>Freshly Baked<br>With Love ♥</div>
+    </nav>
+
+    <main class="app-main">
+
+        <!-- ================= DASHBOARD ================= -->
+        <section class="view on" id="v-dash">
+            <div class="quick-grid">
+                <a class="quick-card qc-blue" href="#" onclick="show('cake');return false;"><span class="q-arrow">→</span><span class="q-ic">🎂</span><span class="q-lb">Cake Order</span><span class="q-sb">Category, flavour, shape, size &amp; design photo</span></a>
+                <a class="quick-card qc-green" href="#" onclick="show('box');return false;"><span class="q-arrow">→</span><span class="q-ic">🍱</span><span class="q-lb">Lunch Box Order</span><span class="q-sb">Build box sets with per-box quantities</span></a>
+                <a class="quick-card qc-amber" href="#" onclick="show('box');return false;"><span class="q-arrow">→</span><span class="q-ic">🍬</span><span class="q-lb">Sweets Box Order</span><span class="q-sb">Sweet box sets &amp; combinations</span></a>
+                <a class="quick-card qc-pink" href="#" onclick="show('eat');return false;"><span class="q-arrow">→</span><span class="q-ic">🍽️</span><span class="q-lb">Eatables</span><span class="q-sb">Picture menu — tap to add</span></a>
+                <a class="quick-card qc-slate" href="#"><span class="q-arrow">→</span><span class="q-ic">🧾</span><span class="q-lb">Other (POS)</span><span class="q-sb">Classic counter sale with barcode &amp; voice notes</span></a>
+            </div>
+
+            <div class="mini-stats">
+                <div class="mini-stat"><span class="ic" style="background:#e7f7ef;">💰</span><div><div class="n" style="color:var(--green);">Rs. 48,500</div><div class="l">Revenue Today</div><div class="s">Cash 31,000 · Card 17,500</div></div></div>
+                <div class="mini-stat"><span class="ic" style="background:#eaf1fe;">🧁</span><div><div class="n">23</div><div class="l">Orders Today</div></div></div>
+                <div class="mini-stat"><span class="ic" style="background:#fdecee;">⏳</span><div><div class="n" style="color:var(--red);">7</div><div class="l">Pending Orders</div></div></div>
+                <div class="mini-stat"><span class="ic" style="background:#eef1f6;">📅</span><div><div class="n" style="color:var(--blue);">41</div><div class="l">Upcoming (7 days)</div></div></div>
+            </div>
+
+            <div class="card mt16">
+                <div class="card-title"><span class="ic">🔍</span> Quick Order Status Check <span class="muted" style="font-weight:400;">(for customer inquiries)</span></div>
+                <div class="row" style="flex-wrap:nowrap;">
+                    <input class="inp" placeholder="Enter Bill #, customer name or phone...">
+                    <button class="btn btn-primary" style="flex:0 0 auto;">🔍 Check Status</button>
+                </div>
+            </div>
+
+            <div class="card mt16">
+                <div class="card-title"><span class="ic">📋</span> Pending Orders (4)
+                    <span class="spacer"></span>
+                    <div class="tabs"><button class="active">All</button><button style="color:#b26a05;">⭐ VIP</button><button style="color:#c92a2f;">🔴 Urgent</button><button>📦 Normal</button></div>
+                </div>
+                <table class="tbl">
+                    <thead><tr><th>Bill</th><th>Customer</th><th>Items</th><th>Delivery</th><th>Amount</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>#1042</strong><br><span class="bdg prio-vip">⭐ VIP</span></td><td><strong>Ayesha Khan</strong><br><span class="muted" style="font-size:11px;">📱 0300-1234567</span></td><td style="max-width:220px;"><span class="muted" style="font-size:12px;">Fresh Cream Cake</span><br><span style="font-size:11px;color:var(--blue);font-weight:600;">2 items</span></td><td><strong>09 Oct 2026</strong><br><span class="muted" style="font-size:11px;">🕐 18:00</span> <span class="bdg pending">⏰ TODAY</span></td><td><strong>Rs. 4,800</strong><br><span class="muted" style="font-size:11px;color:var(--green);">Paid 2,000</span></td><td style="color:var(--red);font-weight:700;">Rs. 2,800</td><td><span class="bdg confirmed">Confirmed</span></td><td><div style="display:flex;gap:6px;"><button class="btn btn-sm btn-outline">👁</button><button class="btn btn-sm btn-outline">✎</button><button class="btn btn-sm btn-outline">💰</button></div></td></tr>
+                        <tr><td><strong>#1041</strong><br><span class="bdg prio-urgent">🔴 Urgent</span></td><td><strong>Bilal Ahmed</strong><br><span class="muted" style="font-size:11px;">📱 0321-9876543</span></td><td style="max-width:220px;"><span class="muted" style="font-size:12px;">Lunch Box Set 1</span><br><span style="font-size:11px;color:var(--blue);font-weight:600;">6 items</span></td><td><strong>10 Oct 2026</strong><br><span class="muted" style="font-size:11px;">🕐 12:30</span> <span class="bdg confirmed">📅 TOMORROW</span></td><td><strong>Rs. 9,600</strong><br><span class="muted" style="font-size:11px;color:var(--green);">Paid 9,600</span></td><td style="color:var(--green);font-weight:700;">Rs. 0</td><td><span class="bdg preparing">Preparing</span></td><td><div style="display:flex;gap:6px;"><button class="btn btn-sm btn-outline">👁</button><button class="btn btn-sm btn-outline">✎</button><button class="btn btn-sm btn-outline">💰</button></div></td></tr>
+                        <tr><td><strong>#1040</strong><br><span class="bdg prio-normal">📦 Normal</span></td><td><strong>Walk-in</strong><br><span class="muted" style="font-size:11px;">📱</span></td><td style="max-width:220px;"><span class="muted" style="font-size:12px;">Chocolate Cake, Fries</span><br><span style="font-size:11px;color:var(--blue);font-weight:600;">3 items</span></td><td><strong>12 Oct 2026</strong><br><span class="muted" style="font-size:11px;">🕐 17:00</span></td><td><strong>Rs. 2,350</strong><br><span class="muted" style="font-size:11px;color:var(--green);">Paid 0</span></td><td style="color:var(--red);font-weight:700;">Rs. 2,350</td><td><span class="bdg pending">Pending</span></td><td><div style="display:flex;gap:6px;"><button class="btn btn-sm btn-outline">👁</button><button class="btn btn-sm btn-outline">✎</button><button class="btn btn-sm btn-outline">💰</button></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ================= CAKE ================= -->
+        <section class="view" id="v-cake">
+            <div class="page-head">
+                <div class="ph-ic">🎂</div>
+                <div><h2>Create Cake Order</h2><p>Select category, flavour and other details to create a new cake order.</p></div>
+                <div class="spacer"></div><a class="btn btn-outline" href="#">＋ New Order</a>
+            </div>
+            <div class="order-cols">
+                <div>
+                    <div class="card">
+                        <div class="grid-3">
+                            <div class="fld"><label>👤 Customer</label>
+                                <div class="row" style="flex-wrap:nowrap;"><input class="inp" placeholder="Search name or phone..."><button class="btn btn-outline btn-sm" style="flex:0 0 auto;">＋ Add New</button></div>
+                                <input class="inp mt8" value="Walk-in"></div>
+                            <div class="fld"><label>Order Type</label>
+                                <div class="seg"><button class="on">🛍 Pickup</button><button>🚚 Delivery</button></div></div>
+                            <div class="fld"><label>Delivery / Pickup Date &amp; Time</label>
+                                <div class="row" style="flex-wrap:nowrap;"><input type="date" class="inp" value="2026-10-09"><input type="time" class="inp" value="15:00"></div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="sec"><div class="num">1</div><div class="sec-head" style="flex:1;"><h4>Category</h4><p>Choose a cake category</p>
+                            <div class="tiles scroll mt12">
+                                <div class="tile on" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic">🎂</span><span class="t-lb">Fresh Cream Cake</span><span class="t-sb">Rs. 760</span></div>
+                                <div class="tile" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic">🍰</span><span class="t-lb">Mousse Cake</span><span class="t-sb">Rs. 950</span></div>
+                                <div class="tile" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic">☕</span><span class="t-lb">Café Cake</span><span class="t-sb">Rs. 880</span></div>
+                                <div class="tile" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic">🧈</span><span class="t-lb">Butter Cream Cake</span><span class="t-sb">Rs. 720</span></div>
+                                <div class="tile" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic">🍫</span><span class="t-lb">Fresh Brownie Cake</span><span class="t-sb">Rs. 990</span></div>
+                                <div class="tile" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic">🍨</span><span class="t-lb">Ice Cream Cake</span><span class="t-sb">Rs. 1,100</span></div>
+                            </div></div></div>
+                    </div>
+                    <div class="card">
+                        <div class="row" style="align-items:flex-start;">
+                            <div class="sec" style="flex:1;"><div class="num">2</div><div class="sec-head" style="flex:1;"><h4>Flavour</h4><p>Select flavour from the list</p>
+                                <select class="inp mt12"><option>Chocolate Icing</option><option>Vanilla</option><option>Red Velvet</option></select></div></div>
+                            <div class="sec" style="flex:1.4;"><div class="num">3</div><div class="sec-head" style="flex:1;"><h4>Shape</h4><p>Pick the cake shape</p>
+                                <div class="tiles mt12">
+                                    <div class="tile on" style="min-width:78px;padding:10px 8px;" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic" style="font-size:18px;">⬤</span><span class="t-lb">Round</span></div>
+                                    <div class="tile" style="min-width:78px;padding:10px 8px;" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic" style="font-size:18px;">▢</span><span class="t-lb">Square</span></div>
+                                    <div class="tile" style="min-width:78px;padding:10px 8px;" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic" style="font-size:18px;">♡</span><span class="t-lb">Heart</span></div>
+                                    <div class="tile" style="min-width:78px;padding:10px 8px;" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic" style="font-size:18px;">▭</span><span class="t-lb">Sheet</span></div>
+                                    <div class="tile" style="min-width:78px;padding:10px 8px;" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic" style="font-size:18px;">✎</span><span class="t-lb">Other</span></div>
+                                </div></div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="row" style="align-items:flex-end;">
+                            <div class="sec" style="flex:1.2;"><div class="num">4</div><div class="sec-head" style="flex:1;"><h4>Size / UOM</h4><p>Select size and unit</p>
+                                <div class="row mt12" style="flex-wrap:nowrap;"><select class="inp"><option>1</option><option>2</option><option>3</option></select><select class="inp"><option>kg</option><option>pound</option><option>pcs</option></select></div></div></div>
+                            <div class="sec" style="flex:.9;"><div class="num">5</div><div class="sec-head"><h4>Quantity</h4><p>Number of cakes</p>
+                                <div class="stepper-n mt12"><button>−</button><input value="2"><button>＋</button></div></div></div>
+                            <div class="fld" style="flex:1;"><label>Price (per unit)</label><input class="inp" type="number" value="760"><span class="hint">Editable — tap to change</span></div>
+                            <div style="flex:1;background:var(--blue-soft);border-radius:10px;padding:12px 14px;"><div class="hint">Total (approx.)</div><div style="font-size:21px;font-weight:800;color:var(--blue);">Rs. 1,520</div><div class="hint">2 kg</div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="sec"><div class="num">6</div><div class="sec-head" style="flex:1;"><h4>Cake Image</h4><p>Upload or choose a reference image</p>
+                            <div class="row mt12" style="align-items:stretch;">
+                                <div class="dropzone" style="flex:1;"><span class="up">⬆</span>Click to upload or drag &amp; drop<br><span class="hint">JPG, PNG — Max 5MB</span></div>
+                                <div class="thumbs" style="flex:1.4;">
+                                    <div class="thb on" style="display:flex;align-items:center;justify-content:center;font-size:26px;">🎂</div>
+                                    <div class="thb" style="display:flex;align-items:center;justify-content:center;font-size:26px;">🍰</div>
+                                    <div class="thb" style="display:flex;align-items:center;justify-content:center;font-size:26px;">🧁</div>
+                                    <div class="thb" style="display:flex;align-items:center;justify-content:center;font-size:26px;">🍫</div>
+                                </div>
+                            </div></div></div>
+                    </div>
+                    <div class="card">
+                        <div class="row" style="align-items:flex-start;">
+                            <div class="sec" style="flex:1;"><div class="num">7</div><div class="sec-head" style="flex:1;"><h4>Extra Charges <span class="muted" style="font-weight:400;">(optional)</span></h4><p>Add any additional charges</p>
+                                <div class="tiles mt12">
+                                    <div class="tile" style="min-width:120px;"><span class="t-lb">Delivery Charges</span><input class="inp mt8" style="text-align:center;" type="number" value="0"></div>
+                                    <div class="tile" style="min-width:120px;"><span class="t-lb">Decoration</span><input class="inp mt8" style="text-align:center;" type="number" value="0"></div>
+                                    <div class="tile on" style="min-width:120px;"><span class="t-lb">Packaging</span><input class="inp mt8" style="text-align:center;" type="number" value="50"></div>
+                                    <button class="btn btn-outline btn-sm" style="align-self:center;">＋ Add Charge</button>
+                                </div></div></div>
+                            <div class="sec" style="flex:1;"><div class="num">8</div><div class="sec-head" style="flex:1;"><h4>Remarks <span class="muted" style="font-weight:400;">(optional)</span></h4>
+                                <div class="fld mt12">
+                                    <input class="inp" placeholder="✍ Cake message (written on the cake)...">
+                                    <textarea class="inp mt8" placeholder="Any special message, notes or custom design details..."></textarea>
+                                    <span class="hint" style="text-align:right;">0/300</span>
+                                </div></div></div>
+                        </div>
+                        <button class="collapse-btn">▾ More options</button>
+                    </div>
+                </div>
+                <div>
+                    <div class="card">
+                        <div class="card-title"><span class="ic">🖼️</span> Cake Preview <span class="spacer"></span><button class="btn btn-ghost btn-sm">Change Image</button></div>
+                        <div class="preview-box">🎂</div>
+                    </div>
+                    <div class="card summary">
+                        <div class="card-title"><span class="ic">🧾</span> Order Summary</div>
+                        <div class="s-row"><span class="k">Category</span><span class="v">Fresh Cream Cake</span></div>
+                        <div class="s-row"><span class="k">Flavour</span><span class="v">Chocolate Icing</span></div>
+                        <div class="s-row"><span class="k">Shape</span><span class="v">Round</span></div>
+                        <div class="s-row"><span class="k">Size / UOM</span><span class="v">1 kg</span></div>
+                        <div class="s-row"><span class="k">Quantity</span><span class="v">2</span></div>
+                        <div class="s-row"><span class="k">Price (per unit)</span><span class="v">Rs. 760</span></div>
+                        <div class="s-row"><span class="k">Subtotal</span><span class="v">Rs. 1,520</span></div>
+                        <div class="s-row"><span class="k">+ Packaging</span><span class="v">Rs. 50</span></div>
+                        <div class="s-total"><span>Total Amount</span><span>Rs. 1,570</span></div>
+                        <button class="btn btn-primary btn-block mt12">🛒 Add to Order</button>
+                        <button class="btn btn-ghost btn-block mt8">⏸ Hold Order</button>
+                        <a class="btn btn-outline btn-block mt8" href="#">📋 View All Orders</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= LUNCH / SWEETS BOX ================= -->
+        <section class="view" id="v-box">
+            <div class="page-head">
+                <div class="ph-ic">🍱</div>
+                <div><h2>Create Lunch Box Order</h2><p>Build lunch boxes sets and quantities in a few steps.</p></div>
+                <div class="spacer"></div><a class="btn btn-outline" href="#">＋ New Order</a><a class="btn btn-ghost" href="#">Switch to Sweets Box</a>
+            </div>
+            <div class="order-cols three">
+                <div class="card side-panel">
+                    <input class="inp" placeholder="🔍 Search items...">
+                    <span class="hint">e.g. chicken, pizza, juice...</span>
+                    <div class="card-title mt16" style="font-size:13px;">Default Items</div>
+                    <div class="sp-item"><span class="th">🥪</span><span class="nm">Chicken Sandwich<br><span class="pr">Rs. 250 / piece</span></span><button class="btn btn-outline btn-sm">Add</button></div>
+                    <div class="sp-item"><span class="th">🍟</span><span class="nm">Fries<br><span class="pr">Rs. 150 / portion</span></span><button class="btn btn-outline btn-sm">Add</button></div>
+                    <div class="sp-item"><span class="th">🍗</span><span class="nm">Chicken Nuggets<br><span class="pr">Rs. 300 / piece</span></span><button class="btn btn-outline btn-sm">Add</button></div>
+                    <div class="sp-item"><span class="th">🧃</span><span class="nm">Juice<br><span class="pr">Rs. 80 / box</span></span><button class="btn btn-outline btn-sm">Add</button></div>
+                    <div class="sp-item"><span class="th">🌯</span><span class="nm">Chicken Wrap<br><span class="pr">Rs. 320 / piece</span></span><button class="btn btn-outline btn-sm">Add</button></div>
+                    <div class="sp-item"><span class="th">🍕</span><span class="nm">Mini Pizza<br><span class="pr">Rs. 350 / piece</span></span><button class="btn btn-outline btn-sm">Add</button></div>
+                    <button class="btn btn-outline btn-block mt12">⊕ Add New Item</button>
+                </div>
+                <div>
+                    <div class="card">
+                        <div class="grid-3">
+                            <div class="fld"><label>👤 Customer</label>
+                                <div class="row" style="flex-wrap:nowrap;"><input class="inp" placeholder="Search name or phone..."><button class="btn btn-outline btn-sm" style="flex:0 0 auto;">＋ Add New</button></div>
+                                <input class="inp mt8" value="Walk-in"></div>
+                            <div class="fld"><label>Order Type</label><div class="seg"><button class="on">🛍 Pickup</button><button>🚚 Delivery</button></div></div>
+                            <div class="fld"><label>Pickup / Delivery Date &amp; Time</label>
+                                <div class="row" style="flex-wrap:nowrap;"><input type="date" class="inp" value="2026-10-09"><input type="time" class="inp" value="12:00"></div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title"><span class="ic">🍱</span> Lunch Box Sets <span class="spacer"></span><button class="btn btn-outline btn-sm">＋ Add another set</button></div>
+                        <input class="inp" placeholder="🔍 Search items to add to the selected set (e.g. chicken, pizza, juice...)">
+
+                        <div class="set-card" style="border-color:var(--blue);">
+                            <div class="set-head"><span class="num">1</span><div><h5>Set 1</h5><span class="sub">6 lunch boxes • Combination 1</span></div><span class="spacer"></span>
+                                <span class="lbl" style="font-size:12px;color:var(--muted);">Quantity</span>
+                                <span class="stepper-n"><button>−</button><input value="6"><button>＋</button></span>
+                                <span class="lbl" style="font-size:11px;color:var(--muted);">(lunch boxes)</span>
+                                <button class="btn btn-danger btn-sm">✕</button></div>
+                            <div class="set-body">
+                                <div class="lbl" style="font-size:11px;color:var(--muted);margin-bottom:6px;">Items in this set</div>
+                                <div class="set-item"><input type="checkbox" class="chk" checked><span class="th">🥪</span><span class="nm">Chicken Sandwich <span class="lbl">Rs. 250</span></span><span class="lbl">Qty per box</span><input class="inp" style="width:64px;" value="1"><select class="inp" style="width:96px;"><option>piece</option></select><button class="x">✕</button></div>
+                                <div class="set-item"><input type="checkbox" class="chk" checked><span class="th">🍟</span><span class="nm">Fries <span class="lbl">Rs. 150</span></span><span class="lbl">Qty per box</span><input class="inp" style="width:64px;" value="1"><select class="inp" style="width:96px;"><option>portion</option></select><button class="x">✕</button></div>
+                                <div class="set-item"><input type="checkbox" class="chk" checked><span class="th">🍗</span><span class="nm">Chicken Nuggets <span class="lbl">Rs. 300</span></span><span class="lbl">Qty per box</span><input class="inp" style="width:64px;" value="3"><select class="inp" style="width:96px;"><option>pieces</option></select><button class="x">✕</button></div>
+                                <div class="set-item"><input type="checkbox" class="chk" checked><span class="th">🧃</span><span class="nm">Juice <span class="lbl">Rs. 80</span></span><span class="lbl">Qty per box</span><input class="inp" style="width:64px;" value="1"><select class="inp" style="width:96px;"><option>box</option></select><button class="x">✕</button></div>
+                                <div class="row mt8" style="flex-wrap:nowrap;align-items:center;"><select class="inp"><option>＋ Add item to this set...</option></select><button class="btn btn-outline btn-sm" style="flex:0 0 auto;">Add</button></div>
+                            </div>
+                        </div>
+
+                        <div class="set-card">
+                            <div class="set-head"><span class="num">2</span><div><h5>Set 2</h5><span class="sub">3 lunch boxes • Combination 2</span></div><span class="spacer"></span>
+                                <span class="lbl" style="font-size:12px;color:var(--muted);">Quantity</span>
+                                <span class="stepper-n"><button>−</button><input value="3"><button>＋</button></span>
+                                <span class="lbl" style="font-size:11px;color:var(--muted);">(lunch boxes)</span>
+                                <button class="btn btn-danger btn-sm">✕</button></div>
+                            <div class="set-body">
+                                <div class="lbl" style="font-size:11px;color:var(--muted);margin-bottom:6px;">Items in this set</div>
+                                <div class="set-item"><input type="checkbox" class="chk" checked><span class="th">🌯</span><span class="nm">Chicken Wrap <span class="lbl">Rs. 320</span></span><span class="lbl">Qty per box</span><input class="inp" style="width:64px;" value="1"><select class="inp" style="width:96px;"><option>piece</option></select><button class="x">✕</button></div>
+                                <div class="set-item"><input type="checkbox" class="chk" checked><span class="th">🍕</span><span class="nm">Mini Pizza <span class="lbl">Rs. 350</span></span><span class="lbl">Qty per box</span><input class="inp" style="width:64px;" value="1"><select class="inp" style="width:96px;"><option>piece</option></select><button class="x">✕</button></div>
+                                <div class="row mt8" style="flex-wrap:nowrap;align-items:center;"><select class="inp"><option>＋ Add item to this set...</option></select><button class="btn btn-outline btn-sm" style="flex:0 0 auto;">Add</button></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="collapse-btn">▾ More options</button>
+                </div>
+                <div>
+                    <div class="card summary">
+                        <div class="card-title"><span class="ic">🧾</span> Order Summary</div>
+                        <div class="s-stat">
+                            <div class="box"><div class="n">🍱 2</div><div class="l">Lunch Box Sets</div></div>
+                            <div class="box"><div class="n">🍴 9</div><div class="l">Total Lunch Boxes</div></div>
+                        </div>
+                        <div class="card-title" style="font-size:13px;">Set Breakdown</div>
+                        <div class="s-row"><span class="k">Set 1</span><span class="v">6 boxes</span></div>
+                        <div class="s-row"><span class="k">Set 2</span><span class="v">3 boxes</span></div>
+                        <div class="s-row mt12"><span class="k">Items Total</span><span class="v">Rs. 15,570</span></div>
+                        <div class="fld mt8"><label>Packaging / Extra Charge (Rs.)</label><input class="inp" type="number" value="0"></div>
+                        <div class="s-total"><span>Total Amount</span><span>Rs. 15,570</span></div>
+                        <button class="btn btn-primary btn-block mt12">🛒 Add to Order</button>
+                        <button class="btn btn-ghost btn-block mt8">⏸ Hold Order</button>
+                        <a class="btn btn-outline btn-block mt8" href="#">📋 View All Orders</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= EATABLES ================= -->
+        <section class="view" id="v-eat">
+            <div class="page-head">
+                <div class="ph-ic">🍽️</div>
+                <div><h2>Eatables</h2><p>Tap a picture to add it to the order. Tap again to increase quantity.</p></div>
+                <div class="spacer"></div>
+                <input class="inp" style="max-width:260px;" placeholder="🔍 Search eatables...">
+                <a class="btn btn-outline" href="#">＋ New Order</a>
+            </div>
+            <div class="order-cols">
+                <div>
+                    <div class="card">
+                        <div class="grid-3">
+                            <div class="fld"><label>👤 Customer</label>
+                                <div class="row" style="flex-wrap:nowrap;"><input class="inp" placeholder="Search name or phone..."><button class="btn btn-outline btn-sm" style="flex:0 0 auto;">＋ Add New</button></div>
+                                <input class="inp mt8" value="Walk-in"></div>
+                            <div class="fld"><label>Order Type</label><div class="seg"><button class="on">🛍 Pickup</button><button>🚚 Delivery</button></div></div>
+                            <div class="fld"><label>Pickup / Delivery Date &amp; Time</label>
+                                <div class="row" style="flex-wrap:nowrap;"><input type="date" class="inp" value="2026-10-09"><input type="time" class="inp" value="13:30"></div></div>
+                        </div>
+                    </div>
+                    <div class="eat-grid mt16">
+                        <div class="eat-card has"><span class="cnt">2</span><div class="ph">🥪</div><div class="bd"><div class="nm">Chicken Sandwich</div><div class="pr">Rs. 250</div><div class="um">per piece</div></div></div>
+                        <div class="eat-card has"><span class="cnt">1</span><div class="ph">🍟</div><div class="bd"><div class="nm">Fries</div><div class="pr">Rs. 150</div><div class="um">per portion</div></div></div>
+                        <div class="eat-card"><span class="cnt">0</span><div class="ph">🍗</div><div class="bd"><div class="nm">Chicken Nuggets</div><div class="pr">Rs. 300</div><div class="um">per piece</div></div></div>
+                        <div class="eat-card"><span class="cnt">0</span><div class="ph">🧃</div><div class="bd"><div class="nm">Juice</div><div class="pr">Rs. 80</div><div class="um">per box</div></div></div>
+                        <div class="eat-card"><span class="cnt">0</span><div class="ph">🌯</div><div class="bd"><div class="nm">Chicken Wrap</div><div class="pr">Rs. 320</div><div class="um">per piece</div></div></div>
+                        <div class="eat-card"><span class="cnt">0</span><div class="ph">🍕</div><div class="bd"><div class="nm">Mini Pizza</div><div class="pr">Rs. 350</div><div class="um">per piece</div></div></div>
+                        <div class="eat-card"><span class="cnt">0</span><div class="ph">🍓</div><div class="bd"><div class="nm">Fruit Cup</div><div class="pr">Rs. 200</div><div class="um">per cup</div></div></div>
+                        <div class="eat-card"><span class="cnt">0</span><div class="ph">💧</div><div class="bd"><div class="nm">Water</div><div class="pr">Rs. 50</div><div class="um">per bottle</div></div></div>
+                        <div class="eat-card"><span class="cnt">0</span><div class="ph">🍬</div><div class="bd"><div class="nm">Sweet Box (Small)</div><div class="pr">Rs. 1,200</div><div class="um">per box</div></div></div>
+                        <div class="eat-card"><span class="cnt">0</span><div class="ph">🧁</div><div class="bd"><div class="nm">Cupcake</div><div class="pr">Rs. 180</div><div class="um">per pcs</div></div></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="card summary">
+                        <div class="card-title"><span class="ic">🧾</span> Order Summary <span class="spacer"></span><button class="btn btn-ghost btn-sm">🗑 Clear</button></div>
+                        <div class="cart-row"><span class="th">🥪</span><span class="mid"><span class="nm">Chicken Sandwich</span><br><span class="sb">Rs. 250 / piece</span></span><span class="stepper-n"><button>−</button><input value="2"><button>＋</button></span><span class="amt">Rs. 500</span><button class="x">✕</button></div>
+                        <div class="cart-row"><span class="th">🍟</span><span class="mid"><span class="nm">Fries</span><br><span class="sb">Rs. 150 / portion</span></span><span class="stepper-n"><button>−</button><input value="1"><button>＋</button></span><span class="amt">Rs. 150</span><button class="x">✕</button></div>
+                        <div class="s-row mt12"><span class="k">Subtotal</span><span class="v">Rs. 650</span></div>
+                        <div class="row mt8" style="flex-wrap:nowrap;"><div class="fld"><label>Discount %</label><input class="inp" type="number" value="0"></div><div class="fld"><label>Flat Disc (Rs.)</label><input class="inp" type="number" value="0"></div></div>
+                        <div class="row mt8" style="flex-wrap:nowrap;"><div class="fld"><label>Advance (Rs.)</label><input class="inp" type="number" value="0"></div><div class="fld"><label>Method</label><select class="inp"><option>—</option><option>💵 Cash</option></select></div></div>
+                        <div class="s-row mt8"><span class="k">Balance</span><span class="v" style="color:var(--red);">Rs. 650</span></div>
+                        <div class="s-total"><span>Total Amount</span><span>Rs. 650</span></div>
+                        <button class="btn btn-primary btn-block mt12">🛒 Add to Order</button>
+                        <button class="btn btn-ghost btn-block mt8">⏸ Hold Order</button>
+                        <a class="btn btn-outline btn-block mt8" href="#">📋 View All Orders</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<div class="viewswitch">
+    <button class="on" onclick="show('dash', this)">Dashboard</button>
+    <button onclick="show('cake', this)">Cake Order</button>
+    <button onclick="show('box', this)">Lunch / Sweets Box</button>
+    <button onclick="show('eat', this)">Eatables</button>
+</div>
+
+<script>
+function show(v, btn) {
+    document.querySelectorAll('.view').forEach(function (s) { s.classList.remove('on'); });
+    document.getElementById('v-' + v).classList.add('on');
+    document.querySelectorAll('.viewswitch button').forEach(function (b) { b.classList.remove('on'); });
+    var map = { dash: 0, cake: 1, box: 2, eat: 3 };
+    document.querySelectorAll('.viewswitch button')[map[v]].classList.add('on');
+    document.querySelectorAll('.app-nav-item').forEach(function (n) { n.classList.remove('active'); });
+    var nav = document.getElementById('nav-' + v);
+    if (nav) nav.classList.add('active');
+    window.scrollTo(0, 0);
+}
+function pick(el) {
+    var sibs = el.parentNode.querySelectorAll('.tile');
+    sibs.forEach(function (t) { t.classList.remove('on'); });
+    el.classList.add('on');
+}
+show('dash');
+</script>
+</body>
+</html>
