@@ -108,7 +108,12 @@ include 'includes/app_shell.php';
                         <option value="card">💳 Card</option><option value="easypaisa">📱 Easypaisa</option>
                     </select></div>
             </div>
+            <div class="fld mt8">
+                <label>Extra Charges (Rs.) — added once to the bill</label>
+                <input class="inp" type="number" id="extraCharge" value="0" min="0" onchange="recalc()" placeholder="Rs. 0">
+            </div>
             <div class="s-row mt8"><span class="k">Balance</span><span class="v" id="sBal" style="color:var(--red);">Rs. 0</span></div>
+            <div class="s-row" id="sExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sExtra">Rs. 0</span></div>
             <div class="s-total"><span>Total Amount</span><span id="sTotal">Rs. 0</span></div>
 
             <button class="btn btn-primary btn-block mt12" onclick="saveEat('confirmed', this)">🛒 Add to Order</button>
@@ -191,8 +196,11 @@ function recalc() {
     for (var i = 0; i < cart.length; i++) sub += cart[i].price * cart[i].qty;
     var disc = parseInt(document.getElementById('flatDisc').value, 10) || 0;
     var adv = parseInt(document.getElementById('advance').value, 10) || 0;
-    var total = Math.max(0, sub - disc);
+    var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
+    var total = Math.max(0, sub - disc) + extra;
     document.getElementById('sSub').textContent = money(sub);
+    document.getElementById('sExtraRow').style.display = extra > 0 ? '' : 'none';
+    document.getElementById('sExtra').textContent = money(extra);
     document.getElementById('sTotal').textContent = money(total);
     document.getElementById('sBal').textContent = money(Math.max(0, total - adv));
 }
@@ -216,10 +224,17 @@ function saveEat(status, btn) {
         var c = cart[i];
         items.push({ inv_id: c.id, name: c.name, category: c.name, price: c.price, qty: c.qty, flavor: '', shape: '', uom: c.uom, tiers: 1, cake_message: '', note: '', image_data: '', audio_data: '' });
     }
+    var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
+    if (extra > 0) items.push({ inv_id: 0, name: 'Extra Charges', category: 'Extra Charges', price: extra, qty: 1, flavor: '', shape: '', uom: 'pcs', tiers: 1, cake_message: '', note: 'Extra charge — eatables order', image_data: '', audio_data: '' });
     submitOrder(items, { status: status, btn: btn, advance_method: document.getElementById('advMethod').value }, function (res) { defaultAfterSave(res, status); });
 }
 
 bindCustomerLookup('custCell', 'custName');
+initShortcuts({
+    searchId: 'gridSearch',
+    onConfirm: function () { saveEat('confirmed', null); },
+    onHold: function () { saveEat('hold', null); }
+});
 renderCart();
 </script>
 

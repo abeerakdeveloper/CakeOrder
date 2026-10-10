@@ -28,28 +28,11 @@ $canPay = in_array($order['status'], array('delivered', 'ready', 'confirmed', 'p
 <meta charset="UTF-8">
 <title>Payment - Order #<?php echo $billNo; ?></title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 
-<div class="topbar">
-    <h2>💰 Payment - Order #<?php echo $billNo; ?></h2>
-    <div class="topbar-right">
-        <a href="order_list.php">← Back to Orders</a>
-        <a href="dashboard.php">Dashboard</a>
-    </div>
-</div>
-
-<div class="layout">
-    <nav class="sidebar-nav">
-        <div class="brand"><h3>🧁 Salman Sweets</h3></div>
-        <a href="dashboard.php"><span class="icon">📊</span><span class="label">Dashboard</span></a>
-        <a href="index.php"><span class="icon">➕</span><span class="label">New Order</span></a>
-        <a href="order_list.php"><span class="icon">📋</span><span class="label">Order List</span></a>
-        <a href="kitchen_display.php"><span class="icon">👨‍🍳</span><span class="label">Kitchen</span></a>
-        <a href="pickup_queue.php"><span class="icon">🚚</span><span class="label">Pickup Queue</span></a>
-    </nav>
-
-    <div class="main-content">
+<?php include 'includes/header.php'; ?>
         <div class="stepper" style="background:#fff;border-radius:10px;margin-bottom:16px;">
             <div class="step done"><span>✓</span> Draft</div><div class="line"></div>
             <div class="step done"><span>✓</span> Order</div><div class="line"></div>

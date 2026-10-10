@@ -55,6 +55,7 @@ $pageTitle = "Order #$billNo Details";
 <meta charset="UTF-8">
 <title>Order #<?php echo $billNo; ?></title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 

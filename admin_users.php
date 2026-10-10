@@ -40,6 +40,7 @@ $pageTitle = 'User Management';
 <meta charset="UTF-8">
 <title>User Management - Admin</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 

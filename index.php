@@ -322,6 +322,10 @@ include 'includes/app_shell.php';
                         <label style="font-size:11px;color:#6c3483;font-weight:600;">Advance Rs.</label>
                         <input type="number" id="advance" value="0" min="0" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:6px;" onchange="toggleAdvanceMethod()">
                     </div>
+                    <div class="field" style="display:flex;flex-direction:column;gap:2px;">
+                        <label style="font-size:11px;color:#6c3483;font-weight:600;">Extra Charges</label>
+                        <input type="number" id="extraCharge" value="0" min="0" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:6px;" onchange="calcTotals()" title="Added once to the bill (packaging, decoration, delivery...)">
+                    </div>
                 </div>
                 <div class="action-btns">
                     <button class="btn-hold" onclick="saveOrder('hold')">⏸ Hold</button>
@@ -713,7 +717,8 @@ function calcTotals() {
     }
     var discount = parseInt(document.getElementById('flatDisc').value) || 0;
     var advance = parseInt(document.getElementById('advance').value) || 0;
-    var total = subtotal - discount;
+    var extra = parseInt(document.getElementById('extraCharge').value) || 0;
+    var total = subtotal - discount + extra;
     var balance = total - advance;
     
     document.getElementById('subtotal').textContent = 'Rs. ' + subtotal.toLocaleString();
@@ -969,6 +974,11 @@ function saveOrder(status) {
     var items = collectOrderData();
 	console.log('called');
     if (items.length === 0) { showToast('Cart is empty!', 'error'); return; }
+
+    var extra = parseInt(document.getElementById('extraCharge').value) || 0;
+    if (extra > 0) {
+        items.push({ inv_id: 0, name: 'Extra Charges', category: 'Extra Charges', price: extra, qty: 1, flavor: '', shape: '', uom: 'pcs', tiers: 1, cake_message: '', note: 'Extra charge — counter sale', image_data: '', audio_data: '' });
+    }
     
     var advance = parseInt(document.getElementById('advance').value) || 0;
     if (advance > 0 && !selectedAdvanceMethod) {
@@ -1057,22 +1067,15 @@ document.getElementById('searchItems').addEventListener('input', function(e) {
 });
 
 // ===== KEYBOARD SHORTCUTS =====
-document.addEventListener('keydown', function(e) {
-    // F2 = focus barcode
-    if (e.key === 'F2') { e.preventDefault(); document.getElementById('barcodeInput').focus(); }
-    // F4 = focus customer search
-    if (e.key === 'F4') { e.preventDefault(); document.getElementById('custCell').focus(); }
-    // F9 = Confirm Order
-    if (e.key === 'F9') { e.preventDefault(); saveOrder('confirmed'); }
-    // F10 = Hold
-    if (e.key === 'F10') { e.preventDefault(); saveOrder('hold'); }
-    // Esc = clear barcode
-    if (e.key === 'Escape') { document.getElementById('barcodeInput').value = ''; }
+initShortcuts({
+    searchId: 'barcodeInput',
+    onConfirm: function () { saveOrder('confirmed'); },
+    onHold: function () { saveOrder('hold'); }
 });
 
 // Show keyboard shortcuts hint on load
 setTimeout(function(){
-    showToast('💡 Shortcuts: F2=Barcode | F4=Customer | F9=Confirm | F10=Hold', 'info');
+    showToast('💡 F1 Help | F2 Barcode | F4 Customer | F9 Confirm | F10 Hold', 'info');
 }, 1000);
 
 // Auto-focus barcode on load

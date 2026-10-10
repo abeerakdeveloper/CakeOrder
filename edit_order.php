@@ -47,6 +47,7 @@ $currentBalance = $currentNet - $first['advance'] - $first['paid'];
 <meta charset="UTF-8">
 <title>Edit Order #<?php echo $billNo; ?></title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 <style>
 .edit-warning {
     background: #fff3e0; border-left: 5px solid #f39c12; 
@@ -61,15 +62,7 @@ $currentBalance = $currentNet - $first['advance'] - $first['paid'];
 </head>
 <body>
 
-<?php $branch = getBranchInfo(); ?>
-<div class="topbar">
-    <h2>✎ <?php echo htmlspecialchars($branch['name']); ?> — Edit Order #<?php echo $billNo; ?></h2>
-    <div class="topbar-right">
-        <a href="dashboard.php">← Dashboard</a>
-        <a href="order_detail.php?bill=<?php echo $billNo; ?>">View Details</a>
-        <a href="logout.php" style="background:#e74c3c;padding:6px 12px;border-radius:6px;">🚪</a>
-    </div>
-</div>
+<?php include 'includes/header.php'; ?>
 
 <div class="pos-layout">
     <!-- LEFT: PRODUCT LIST FOR ADDING -->
@@ -186,6 +179,9 @@ $currentBalance = $currentNet - $first['advance'] - $first['paid'];
             </div>
         </div>
     </div>
+</div>
+
+</main>
 </div>
 
 <div class="toast" id="toast"></div>

@@ -41,226 +41,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+$brLogin = getBranchInfo();
+$brName  = $brLogin['name'];
+$brAddr  = $brLogin['address'];
 ?>
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Login - BestPOS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login — BestPOS</title>
+<link rel="stylesheet" href="assets/app.css">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
 body {
-    background: linear-gradient(135deg, #6c3483 0%, #9b59b6 100%);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: radial-gradient(1200px 600px at 80% -10%, #1d3a63 0%, transparent 60%),
+                linear-gradient(160deg, #0e2440 0%, #12294a 60%, #16355c 100%);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
 }
-.login-container {
-    background: #fff;
-    border-radius: 16px;
-    padding: 40px;
-    width: 380px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+.login-card {
+    width: 100%; max-width: 400px; background: #fff; border-radius: 16px;
+    padding: 34px 30px 26px; box-shadow: 0 24px 60px rgba(0,0,0,.35); text-align: center;
 }
-.logo {
-    text-align: center;
-    margin-bottom: 30px;
+.login-card .logo-ic {
+    width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 18px; background: var(--blue-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 32px;
 }
-.logo h1 {
-    color: #6c3483;
-    font-size: 28px;
-    margin-bottom: 4px;
+.login-card h1 { font-size: 21px; color: var(--text); }
+.login-card .tag { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.login-card .addr { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+.login-card form { margin-top: 20px; text-align: left; }
+.login-card .fld { margin-bottom: 12px; }
+.login-card .btn-login {
+    width: 100%; padding: 12px; border: none; border-radius: 9px; background: var(--blue);
+    color: #fff; font-size: 14.5px; font-weight: 700; cursor: pointer; margin-top: 6px;
 }
-.logo p {
-    color: #888;
-    font-size: 13px;
-}
-.logo .icon {
-    font-size: 56px;
-    margin-bottom: 8px;
-}
-.form-group {
-    margin-bottom: 16px;
-}
-.form-group label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: #6c3483;
-    margin-bottom: 6px;
-    letter-spacing: 0.5px;
-}
-.form-group input {
-    width: 100%;
-    padding: 12px 14px;
-    border: 2px solid #e0d6eb;
-    border-radius: 8px;
-    font-size: 14px;
-    transition: all 0.2s;
-}
-.form-group input:focus {
-    outline: none;
-    border-color: #6c3483;
-    box-shadow: 0 0 0 3px rgba(108,52,131,0.1);
-}
-.btn-login {
-    width: 100%;
-    padding: 14px;
-    background: #6c3483;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-top: 8px;
-}
-.btn-login:hover { background: #7d3c98; }
-.error {
-    background: #fee;
-    color: #c0392b;
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 13px;
-    margin-bottom: 16px;
-    border-left: 4px solid #e74c3c;
-}
-.footer {
-    text-align: center;
-    margin-top: 24px;
-    font-size: 11px;
-    color: #aaa;
-}
-.role-info {
-    margin-top: 20px;
-    padding: 12px;
-    background: #f5f0fa;
-    border-radius: 8px;
-    font-size: 11px;
-    color: #666;
-}
-.role-info strong { color: #6c3483; }
+.login-card .btn-login:hover { background: #155cd6; }
+.login-err { background: #fdecee; color: #c92a2f; border: 1px solid #f6c9cc; border-radius: 8px; padding: 9px 12px; font-size: 12.5px; margin-top: 14px; }
+.login-info { background: var(--blue-soft); color: var(--blue); border-radius: 8px; padding: 9px 12px; font-size: 12.5px; margin-top: 14px; }
+.login-foot { margin-top: 18px; font-size: 11px; color: var(--muted); }
+.keys { margin-top: 14px; background: #f6f8fb; border-radius: 8px; padding: 8px 10px; font-size: 10.5px; color: var(--muted); text-align: left; }
 </style>
 </head>
 <body>
+<div class="login-card">
+    <div class="logo-ic">🧁</div>
+    <h1><?php echo htmlspecialchars($brName); ?></h1>
+    <div class="tag">Fresh Cakes • Sweet Moments — POS System</div>
+    <?php if (!empty($brAddr)): ?><div class="addr">📍 <?php echo htmlspecialchars($brAddr); ?></div><?php endif; ?>
 
-<div class="login-container">
-    
-
-
-	<?php
-		// Get branch info for display
-		$branchRes = mysqli_query($mysqli, "SELECT branch_name, address1 FROM branch LIMIT 1");
-		$brName = 'BestPOS';
-		$brAddr = '';
-		if ($branchRes && $brRow = mysqli_fetch_assoc($branchRes)) {
-			$brName = $brRow['branch_name'];
-			$brAddr = $brRow['address1'];
-		}
-		?>
-
-       <div class="logo">
-			<div class="icon">🧁</div>
-			<h1><?php echo htmlspecialchars($brName); ?></h1>
-			<?php if (!empty($brAddr)): ?>
-			<p style="font-size:12px;color:#888;line-height:1.4;">📍 <?php echo htmlspecialchars($brAddr); ?></p>
-			<?php endif; ?>
-			<p style="margin-top:4px;">POS System</p>
-		</div>
-    
-    <?php if ($error): ?>
-    <div class="error">⚠ <?php echo htmlspecialchars($error); ?></div>
-    <?php endif; ?>
-    
-		
-
+    <?php if ($error): ?><div class="login-err">⚠ <?php echo htmlspecialchars($error); ?></div><?php endif; ?>
+    <?php if (isset($_GET['timeout'])): ?><div class="login-info">⏰ Session expired after 8 hours — please login again.</div><?php endif; ?>
 
     <form method="POST">
-        <div class="form-group">
-            <label>USERNAME</label>
-            <input type="text" name="user" placeholder="Enter username" required autofocus>
+        <div class="fld">
+            <label>👤 Username</label>
+            <input class="inp" type="text" name="user" placeholder="Enter username" required autofocus>
         </div>
-        <div class="form-group">
-            <label>PASSWORD</label>
-            <input type="password" name="mpass" placeholder="Enter password" required>
+        <div class="fld">
+            <label>🔒 Password</label>
+            <input class="inp" type="password" name="mpass" placeholder="Enter password" required>
         </div>
         <button type="submit" class="btn-login">🔐 LOGIN</button>
     </form>
-    
-	<div style="
-			background:#f5f7fa;
-			border:2px solid #0d6efd;
-			border-radius:10px;
-			padding:20px;
-			margin:20px auto;
-			text-align:center;
-			max-width:700px;
-			box-shadow:0 2px 10px rgba(0,0,0,0.1);
-		">
 
-			<h2 style="
-				margin-top:0;
-				color:#0d6efd;
-				font-family:Arial;
-			">
-				BestPOS Help & Training
-			</h2>
-
-			<p style="
-				font-size:16px;
-				color:#333;
-				margin-bottom:20px;
-			">
-				New users can quickly access the presentation and training manual below.
-			</p>
-
-			<a href="https://ZeeSOL.co.uk/BestPOS/presentation/presentation.html"
-			   target="_blank"
-			   style="
-					display:inline-block;
-					background:#0d6efd;
-					color:#fff;
-					padding:12px 25px;
-					margin:10px;
-					text-decoration:none;
-					border-radius:6px;
-					font-size:16px;
-					font-weight:bold;
-			   ">
-				📊 View Presentation
-			</a>
-
-			<a href="https://ZeeSOL.co.uk/BestPOS/presentation/training_manual.html"
-			   target="_blank"
-			   style="
-					display:inline-block;
-					background:#198754;
-					color:#fff;
-					padding:12px 25px;
-					margin:10px;
-					text-decoration:none;
-					border-radius:6px;
-					font-size:16px;
-					font-weight:bold;
-			   ">
-				📘 Training Manual
-			</a>
-
-		</div>
-
-    <div class="role-info" style="display:none;">
-        <strong>User Roles:</strong><br>
-        <strong>1</strong> = POS User (Take orders, view dashboard, cancel before ready)<br>
-        <strong>2</strong> = Kitchen Staff (Manage cooking workflow)<br>
-        <strong>3</strong> = Admin (Full access, modify/delete anything)
-    </div>
-    
-    <div class="footer">
-        © <?php echo date('Y'); ?> https://ZeeSOL.co.uk - All Rights Reserved
-    </div>
+    <div class="keys">⌨ Shortcuts after login: <b>F1</b> help · <b>F2</b> search items · <b>F4</b> customer · <b>F9</b> confirm · <b>F10</b> hold</div>
+    <div class="login-foot">BestPOS • Bakery &amp; Sweets Order Management</div>
 </div>
-
 </body>
 </html>

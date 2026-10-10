@@ -61,6 +61,7 @@ $pageTitle = 'Order List';
 <meta charset="UTF-8">
 <title>Order List</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 <style>
 .priority-tab.active {
     background: #6c3483 !important;

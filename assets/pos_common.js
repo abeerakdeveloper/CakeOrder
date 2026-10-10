@@ -218,3 +218,59 @@ function toggleCollapse(id, btn) {
     var open = el.classList.toggle('open');
     if (btn) btn.innerHTML = open ? '▴ Hide options' : '▾ More options';
 }
+
+/* ============================================================
+   KEYBOARD CONTROL — work without the mouse
+   F1 help · F2 search items · F4 customer · F9 confirm · F10 hold
+   Esc close modal / clear search · Tab+Enter works on every tile
+   ============================================================ */
+function toggleHelp() {
+    var m = document.getElementById('scHelpModal');
+    if (!m) {
+        m = document.createElement('div');
+        m.id = 'scHelpModal';
+        m.className = 'modal-overlay';
+        m.innerHTML =
+            '<div class="modal">' +
+            '<h3>⌨ Keyboard Shortcuts</h3>' +
+            '<table class="tbl"><tbody>' +
+            '<tr><td><b>F1</b></td><td>Show / hide this help</td></tr>' +
+            '<tr><td><b>F2</b></td><td>Focus item / product search</td></tr>' +
+            '<tr><td><b>F4</b></td><td>Focus customer phone search</td></tr>' +
+            '<tr><td><b>F9</b></td><td>Confirm &amp; save order</td></tr>' +
+            '<tr><td><b>F10</b></td><td>Hold order</td></tr>' +
+            '<tr><td><b>Tab / Shift+Tab</b></td><td>Move between fields &amp; tiles</td></tr>' +
+            '<tr><td><b>Enter</b></td><td>Activate focused tile / button</td></tr>' +
+            '<tr><td><b>Esc</b></td><td>Close popup, or clear the search box</td></tr>' +
+            '</tbody></table>' +
+            '<div class="modal-actions"><button class="btn btn-primary" onclick="toggleHelp()">Got it</button></div>' +
+            '</div>';
+        document.body.appendChild(m);
+    }
+    m.classList.toggle('show');
+}
+
+function initShortcuts(cfg) {
+    cfg = cfg || {};
+    document.addEventListener('keydown', function (e) {
+        var tag = (e.target && e.target.tagName || '').toLowerCase();
+        if (e.key === 'F1') { e.preventDefault(); toggleHelp(); return; }
+        if (e.key === 'F2') {
+            e.preventDefault();
+            var s = cfg.searchId && document.getElementById(cfg.searchId);
+            if (s) { s.focus(); if (s.select) s.select(); }
+            return;
+        }
+        if (e.key === 'F4') { e.preventDefault(); var c = document.getElementById('custCell'); if (c) c.focus(); return; }
+        if (e.key === 'F9') { e.preventDefault(); if (cfg.onConfirm) cfg.onConfirm(); return; }
+        if (e.key === 'F10') { e.preventDefault(); if (cfg.onHold) cfg.onHold(); return; }
+        if (e.key === 'Escape') {
+            var open = document.querySelector('.modal-overlay.show');
+            if (open) { open.classList.remove('show'); return; }
+            if (cfg.searchId && e.target && e.target.id === cfg.searchId) {
+                e.target.value = '';
+                e.target.dispatchEvent(new Event('input'));
+            }
+        }
+    });
+}

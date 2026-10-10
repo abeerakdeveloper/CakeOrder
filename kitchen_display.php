@@ -54,6 +54,7 @@ if ($result) {
     <meta charset="UTF-8">
     <title>Kitchen Display - BestPOS</title>
     <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
     <style>
         /* Clickable thumbnail */
         .kitchen-item .thumb {
@@ -205,39 +206,10 @@ if ($result) {
     </div>
 </div> -->
 
-    <?php $branch = getBranchInfo(); ?>
-    <div class="topbar" style="background:#e67e22;">
-        <h2>👨‍🍳 <?php echo htmlspecialchars($branch['name']); ?> — Kitchen Display</h2>
-        <div class="topbar-right">
-            <span style="font-size:14px;background:rgba(255,255,255,0.2);padding:4px 12px;border-radius:12px;">
-                📥 New: <strong><?php echo $confirmedCount; ?></strong> |
-                🔥 Preparing: <strong><?php echo $preparingCount; ?></strong>
-            </span>
+    <?php include 'includes/header.php'; ?>
 
-            <span style="font-size:13px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:12px;">
-                <?php echo getRoleName(); ?>
-            </span>
-
-            <span style="font-size:13px;">👤 <?php echo htmlspecialchars($_SESSION['user']); ?></span>
-
-            <?php if (isAdmin()): ?>
-                <a href="dashboard.php"
-                    style="color:#fff;text-decoration:none;padding:4px 10px;background:rgba(255,255,255,0.15);border-radius:6px;">📊
-                    Dashboard</a>
-                <a href="order_list.php"
-                    style="color:#fff;text-decoration:none;padding:4px 10px;background:rgba(255,255,255,0.15);border-radius:6px;">📋
-                    Orders</a>
-            <?php endif; ?>
-
-            <a href="logout.php" onclick="return confirm('Are you sure you want to logout?');"
-                style="background:#c0392b;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:600;">
-                🚪 Logout
-            </a>
-        </div>
-    </div>
-
-    <div style="padding:20px;">
-        <div style="padding:20px;">
+<div>
+        <div>
             <?php if ($showAccessMsg): ?>
                 <div
                     style="background:#fff3e0;border-left:5px solid #f39c12;padding:14px 20px;border-radius:6px;margin-bottom:16px;font-size:13px;color:#5d4037;">
@@ -383,6 +355,9 @@ if ($result) {
 
         <!-- HIDDEN AUDIO PLAYER -->
         <audio id="kitchenAudio" style="display:none;"></audio>
+
+    </main>
+</div>
 
         <script>
             var lastOrderCount = <?php echo count($orders); ?>;

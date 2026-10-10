@@ -87,6 +87,7 @@ $pageTitle = 'General Ledger';
 <meta charset="UTF-8">
 <title>General Ledger - Admin</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 <style>
 .v-type-badge {
     padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600;

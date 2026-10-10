@@ -128,9 +128,11 @@ include 'includes/app_shell.php';
             <div class="card-title" style="font-size:13px;">Set Breakdown</div>
             <div id="sumBreak"><div class="empty" style="padding:10px;">No sets added</div></div>
             <div class="s-row mt12"><span class="k">Items Total</span><span class="v" id="sumItems">Rs. 0</span></div>
+            <div class="s-row" id="sumExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sumExtra">Rs. 0</span></div>
             <div class="fld mt8">
-                <label>Packaging / Extra Charge (Rs.)</label>
-                <input class="inp" type="number" id="packCharge" value="0" min="0" onchange="recalc()">
+                <label>Extra Charges (Rs.) — added once to the bill</label>
+                <input class="inp" type="number" id="packCharge" value="0" min="0" onchange="recalc()" placeholder="Rs. 0">
+                <span class="hint">e.g. packaging, decoration, delivery</span>
             </div>
             <div class="s-total"><span>Total Amount</span><span id="sumTotal">Rs. 0</span></div>
             <button class="btn btn-primary btn-block mt12" onclick="saveBox('confirmed', this)">🛒 Add to Order</button>
@@ -280,6 +282,8 @@ function renderSummary() {
     }
     document.getElementById('sumBreak').innerHTML = html;
     document.getElementById('sumItems').textContent = money(t.itemsTotal);
+    document.getElementById('sumExtraRow').style.display = pack > 0 ? '' : 'none';
+    document.getElementById('sumExtra').textContent = money(pack);
     document.getElementById('sumTotal').textContent = money(t.itemsTotal + pack);
 }
 
@@ -311,7 +315,7 @@ function saveBox(status, btn) {
     }
     if (!any) { showToast('Each set needs at least one checked item', 'error'); return; }
     var pack = parseInt(document.getElementById('packCharge').value, 10) || 0;
-    if (pack > 0) items.push({ inv_id: 0, name: 'Packaging / Extra Charge', category: 'Packaging / Extra Charge', price: pack, qty: 1, flavor: '', shape: '', uom: 'pcs', tiers: 1, cake_message: '', note: 'Extra charge for ' + BOX_LABEL.toLowerCase() + ' order', image_data: '', audio_data: '' });
+    if (pack > 0) items.push({ inv_id: 0, name: 'Extra Charges', category: 'Extra Charges', price: pack, qty: 1, flavor: '', shape: '', uom: 'pcs', tiers: 1, cake_message: '', note: 'Extra charge — ' + BOX_LABEL.toLowerCase() + ' order', image_data: '', audio_data: '' });
 
     submitOrder(items, { status: status, btn: btn }, function (res) { defaultAfterSave(res, status); });
 }
@@ -331,6 +335,11 @@ function filterSetPicker() {
 }
 
 bindCustomerLookup('custCell', 'custName');
+initShortcuts({
+    searchId: 'spSearch',
+    onConfirm: function () { saveBox('confirmed', null); },
+    onHold: function () { saveBox('hold', null); }
+});
 addSet();
 </script>
 

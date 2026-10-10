@@ -121,7 +121,8 @@ body { padding-bottom: 70px; }
                         </div>
                     </div>
                     <div class="card">
-                        <div class="sec"><div class="num">1</div><div class="sec-head" style="flex:1;"><h4>Category</h4><p>Choose a cake category</p>
+                        <div class="sec"><div class="num">1</div><div class="sec-head" style="flex:1;"><h4>Category</h4><p>Choose a predefined category — or search any cake item (F2)</p>
+                            <input class="inp mt12" placeholder="🔍 Search cake item... e.g. cream, brownie, chocolate">
                             <div class="tiles scroll mt12">
                                 <div class="tile on" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic">🎂</span><span class="t-lb">Fresh Cream Cake</span><span class="t-sb">Rs. 760</span></div>
                                 <div class="tile" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic">🍰</span><span class="t-lb">Mousse Cake</span><span class="t-sb">Rs. 950</span></div>
@@ -133,9 +134,11 @@ body { padding-bottom: 70px; }
                     </div>
                     <div class="card">
                         <div class="row" style="align-items:flex-start;">
-                            <div class="sec" style="flex:1;"><div class="num">2</div><div class="sec-head" style="flex:1;"><h4>Flavour</h4><p>Select flavour from the list</p>
-                                <select class="inp mt12"><option>Chocolate Icing</option><option>Vanilla</option><option>Red Velvet</option></select></div></div>
-                            <div class="sec" style="flex:1.4;"><div class="num">3</div><div class="sec-head" style="flex:1;"><h4>Shape</h4><p>Pick the cake shape</p>
+                            <div class="sec" style="flex:1;"><div class="num">2</div><div class="sec-head" style="flex:1;"><h4>Flavour</h4><p>Filled by selected category</p>
+                                <select class="inp mt12"><option>Chocolate Icing (Rs. 760)</option><option>Vanilla Icing (Rs. 760)</option><option>Black Forest (Rs. 850)</option></select></div></div>
+                            <div class="sec" style="flex:1;"><div class="num">3</div><div class="sec-head" style="flex:1;"><h4>Ladi</h4><p>Tray / sheet option</p>
+                                <select class="inp mt12"><option>N/A</option><option>Quarter Ladi</option><option>Half Ladi</option><option>Full Ladi</option></select></div></div>
+                            <div class="sec" style="flex:1.2;"><div class="num">4</div><div class="sec-head" style="flex:1;"><h4>Shape</h4><p>Pick the cake shape</p>
                                 <div class="tiles mt12">
                                     <div class="tile on" style="min-width:78px;padding:10px 8px;" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic" style="font-size:18px;">⬤</span><span class="t-lb">Round</span></div>
                                     <div class="tile" style="min-width:78px;padding:10px 8px;" onclick="pick(this)"><span class="tick">✓</span><span class="t-ic" style="font-size:18px;">▢</span><span class="t-lb">Square</span></div>
@@ -147,16 +150,16 @@ body { padding-bottom: 70px; }
                     </div>
                     <div class="card">
                         <div class="row" style="align-items:flex-end;">
-                            <div class="sec" style="flex:1.2;"><div class="num">4</div><div class="sec-head" style="flex:1;"><h4>Size / UOM</h4><p>Select size and unit</p>
-                                <div class="row mt12" style="flex-wrap:nowrap;"><select class="inp"><option>1</option><option>2</option><option>3</option></select><select class="inp"><option>kg</option><option>pound</option><option>pcs</option></select></div></div></div>
-                            <div class="sec" style="flex:.9;"><div class="num">5</div><div class="sec-head"><h4>Quantity</h4><p>Number of cakes</p>
+                            <div class="sec" style="flex:1.2;"><div class="num">5</div><div class="sec-head" style="flex:1;"><h4>Size / UOM</h4><p>Filled by selected category</p>
+                                <select class="inp mt12"><option>1 Kg (10-12 servings)</option><option>2 Kg (20-24 servings)</option><option>3 Kg (30-35 servings)</option></select></div></div>
+                            <div class="sec" style="flex:.9;"><div class="num">6</div><div class="sec-head"><h4>Quantity</h4><p>Number of cakes</p>
                                 <div class="stepper-n mt12"><button>−</button><input value="2"><button>＋</button></div></div></div>
                             <div class="fld" style="flex:1;"><label>Price (per unit)</label><input class="inp" type="number" value="760"><span class="hint">Editable — tap to change</span></div>
                             <div style="flex:1;background:var(--blue-soft);border-radius:10px;padding:12px 14px;"><div class="hint">Total (approx.)</div><div style="font-size:21px;font-weight:800;color:var(--blue);">Rs. 1,520</div><div class="hint">2 kg</div></div>
                         </div>
                     </div>
                     <div class="card">
-                        <div class="sec"><div class="num">6</div><div class="sec-head" style="flex:1;"><h4>Cake Image</h4><p>Upload or choose a reference image</p>
+                        <div class="sec"><div class="num">7</div><div class="sec-head" style="flex:1;"><h4>Cake Image</h4><p>Upload or choose a reference image</p>
                             <div class="row mt12" style="align-items:stretch;">
                                 <div class="dropzone" style="flex:1;"><span class="up">⬆</span>Click to upload or drag &amp; drop<br><span class="hint">JPG, PNG — Max 5MB</span></div>
                                 <div class="thumbs" style="flex:1.4;">
@@ -169,14 +172,12 @@ body { padding-bottom: 70px; }
                     </div>
                     <div class="card">
                         <div class="row" style="align-items:flex-start;">
-                            <div class="sec" style="flex:1;"><div class="num">7</div><div class="sec-head" style="flex:1;"><h4>Extra Charges <span class="muted" style="font-weight:400;">(optional)</span></h4><p>Add any additional charges</p>
-                                <div class="tiles mt12">
-                                    <div class="tile" style="min-width:120px;"><span class="t-lb">Delivery Charges</span><input class="inp mt8" style="text-align:center;" type="number" value="0"></div>
-                                    <div class="tile" style="min-width:120px;"><span class="t-lb">Decoration</span><input class="inp mt8" style="text-align:center;" type="number" value="0"></div>
-                                    <div class="tile on" style="min-width:120px;"><span class="t-lb">Packaging</span><input class="inp mt8" style="text-align:center;" type="number" value="50"></div>
-                                    <button class="btn btn-outline btn-sm" style="align-self:center;">＋ Add Charge</button>
+                            <div class="sec" style="flex:.8;"><div class="num">8</div><div class="sec-head" style="flex:1;"><h4>Extra Charges <span class="muted" style="font-weight:400;">(optional)</span></h4><p>One simple field — added once to the bill</p>
+                                <div class="fld mt12">
+                                    <input class="inp" type="number" value="50" placeholder="Rs. 0">
+                                    <span class="hint">e.g. packaging, decoration, delivery</span>
                                 </div></div></div>
-                            <div class="sec" style="flex:1;"><div class="num">8</div><div class="sec-head" style="flex:1;"><h4>Remarks <span class="muted" style="font-weight:400;">(optional)</span></h4>
+                            <div class="sec" style="flex:1.2;"><div class="num">9</div><div class="sec-head" style="flex:1;"><h4>Remarks <span class="muted" style="font-weight:400;">(optional)</span></h4>
                                 <div class="fld mt12">
                                     <input class="inp" placeholder="✍ Cake message (written on the cake)...">
                                     <textarea class="inp mt8" placeholder="Any special message, notes or custom design details..."></textarea>
@@ -195,6 +196,7 @@ body { padding-bottom: 70px; }
                         <div class="card-title"><span class="ic">🧾</span> Order Summary</div>
                         <div class="s-row"><span class="k">Category</span><span class="v">Fresh Cream Cake</span></div>
                         <div class="s-row"><span class="k">Flavour</span><span class="v">Chocolate Icing</span></div>
+                        <div class="s-row"><span class="k">Ladi</span><span class="v">Half Ladi</span></div>
                         <div class="s-row"><span class="k">Shape</span><span class="v">Round</span></div>
                         <div class="s-row"><span class="k">Size / UOM</span><span class="v">1 kg</span></div>
                         <div class="s-row"><span class="k">Quantity</span><span class="v">2</span></div>

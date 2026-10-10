@@ -402,3 +402,43 @@ textarea.inp { resize: vertical; min-height: 84px; }
 @media print {
     .app-topbar, .app-sidebar { display: none !important; }
 }
+
+/* ============================================================
+   LEGACY COMPAT — restyles old style.css components to the new
+   palette so the whole app feels like one product.
+   (app.css is loaded AFTER style.css on legacy pages)
+   ============================================================ */
+body { background: #f2f5f9; }
+.app-main h2, .app-main h3, .app-main h4 { color: var(--text); }
+.app-main .data-card, .app-main .chart-card, .app-main .stat-card,
+.app-main .payment-card, .app-main .filter-bar {
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(22,40,63,.04);
+}
+.app-main .stat-card .stat-icon { border-radius: 10px; }
+.app-main table th { background: #f6f8fb; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: .6px; text-transform: uppercase; }
+.app-main table td { border-bottom: 1px solid #f0f3f8; }
+.app-main table tr:hover { background: #f9fbfd; }
+.btn-primary { background: var(--blue) !important; }
+.btn-primary:hover { background: #155cd6 !important; }
+.btn-outline { border-color: var(--blue-line) !important; color: var(--blue) !important; }
+.btn-outline:hover { background: var(--blue-soft) !important; }
+.btn-confirm { background: var(--blue); border-radius: 8px; }
+.btn-confirm:hover { background: #155cd6; }
+.btn-hold { border: 2px solid var(--blue-line); color: var(--blue); border-radius: 8px; }
+.btn-hold:hover { background: var(--blue-soft); }
+.pay-method.selected { border-color: var(--blue); background: var(--blue); }
+.pay-method:hover { border-color: var(--blue); background: var(--blue-soft); }
+.bar-fill { background: linear-gradient(90deg, #1f6ff2, #7fb0fb); }
+.pickup-card.ready { border-color: var(--green); background: #eafaf1; }
+.pickup-card .order-num { color: var(--blue); }
+.kitchen-card.urgent { border-color: var(--red); }
+.kitchen-card-footer { background: #f6f8fb; }
+.modal h3 { color: var(--text); }
+.product-item:hover { border-color: var(--blue); background: var(--blue-soft); }
+.product-item .price { color: var(--blue); }
+/* inline legacy purple -> new blue */
+.app-main [style*="6c3483"] { color: var(--blue) !important; }
+.app-main [style*="background:#6c3483"], .app-main [style*="background: #6c3483"] { background: var(--blue) !important; color: #fff !important; }
+.app-main [style*="background:#f5f0fa"], .app-main [style*="background: #f5f0fa"] { background: var(--blue-soft) !important; }
+.app-main [style*="border-color:#6c3483"] { border-color: var(--blue) !important; }

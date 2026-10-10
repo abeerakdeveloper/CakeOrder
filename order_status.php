@@ -8,6 +8,7 @@ $pageTitle = 'Check Order Status';
 <meta charset="UTF-8">
 <title>Check Order Status</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 

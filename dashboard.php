@@ -341,6 +341,9 @@ function quickStatusCheck() {
         });
 }
 
+// Keyboard: F1 help, F2 quick search, F4 customer (n/a here)
+initShortcuts({ searchId: 'quickSearch' });
+
 // Auto refresh every 2 minutes (same as before)
 setInterval(function () { location.reload(); }, 120000);
 </script>

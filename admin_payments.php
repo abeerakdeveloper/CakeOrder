@@ -53,6 +53,7 @@ $pageTitle = 'Payments Management';
 <meta charset="UTF-8">
 <title>Payments Management - Admin</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 

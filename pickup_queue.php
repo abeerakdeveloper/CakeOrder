@@ -25,43 +25,10 @@ if ($res) {
 <meta charset="UTF-8">
 <title>Pickup Queue</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
-<?php $branch = getBranchInfo(); ?>
-<div class="topbar" style="background:#27ae60;">
-     <h2>🚚 <?php echo htmlspecialchars($branch['name']); ?> — Pickup Queue</h2>
-    <div class="topbar-right">
-        <span>Ready: <?php echo $readyCount; ?></span>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="order_list.php">Orders</a>
-        <a href="kitchen_display.php">Kitchen</a>
-    </div>
-</div>
-
-<div class="layout">
-    <nav class="sidebar-nav">
-       
-		<div class="brand">
-			<h3 style="font-size:15px;line-height:1.2;">🚚 <?php echo htmlspecialchars($branch['name']); ?></h3>
-			<?php if (!empty($branch['address'])): ?>
-			<small style="color:#888;font-size:10px;display:block;margin-top:4px;line-height:1.3;">
-				📍 <?php echo htmlspecialchars($branch['address']); ?>
-			</small>
-			<?php endif; ?>
-			<small style="color:#6c3483;font-size:11px;display:block;margin-top:6px;font-weight:600;">
-				Role: <?php echo getRoleName(); ?>
-			</small>
-		</div>
-
-
-        <a href="dashboard.php"><span class="icon">📊</span><span class="label">Dashboard</span></a>
-        <a href="index.php"><span class="icon">➕</span><span class="label">New Order</span></a>
-        <a href="order_list.php"><span class="icon">📋</span><span class="label">Order List</span></a>
-        <a href="kitchen_display.php"><span class="icon">👨‍🍳</span><span class="label">Kitchen</span></a>
-        <a href="pickup_queue.php" class="active"><span class="icon">🚚</span><span class="label">Pickup Queue</span></a>
-    </nav>
-
-    <div class="main-content">
+<?php include 'includes/header.php'; ?>
         <?php if (empty($pickups)): ?>
         <div style="text-align:center;padding:80px;color:#999;">
             <div style="font-size:60px;margin-bottom:16px;">📦</div>
