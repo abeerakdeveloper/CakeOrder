@@ -6,7 +6,7 @@
 html, body { height: 100%; }
 body {
     font-family: 'Segoe UI', Tahoma, Verdana, sans-serif;
-    background: #f2f5f9; color: #16283f; font-size: 14px;
+    background: #e1e8f1; color: #16283f; font-size: 14px;
 }
 a { text-decoration: none; color: inherit; }
 button { font-family: inherit; }
@@ -36,9 +36,10 @@ img { display: block; }
 }
 .app-brand { display: flex; align-items: center; gap: 10px; min-width: 230px; }
 .app-brand .logo {
-    width: 40px; height: 40px; border-radius: 10px; background: #fff;
+    width: 40px; height: 40px; border-radius: 10px; background: #fff; overflow: hidden;
     display: flex; align-items: center; justify-content: center; font-size: 22px;
 }
+.app-brand .logo img { width: 100%; height: 100%; object-fit: cover; }
 .app-brand h1 { font-size: 17px; font-weight: 700; line-height: 1.1; }
 .app-brand small { display: block; font-size: 11px; color: #9fb3cd; font-weight: 400; }
 .app-topsearch {
@@ -294,10 +295,10 @@ textarea.inp { resize: vertical; min-height: 84px; }
 .quick-card .q-sb { font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
 .quick-card .q-arrow { position: absolute; top: 12px; right: 14px; color: var(--muted); font-size: 14px; opacity: 0; transition: .18s; }
 .quick-card:hover .q-arrow { opacity: 1; }
-.qc-blue .q-ic { background: #eaf1fe; }   .qc-blue:hover { background: linear-gradient(180deg,#fff, #eef4ff); }
-.qc-green .q-ic { background: #e7f7ef; }  .qc-green:hover { background: linear-gradient(180deg,#fff, #ecfaf3); }
-.qc-amber .q-ic { background: #fdf3e3; }  .qc-amber:hover { background: linear-gradient(180deg,#fff, #fef7ea); }
-.qc-pink .q-ic { background: #fdeef3; }   .qc-pink:hover { background: linear-gradient(180deg,#fff, #fef1f6); }
+.qc-blue .q-ic { background: #eaf1fe; }   .qc-blue:hover { background: linear-gradient(180deg,#fff, #dce9fb); }
+.qc-green .q-ic { background: #e7f7ef; }  .qc-green:hover { background: linear-gradient(180deg,#fff, #d5efe1); }
+.qc-amber .q-ic { background: #fdf3e3; }  .qc-amber:hover { background: linear-gradient(180deg,#fff, #fbead0); }
+.qc-pink .q-ic { background: #fdeef3; }   .qc-pink:hover { background: linear-gradient(180deg,#fff, #f9dde8); }
 .qc-slate .q-ic { background: #eef1f6; }  .qc-slate:hover { background: linear-gradient(180deg,#fff, #f2f5fa); }
 
 .mini-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 16px; }
@@ -408,7 +409,7 @@ textarea.inp { resize: vertical; min-height: 84px; }
    palette so the whole app feels like one product.
    (app.css is loaded AFTER style.css on legacy pages)
    ============================================================ */
-body { background: #f2f5f9; }
+body { background: #e1e8f1; }
 .app-main h2, .app-main h3, .app-main h4 { color: var(--text); }
 .app-main .data-card, .app-main .chart-card, .app-main .stat-card,
 .app-main .payment-card, .app-main .filter-bar {
@@ -451,10 +452,10 @@ body { background: #f2f5f9; }
 .card.compact .fld > label { font-size: 11px; }
 .card.compact .inp, .card.compact select.inp { padding: 7px 10px; font-size: 13px; }
 .quick-card { border-color: transparent; }
-.qc-blue  { background: #eef4ff; } .qc-blue  .q-ic { background: #fff; }
-.qc-green { background: #ecfaf3; } .qc-green .q-ic { background: #fff; }
-.qc-amber { background: #fef7ea; } .qc-amber .q-ic { background: #fff; }
-.qc-pink  { background: #fef1f6; } .qc-pink  .q-ic { background: #fff; }
+.qc-blue  { background: #dce9fb; } .qc-blue  .q-ic { background: #fff; }
+.qc-green { background: #d5efe1; } .qc-green .q-ic { background: #fff; }
+.qc-amber { background: #fbead0; } .qc-amber .q-ic { background: #fff; }
+.qc-pink  { background: #f9dde8; } .qc-pink  .q-ic { background: #fff; }
 .qc-slate { background: #f2f5fa; } .qc-slate .q-ic { background: #fff; }
 .quick-card:hover { background: #fff; border-color: var(--blue-line); }
 /* small photo strip (multi images) */

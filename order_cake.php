@@ -29,7 +29,6 @@ include 'includes/app_shell.php';
     <div class="ph-ic">🎂</div>
     <div>
         <h2>Create Cake Order</h2>
-        <p>Select a category (or search any cake item), then fill flavour, shape, size &amp; image.</p>
     </div>
     <div class="spacer"></div>
     <a class="btn btn-outline" href="order_cake.php">＋ New Order</a>
@@ -42,12 +41,15 @@ include 'includes/app_shell.php';
         <div class="card compact">
             <div class="grid-3">
                 <div class="fld" style="position:relative;">
-                    <label>👤 Customer</label>
+                    <label>👤 Customer (F4)</label>
                     <div class="row" style="flex-wrap:nowrap;">
                         <input class="inp" id="custCell" placeholder="Search name or phone..." autocomplete="off">
                         <button class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="document.getElementById('custName').focus()" title="Add new customer">＋ Add New</button>
                     </div>
-                    <input class="inp mt8" id="custName" placeholder="Walk-in" value="Walk-in">
+                    <div class="row mt8" style="flex-wrap:nowrap;">
+                        <input class="inp" id="custName" placeholder="Walk-in" value="Walk-in" style="flex:1;">
+                        <input class="inp" id="custPhone" placeholder="📞 Contact" inputmode="numeric" style="flex:1;">
+                    </div>
                     <div id="suggestBox" class="suggest-box" style="display:none;"></div>
                 </div>
                 <div class="fld">
@@ -76,8 +78,7 @@ include 'includes/app_shell.php';
             <div class="sec">
                 <div class="num">1</div>
                 <div class="sec-head" style="flex:1;">
-                    <h4>Category</h4>
-                    <p>Choose a predefined category — or search any cake item (F2)</p>
+                    <h4>Category (F2)</h4>
                     <input class="inp mt12" id="cakeSearch" placeholder="🔍 Search cake item... e.g. cream, brownie, chocolate" oninput="filterCategories()" autocomplete="off">
                     <div class="tiles scroll mt12" id="catTiles">
                         <?php foreach ($CFG['categories'] as $i => $c): ?>
@@ -106,7 +107,6 @@ include 'includes/app_shell.php';
                         </div>
                         <?php endforeach; ?>
                     </div>
-                    <div class="hint mt8" id="catHint">Predefined category selected — comboboxes below are filled from its data.</div>
                 </div>
             </div>
         </div>
@@ -117,21 +117,21 @@ include 'includes/app_shell.php';
                 <div class="sec" style="flex:1;">
                     <div class="num">2</div>
                     <div class="sec-head" style="flex:1;">
-                        <h4>Flavour</h4><p>Filled by selected category</p>
+                        <h4>Flavour</h4>
                         <select class="inp mt12" id="flavor" onchange="onFlavor()"></select>
                     </div>
                 </div>
                 <div class="sec" style="flex:1;">
                     <div class="num">3</div>
                     <div class="sec-head" style="flex:1;">
-                        <h4>Ladi</h4><p>Tray / sheet option</p>
+                        <h4>Ladi</h4>
                         <select class="inp mt12" id="ladi" onchange="recalc()"></select>
                     </div>
                 </div>
                 <div class="sec" style="flex:1.3;">
                     <div class="num">4</div>
                     <div class="sec-head" style="flex:1;">
-                        <h4>Shape</h4><p>Pick the cake shape</p>
+                        <h4>Shape</h4>
                         <div class="tiles mt12" id="shapeTiles">
                             <?php
                             $shapeIcons = array('Round' => '⬤', 'Square' => '▢', 'Heart' => '♡', 'Rectangle' => '▭', 'Number Shape' => '①', 'Custom Shape' => '✎');
@@ -154,14 +154,14 @@ include 'includes/app_shell.php';
                 <div class="sec" style="flex:1.3;">
                     <div class="num">5</div>
                     <div class="sec-head" style="flex:1;">
-                        <h4>Size / UOM</h4><p>Filled by selected category</p>
+                        <h4>Size / UOM</h4>
                         <select class="inp mt12" id="size" onchange="recalc()"></select>
                     </div>
                 </div>
                 <div class="sec" style="flex:.9;">
                     <div class="num">6</div>
                     <div class="sec-head">
-                        <h4>Quantity</h4><p>Number of cakes</p>
+                        <h4>Quantity</h4>
                         <div class="stepper-n mt12">
                             <button type="button" onclick="stepQty(-1)">−</button>
                             <input type="number" id="qty" value="1" min="1" onchange="recalc()">
@@ -172,12 +172,10 @@ include 'includes/app_shell.php';
                 <div class="fld" style="flex:1;">
                     <label>Price (per unit, Rs.)</label>
                     <input class="inp" type="number" id="price" value="0" min="0" onchange="recalc()">
-                    <span class="hint">Auto-filled — editable</span>
                 </div>
                 <div style="flex:1;background:var(--blue-soft);border-radius:10px;padding:12px 14px;">
-                    <div class="hint">Total (approx.)</div>
+                    <div class="hint">Total</div>
                     <div style="font-size:21px;font-weight:800;color:var(--blue);" id="lineTotal">Rs. 0</div>
-                    <div class="hint" id="weightHint"></div>
                 </div>
             </div>
         </div>
@@ -187,11 +185,11 @@ include 'includes/app_shell.php';
             <div class="sec">
                 <div class="num">7</div>
                 <div class="sec-head" style="flex:1;">
-                    <h4>Cake Image</h4><p>Upload or choose a reference image</p>
+                    <h4>Cake Image</h4>
                     <div class="row mt12" style="align-items:stretch;">
                         <div class="dropzone" style="flex:1;" onclick="pickImage(imgAdd)">
                             <span class="up">⬆</span>
-                            Click to upload (add more than one)<br><span class="hint">JPG, PNG — Max 5MB each</span>
+                            ＋ Add Photos
                         </div>
                     </div>
                 </div>
@@ -205,10 +203,8 @@ include 'includes/app_shell.php';
                     <div class="num">8</div>
                     <div class="sec-head" style="flex:1;">
                         <h4>Extra Charges <span class="muted" style="font-weight:400;">(optional)</span></h4>
-                        <p>One simple field — added once to the bill</p>
                         <div class="fld mt12">
                             <input class="inp" type="number" id="extraCharge" value="0" min="0" onchange="recalc()" placeholder="Rs. 0">
-                            <span class="hint">e.g. packaging, decoration, delivery</span>
                         </div>
                     </div>
                 </div>
@@ -314,7 +310,6 @@ function pickCategory(el) {
     selected = { kind: 'cat', idx: i, invId: invIdByName(c.name), name: c.name, price: c.price };
     fillCombos(c);
     document.getElementById('price').value = Math.round(c.price);
-    document.getElementById('catHint').textContent = 'Predefined category "' + c.name + '" — flavour/size/ladi filled from its data.';
     recalc();
 }
 function pickInventory(el) {
@@ -322,7 +317,6 @@ function pickInventory(el) {
     selected = { kind: 'inv', idx: -1, invId: parseInt(el.dataset.id, 10), name: el.querySelector('.t-lb').textContent, price: parseFloat(el.dataset.price) };
     fillCombos({ flavors: CFG.default_flavors, sizes: CFG.default_sizes, ladi: CFG.default_ladi });
     document.getElementById('price').value = Math.round(selected.price);
-    document.getElementById('catHint').textContent = 'Inventory item "' + selected.name + '" selected (searched item).';
     recalc();
 }
 function invIdByName(name) {
@@ -375,7 +369,6 @@ function recalc() {
     var total = sub + extra;
 
     document.getElementById('lineTotal').textContent = money(total);
-    document.getElementById('weightHint').textContent = (parsed.tiers * qty) + ' ' + parsed.uom;
     document.getElementById('sCat').textContent = selected.name || '—';
     document.getElementById('sFlav').textContent = document.getElementById('flavor').value || '—';
     document.getElementById('sLadi').textContent = document.getElementById('ladi').value || '—';

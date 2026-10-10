@@ -65,8 +65,10 @@ if (typeof window.searchCustomer === 'undefined') {
     window.selectCustomer = function (cell, name) {
         var c = document.getElementById('custCell');
         var n = document.getElementById('custName');
+        var p = document.getElementById('custPhone');
         if (c) c.value = cell;
         if (n) n.value = name;
+        if (p) p.value = cell;
         hideSuggest();
     };
 
@@ -75,6 +77,26 @@ if (typeof window.searchCustomer === 'undefined') {
         if (box) box.style.display = 'none';
     };
 }
+
+/* ---------- keyboard tab order: tab walks fields top-to-bottom, left-to-right ---------- */
+function setupTabOrder() {
+    var root = document.querySelector('main') || document.body;
+    var els = Array.prototype.slice.call(root.querySelectorAll('input, select, textarea, button'));
+    els = els.filter(function (el) {
+        if (el.type === 'hidden' || el.disabled) return false;
+        var st = window.getComputedStyle(el);
+        return st.display !== 'none' && st.visibility !== 'hidden';
+    });
+    els.sort(function (a, b) {
+        var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        var row = Math.round(ra.top / 12) - Math.round(rb.top / 12);
+        if (row !== 0) return row;
+        return ra.left - rb.left;
+    });
+    for (var i = 0; i < els.length; i++) els[i].tabIndex = i + 1;
+}
+window.refreshTabOrder = function () { setTimeout(setupTabOrder, 0); };
+window.addEventListener('resize', function () { window.refreshTabOrder(); });
 
 /* ---------- pickup / delivery toggle ---------- */
 function setOrderType(type, btn) {
@@ -149,7 +171,7 @@ function submitOrder(items, extra, onDone) {
         extra_images: extra.extra_images || [],
         status: extra.status || 'confirmed',
         party_detail: val('custName') || 'Walk-in',
-        cell_no: val('custCell'),
+        cell_no: val('custPhone') || val('custCell'),
         deliver_date: val('deliverDate') || todayStr(),
         delivery_time: val('deliverTime') || '12:00',
         priority: val('priority') || 'normal',
@@ -276,12 +298,16 @@ function initShortcuts(cfg) {
             }
         }
     });
+    if (document.readyState === 'complete' || document.readyState === 'interactive') setupTabOrder();
+    else document.addEventListener('DOMContentLoaded', setupTabOrder);
+    window.addEventListener('load', setupTabOrder);
 }
 
 /* ---------- order type via combobox (space saver) ---------- */
 function toggleAddrRow() {
     var a = document.getElementById('addrRow');
     if (a) a.style.display = (getOrderType() === 'delivery') ? '' : 'none';
+    window.refreshTabOrder();
 }
 
 /* ---------- multi image set (primary + extras) ----------

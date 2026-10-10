@@ -32,7 +32,6 @@ include 'includes/app_shell.php';
     <div class="ph-ic"><?php echo $icon; ?></div>
     <div>
         <h2>Create <?php echo $boxWord; ?> Order</h2>
-        <p>Build <?php echo $boxesWord; ?> sets and quantities in a few steps.</p>
     </div>
     <div class="spacer"></div>
     <a class="btn btn-outline" href="order_box.php?type=<?php echo $type; ?>">＋ New Order</a>
@@ -43,14 +42,13 @@ include 'includes/app_shell.php';
     <!-- ============ LEFT: default items ============ -->
     <div class="card side-panel" style="position:sticky;top:80px;max-height:calc(100vh - 110px);overflow-y:auto;">
         <input class="inp" id="spSearch" placeholder="🔍 Search items..." oninput="filterSidePanel()">
-        <span class="hint">e.g. chicken, pizza, juice...</span>
         <div class="card-title mt16" style="font-size:13px;">Default Items</div>
         <div id="sideList">
             <?php foreach ($products as $p):
                 $img = productImageUrl($p['inv_id'], $p['prod_name']); ?>
             <div class="sp-item" data-name="<?php echo htmlspecialchars(strtolower($p['prod_name']), ENT_QUOTES); ?>">
                 <span class="th"><?php if ($img): ?><img src="<?php echo $img; ?>" alt=""><?php else: ?><?php echo productEmoji($p['prod_name']); ?><?php endif; ?></span>
-                <span class="nm"><?php echo htmlspecialchars($p['prod_name']); ?><br><span class="pr sw-hide">Rs. <?php echo number_format($p['retail_price'], 0); ?> / <?php echo htmlspecialchars($p['uom']); ?></span></span>
+                <span class="nm"><?php echo htmlspecialchars($p['prod_name']); ?><br><span class="pr">Rs. <?php echo number_format($p['retail_price'], 0); ?> / <?php echo htmlspecialchars($p['uom']); ?></span></span>
                 <button class="btn btn-outline btn-sm" onclick='addDefault(<?php echo htmlspecialchars(json_encode(array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom'])), ENT_QUOTES); ?>)'>Add</button>
             </div>
             <?php endforeach; ?>
@@ -64,12 +62,15 @@ include 'includes/app_shell.php';
         <div class="card compact">
             <div class="grid-3">
                 <div class="fld" style="position:relative;">
-                    <label>👤 Customer</label>
+                    <label>👤 Customer (F4)</label>
                     <div class="row" style="flex-wrap:nowrap;">
                         <input class="inp" id="custCell" placeholder="Search name or phone..." autocomplete="off">
                         <button class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="document.getElementById('custName').focus()">＋ Add New</button>
                     </div>
-                    <input class="inp mt8" id="custName" placeholder="Walk-in" value="Walk-in">
+                    <div class="row mt8" style="flex-wrap:nowrap;">
+                        <input class="inp" id="custName" placeholder="Walk-in" value="Walk-in" style="flex:1;">
+                        <input class="inp" id="custPhone" placeholder="📞 Contact" inputmode="numeric" style="flex:1;">
+                    </div>
                     <div id="suggestBox" class="suggest-box" style="display:none;"></div>
                 </div>
                 <div class="fld">
@@ -135,15 +136,14 @@ include 'includes/app_shell.php';
             </div>
             <div class="card-title" style="font-size:13px;">Set Breakdown</div>
             <div id="sumBreak"><div class="empty" style="padding:10px;">No sets added</div></div>
-            <div class="s-row mt12 sw-hide"><span class="k">Items Total</span><span class="v" id="sumItems">Rs. 0</span></div>
-            <div class="s-row sw-hide" id="sumExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sumExtra">Rs. 0</span></div>
-            <div class="fld mt8 sw-hide" id="packFld">
-                <label>Extra Charges (Rs.) — added once to the bill</label>
+            <div class="s-row mt12"><span class="k">Items Total</span><span class="v" id="sumItems">Rs. 0</span></div>
+            <div class="s-row" id="sumExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sumExtra">Rs. 0</span></div>
+            <div class="fld mt8" id="packFld">
+                <label>Extra Charges (Rs.)</label>
                 <input class="inp" type="number" id="packCharge" value="0" min="0" onchange="recalc()" placeholder="Rs. 0">
-                <span class="hint">e.g. packaging, decoration, delivery</span>
             </div>
-            <div class="s-row sw-hide"><span class="k">Total Amount</span><span class="v" id="sumTotalWrap"><strong id="sumTotal">Rs. 0</strong></span></div>
-            <div class="s-row" id="sweetNote" style="display:none;"><span class="k">Total Amount</span><span class="v muted">Will be after weight</span></div>
+            <div class="s-row"><span class="k">Total Amount</span><span class="v" id="sumTotalWrap"><strong id="sumTotal">Rs. 0</strong></span></div>
+            <div class="s-row" id="sweetNote" style="display:none;"><span class="k">Total Amount</span><span class="v muted">Will be calculated after weight</span></div>
             <div class="row mt8" style="flex-wrap:nowrap;">
                 <div class="fld"><label>Advance (Rs.)</label><input class="inp" type="number" id="advance" value="0" min="0"></div>
                 <div class="fld"><label>Method</label>
@@ -256,7 +256,7 @@ function renderSets() {
             html += '<div class="set-item">' +
                 '<input type="checkbox" class="chk" ' + (it.on ? 'checked' : '') + ' onclick="event.stopPropagation();setItemField(' + i + ',' + k + ',\'on\',this.checked)">' +
                 thumbHtml(p) +
-                '<span class="nm">' + escHtml(it.name) + ' <span class="lbl sw-hide">Rs. ' + Math.round(it.price).toLocaleString() + '</span></span>' +
+                '<span class="nm">' + escHtml(it.name) + ' <span class="lbl">Rs. ' + Math.round(it.price).toLocaleString() + '</span></span>' +
                 '<span class="lbl">Qty per box</span>' +
                 '<input class="inp" style="width:64px;" type="number" min="1" value="' + it.per + '" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'per\',this.value)">' +
                 '<select class="inp" style="width:96px;" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'unit\',this.value)">';
@@ -270,6 +270,7 @@ function renderSets() {
         html += '</div></div>';
     }
     wrap.innerHTML = html;
+    if (window.refreshTabOrder) refreshTabOrder();
 }
 
 function recalc() { renderSummary(); }

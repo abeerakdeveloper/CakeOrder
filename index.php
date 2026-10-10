@@ -124,7 +124,6 @@ include 'includes/app_shell.php';
     <div class="ph-ic">🧾</div>
     <div>
         <h2>Other — Classic POS</h2>
-        <p>Full-featured counter sale: barcode, search, per-item photo &amp; voice notes.</p>
     </div>
     <div class="spacer"></div>
     <a class="btn btn-outline" href="index.php">＋ New Order</a>
@@ -203,7 +202,7 @@ include 'includes/app_shell.php';
         <div class="card compact customer-bar" style="display:block;">
             <div class="grid-4">
                 <div class="fld" style="position:relative;">
-                    <label>📱 Phone (search by number)</label>
+                    <label>📱 Contact (F4)</label>
                     <input type="text" class="inp" id="custCell" placeholder="0300-0000000" autocomplete="off"
                            oninput="searchCustomer(this.value)" onblur="setTimeout(hideSuggest, 200)">
                     <div id="suggestBox" class="suggest-box" style="display:none;"></div>

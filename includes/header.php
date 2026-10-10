@@ -16,7 +16,7 @@ function shellActiveBox($t) { global $currentPage;
 ?>
 <div class="app-topbar">
     <div class="app-brand">
-        <div class="logo">🧁</div>
+        <div class="logo"><img src="assets/clogo.png" alt="logo"></div>
         <div>
             <h1><?php echo htmlspecialchars($shellBranch['name']); ?></h1>
             <small>Fresh Cakes &bull; Sweet Moments</small>

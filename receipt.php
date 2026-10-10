@@ -74,7 +74,8 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #eef0f3; color: 
 
 /* header */
 .hd { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
-.hd .logo { width: 84px; height: 84px; border-radius: 50%; background: #9b1c2e; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 40px; flex-shrink: 0; }
+.hd .logo { width: 84px; height: 84px; border-radius: 50%; background: #9b1c2e; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 40px; flex-shrink: 0; overflow: hidden; }
+.hd .logo img { width: 100%; height: 100%; object-fit: cover; }
 .hd h1 { color: #9b1c2e; font-size: 34px; line-height: 1.05; font-weight: 800; }
 
 /* info columns */
@@ -132,7 +133,44 @@ ul.plist li .a { width: 70px; text-align: right; }
 .ft .sep { opacity: .6; }
 .no-print { max-width: 760px; margin: 14px auto 0; text-align: center; }
 .no-print button { padding: 9px 22px; border: none; border-radius: 8px; background: #9b1c2e; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
-@media print { body { background: #fff; padding: 0; } .sheet { box-shadow: none; } .no-print { display: none; } }
+/* print: horizontal (landscape) A5 — falls back fine on A4 landscape too */
+@page { size: A5 landscape; margin: 5mm; }
+@media print {
+    body { background: #fff; padding: 0; }
+    .no-print { display: none; }
+    .sheet { box-shadow: none; max-width: none; width: 100%; padding: 10px 18px 0; }
+    .hd { margin-bottom: 8px; gap: 10px; }
+    .hd .logo { width: 46px; height: 46px; font-size: 20px; }
+    .hd h1 { font-size: 20px; }
+    .info { font-size: 9.5px; margin-bottom: 9px; gap: 16px; }
+    .info table td { padding: 1px 0; }
+    .mid { margin: 3px 0 8px; }
+    .mid .copy { font-size: 11px; margin-bottom: 3px; }
+    .mid .inv { font-size: 10.5px; }
+    .mid .inv span { margin-left: 14px; }
+    .mid .boxes { font-size: 10.5px; margin-top: 3px; }
+    .photo { margin: 2px 0 7px; }
+    .photo img { width: 100px; height: 72px; }
+    .photo .more img { width: 46px; height: 34px; margin: 3px 3px 0 0; }
+    table.lines { font-size: 9.5px; margin-bottom: 8px; }
+    table.lines th { padding: 3px 7px; font-size: 9px; }
+    table.lines td { padding: 2.5px 7px; }
+    ul.plist { font-size: 10px; margin: 0 auto 9px; max-width: 360px; }
+    ul.plist li { padding: 2px 0; }
+    .tot { margin: 3px 0 9px; }
+    .tot table { font-size: 10px; }
+    .tot td { padding: 1.5px 0; }
+    .tot .k { padding-right: 14px; }
+    .tot .v { min-width: 95px; }
+    .signrow { padding: 4px 0 14px; }
+    .stamp { top: -22px; padding: 4px 14px; }
+    .stamp .d { font-size: 8px; }
+    .stamp .p { font-size: 15px; letter-spacing: 2px; }
+    .sig { font-size: 8.5px; }
+    .sig .line { width: 95px; margin: 18px auto 3px; }
+    .sig.left .line { width: 85px; margin: 18px 0 3px; }
+    .ft { margin: 0 -18px; padding: 5px 14px; font-size: 9px; gap: 14px; }
+}
 </style>
 </head>
 <body>
@@ -140,7 +178,7 @@ ul.plist li .a { width: 70px; text-align: right; }
 <div class="sheet">
     <!-- header -->
     <div class="hd">
-        <div class="logo">🌾</div>
+        <div class="logo"><img src="assets/clogo.png" alt=""></div>
         <h1><?php echo htmlspecialchars($branch['name']); ?></h1>
     </div>
 

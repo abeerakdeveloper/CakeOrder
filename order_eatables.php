@@ -25,7 +25,6 @@ include 'includes/app_shell.php';
     <div class="ph-ic">🍽️</div>
     <div>
         <h2>Eatables</h2>
-        <p>Tap a picture to add it to the order. Tap again to increase quantity.</p>
     </div>
     <div class="spacer"></div>
     <input class="inp" style="max-width:260px;" id="gridSearch" placeholder="🔍 Search eatables..." oninput="filterGrid()">
@@ -38,12 +37,15 @@ include 'includes/app_shell.php';
         <div class="card compact">
             <div class="grid-3" style="margin-bottom:14px;">
                 <div class="fld" style="position:relative;">
-                    <label>👤 Customer</label>
+                    <label>👤 Customer (F4)</label>
                     <div class="row" style="flex-wrap:nowrap;">
                         <input class="inp" id="custCell" placeholder="Search name or phone..." autocomplete="off">
                         <button class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="document.getElementById('custName').focus()">＋ Add New</button>
                     </div>
-                    <input class="inp mt8" id="custName" placeholder="Walk-in" value="Walk-in">
+                    <div class="row mt8" style="flex-wrap:nowrap;">
+                        <input class="inp" id="custName" placeholder="Walk-in" value="Walk-in" style="flex:1;">
+                        <input class="inp" id="custPhone" placeholder="📞 Contact" inputmode="numeric" style="flex:1;">
+                    </div>
                     <div id="suggestBox" class="suggest-box" style="display:none;"></div>
                 </div>
                 <div class="fld">
