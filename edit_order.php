@@ -31,7 +31,7 @@ if ($prodRes) {
 }
 
 $flavors = array('Vanilla', 'Chocolate', 'Strawberry', 'Red Velvet', 'Mango', 'Butterscotch', 'Pineapple', 'Coffee', 'Black Forest', 'Tiramisu');
-$shapes = array('Round', 'Square', 'Heart', 'Rectangle', 'Number Shape', 'Custom Shape');
+$shapes = array('Round', 'Square', 'Heart', 'Rectangle');
 $uoms = array('pound', 'kg', 'pcs', 'dozen');
 $priorities = array('normal', 'urgent', 'vip');
 
@@ -130,7 +130,7 @@ $currentBalance = $currentNet - $first['advance'] - $first['paid'];
             </div>
             
             <!-- EXISTING ITEMS (Read-only summary) -->
-            <h4 style="color:#6c3483;margin-bottom:8px;font-size:13px;">📦 Existing Items (locked):</h4>
+            <h4 style="color:#6c3483;margin-bottom:8px;font-size:13px;">Existing Items (locked):</h4>
             <?php foreach ($items as $idx => $item): ?>
             <div class="existing-item">
                 <div class="info">

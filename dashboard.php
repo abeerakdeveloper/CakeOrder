@@ -79,44 +79,39 @@ include 'includes/app_shell.php';
 
 <!-- ============ QUICK ORDER BUTTONS ============ -->
 <?php if (isPOSUser() || isAdmin()): ?>
-<div class="quick-grid">
-    <a class="quick-card qc-blue" href="order_cake.php">
-        <span class="q-arrow">→</span>
-        <span class="q-ic">🎂</span>
-        <span class="q-lb">Cake Order</span>
-        <span class="q-sb">Category, flavour, shape, size &amp; design photo</span>
-    </a>
-    <a class="quick-card qc-green" href="order_box.php?type=lunchbox">
-        <span class="q-arrow">→</span>
-        <span class="q-ic">🍱</span>
-        <span class="q-lb">Lunch Box Order</span>
-        <span class="q-sb">Build box sets with per-box quantities</span>
-    </a>
-    <a class="quick-card qc-amber" href="order_box.php?type=sweetsbox">
-        <span class="q-arrow">→</span>
-        <span class="q-ic">🍬</span>
-        <span class="q-lb">Sweets Box Order</span>
-        <span class="q-sb">Sweet box sets &amp; combinations</span>
-    </a>
-    <a class="quick-card qc-pink" href="order_eatables.php">
-        <span class="q-arrow">→</span>
-        <span class="q-ic">🍽️</span>
-        <span class="q-lb">Eatables</span>
-        <span class="q-sb">Picture menu — tap to add</span>
-    </a>
-    <a class="quick-card qc-slate" href="index.php">
-        <span class="q-arrow">→</span>
-        <span class="q-ic">🧾</span>
-        <span class="q-lb">Other (POS)</span>
-        <span class="q-sb">Classic counter sale with barcode &amp; voice notes</span>
-    </a>
-</div>
-<?php endif; ?>
+    <div class="quick-grid">
+        <a class="quick-card qc-blue" href="order_cake.php">
+            <span class="q-arrow">→</span>
+            <span class="q-ic">◉</span>
+            <span class="q-lb">Cake Order</span>
+        </a>
+        <a class="quick-card qc-green" href="order_box.php?type=lunchbox">
+            <span class="q-arrow">→</span>
+            <span class="q-ic">⊞</span>
+            <span class="q-lb">Lunch Box Order</span>
+        </a>
+        <a class="quick-card qc-amber" href="order_box.php?type=sweetsbox">
+            <span class="q-arrow">→</span>
+            <span class="q-ic">⬔</span>
+            <span class="q-lb">Sweets Box Order</span>
+        </a>
+        <a style="display:none;" class="quick-card qc-pink" href="order_eatables.php">
+            <span class="q-arrow">→</span>
+            <span class="q-ic">◍</span>
+            <span class="q-lb">Eatables</span>
+        </a>
+        <a class="quick-card qc-slate" href="index.php">
+            <span class="q-arrow">→</span>
+            <span class="q-ic">≡</span>
+            <span class="q-lb">Other (POS)</span>
+        </a> 
+    </div>
+    <?php endif; ?>
 
 <!-- ============ MINI STATS ============ -->
 <div class="mini-stats">
     <div class="mini-stat">
-        <span class="ic" style="background:#e7f7ef;">💰</span>
+        <span class="ic" style="background:#e7f7ef;">◉</span>
         <div>
             <div class="n" style="color:var(--green);">Rs. <?php echo number_format($revenueToday); ?></div>
             <div class="l">Revenue Today</div>
@@ -124,23 +119,22 @@ include 'includes/app_shell.php';
         </div>
     </div>
     <div class="mini-stat">
-        <span class="ic" style="background:#eaf1fe;">🧁</span>
+        <span class="ic" style="background:#eaf1fe;">◎</span>
         <div><div class="n"><?php echo $ordersToday; ?></div><div class="l">Orders Today</div></div>
     </div>
     <div class="mini-stat">
-        <span class="ic" style="background:#fdecee;">⏳</span>
+        <span class="ic" style="background:#fdecee;">◍</span>
         <div><div class="n" style="color:var(--red);"><?php echo $pendingOrders; ?></div><div class="l">Pending Orders</div></div>
     </div>
     <div class="mini-stat">
-        <span class="ic" style="background:#eef1f6;">📅</span>
+        <span class="ic" style="background:#eef1f6;">◫</span>
         <div><div class="n" style="color:var(--blue);"><?php echo $upcomingOrders; ?></div><div class="l">Upcoming (7 days)</div></div>
     </div>
 </div>
-
 <!-- ============ QUICK STATUS CHECK ============ -->
 <?php if (isPOSUser() || isAdmin()): ?>
 <div class="card mt16">
-    <div class="card-title"><span class="ic">🔍</span> Quick Order Status Check <span class="muted" style="font-weight:400;">(for customer inquiries)</span></div>
+    <div class="card-title"><span class="ic">🔍</span> Quick Order Status Check</div>
     <div class="row" style="flex-wrap:nowrap;">
         <input class="inp" id="quickSearch" placeholder="Enter Bill #, customer name or phone..."
                onkeyup="if(event.key=='Enter') quickStatusCheck()">
@@ -158,7 +152,7 @@ include 'includes/app_shell.php';
             <button class="active priority-tab" onclick="filterPriority('all', this)">All</button>
             <button class="priority-tab" onclick="filterPriority('vip', this)" style="color:#b26a05;">⭐ VIP</button>
             <button class="priority-tab" onclick="filterPriority('urgent', this)" style="color:#c92a2f;">🔴 Urgent</button>
-            <button class="priority-tab" onclick="filterPriority('normal', this)">📦 Normal</button>
+            <button class="priority-tab" onclick="filterPriority('normal', this)"> Normal</button>
         </div>
     </div>
 
@@ -183,7 +177,7 @@ include 'includes/app_shell.php';
                 <td>
                     <strong>#<?php echo $o['bill_no']; ?></strong><br>
                     <span class="bdg prio-<?php echo htmlspecialchars($o['priority']); ?>">
-                        <?php echo $o['priority'] == 'vip' ? '⭐ VIP' : ($o['priority'] == 'urgent' ? '🔴 Urgent' : '📦 Normal'); ?>
+                        <?php echo $o['priority'] == 'vip' ? 'VIP' : ($o['priority'] == 'urgent' ? 'Urgent' : 'Normal'); ?>
                     </span>
                 </td>
                 <td><strong><?php echo htmlspecialchars($o['party_detail']); ?></strong><br><span class="muted" style="font-size:11px;">📱 <?php echo htmlspecialchars($o['cell_no']); ?></span></td>
@@ -326,7 +320,7 @@ function quickStatusCheck() {
                 for (var i = 0; i < res.orders.length; i++) {
                     var o = res.orders[i];
                     html += '<div class="cart-row"><span class="mid"><span class="nm">Bill #' + o.bill_no + ' — ' + escHtml(o.party_detail) + ' (' + escHtml(o.cell_no) + ')</span>' +
-                        '<br><span class="sb">📦 ' + escHtml(o.items) + ' · 🚚 ' + escHtml(o.deliver_date) + ' ' + escHtml(o.delivery_time) +
+                        '<br><span class="sb">' + escHtml(o.items) + ' · 🚚 ' + escHtml(o.deliver_date) + ' ' + escHtml(o.delivery_time) +
                         ' · 💰 Rs. ' + o.total + ' (Paid ' + o.paid + ' / Balance ' + o.balance + ')</span></span>' +
                         '<span class="bdg ' + escHtml(String(o.status || '').toLowerCase()) + '">' + escHtml(o.status_badge.replace(/<[^>]+>/g, '')) + '</span>' +
                         '<a class="btn btn-sm btn-outline" href="order_detail.php?bill=' + o.bill_no + '">👁 View</a></div>';

@@ -77,7 +77,7 @@ $pageTitle = 'Kitchen Orders';
 <link rel="stylesheet" href="assets/app.css">
 <script src="assets/pos_common.js"></script>
 <style>
-.kd-cols { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 16px; align-items: start; }
+.kd-cols { display: block; grid-template-columns: minmax(0,1fr) 300px; gap: 16px; align-items: start; }
 .kd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); gap: 14px; }
 .ko-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
 .ko-card.urgent { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
@@ -146,7 +146,6 @@ $pageTitle = 'Kitchen Orders';
     <div class="ph-ic">👨‍🍳</div>
     <div>
         <h2>Kitchen Orders</h2>
-        <p>View and manage all incoming orders. Prepare and update their status.</p>
     </div>
     <div class="spacer"></div>
     <span class="bdg confirmed">📥 New: <?php echo $prog['confirmed']; ?></span>
@@ -179,7 +178,7 @@ $pageTitle = 'Kitchen Orders';
                         <option value="all">All</option>
                         <option value="vip">⭐ VIP</option>
                         <option value="urgent">🔴 Urgent</option>
-                        <option value="normal">📦 Normal</option>
+                        <option value="normal">Normal</option>
                     </select>
                 </div>
                 <div class="fld" style="flex:1;min-width:160px;">
@@ -275,10 +274,10 @@ $pageTitle = 'Kitchen Orders';
                 </div>
 
                 <div class="ko-chips">
-                    <?php if ($o['flavors']): ?><span class="chip">🎂 Type: <?php echo htmlspecialchars($o['flavors']); ?></span><?php endif; ?>
-                    <?php if ($ladi): ?><span class="chip">🍱 Ladi: <?php echo htmlspecialchars($ladi); ?></span><?php endif; ?>
+                    <?php if ($o['flavors']): ?><span class="chip"> Type: <?php echo htmlspecialchars($o['flavors']); ?></span><?php endif; ?>
+                    <?php if ($ladi): ?><span class="chip"> Ladi: <?php echo htmlspecialchars($ladi); ?></span><?php endif; ?>
                     <?php if ($kind === 'lunch' || $kind === 'sweets'): ?>
-                    <span class="chip">📦 Total Boxes: <?php echo intval($o['total_qty']); ?></span>
+                    <span class="chip"> Total Boxes: <?php echo intval($o['total_qty']); ?></span>
                     <?php endif; ?>
                     <?php if ($o['total_amount'] > 0): ?><span class="chip">💰 Rs. <?php echo number_format($o['total_amount']); ?></span><?php else: ?><span class="chip">️ After weight</span><?php endif; ?>
                 </div>
@@ -294,7 +293,7 @@ $pageTitle = 'Kitchen Orders';
                     <?php elseif ($o['status'] == 'preparing'): ?>
                     <button class="btn btn-success" onclick="kitchenAction(<?php echo $o['bill_no']; ?>, 'ready')">✅ Mark as Ready</button>
                     <?php else: ?>
-                    <a class="btn btn-success" href="pickup_queue.php">📦 Pickup Queue</a>
+                    <a class="btn btn-success" href="pickup_queue.php">Pickup Queue</a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -303,9 +302,9 @@ $pageTitle = 'Kitchen Orders';
     </div>
 
     <!-- right rail -->
-    <div>
-        <div class="card">
-            <div class="card-title"><span class="ic">⚡</span> Quick Actions</div>
+    <div style="display:none;">
+        <div class="card" style="display:none;">
+            <div class="card-title"><span class="ic"></span> Quick Actions</div>
             <div class="qa-grid">
                 <button class="qa-btn" onclick="markAllReady()"><span class="ic" style="color:var(--green);">✅</span>Mark All Ready</button>
                 <a class="qa-btn" href="order_list.php"><span class="ic" style="color:var(--blue);">📋</span>View All Orders</a>

@@ -18,14 +18,16 @@ function cakeConfig()
         'Pound',
         'Kg',
         'Piece',
+        
     );
+    // Updated Ladi as per your sheet
     $stdLadi = array('Vanilla', 'Chocolate', 'Brownie', 'N/A');
 
     return array(
         'categories' => array(
             array(
                 'name' => 'Fresh Cream Cake',
-                'icon' => '◉', // was 🎂
+                'icon' => '◉',
                 'price' => 760,
                 'flavors' => array(
                     'Pine Apple' => 760,
@@ -42,7 +44,7 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Mousse Cake',
-                'icon' => '◎', // was 🍰
+                'icon' => '◎',
                 'price' => 760,
                 'flavors' => array(
                     'Vanilla' => 760,
@@ -61,15 +63,15 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Café Cake',
-                'icon' => '◍', // was ☕
+                'icon' =>'◍',
                 'price' => 1000,
                 'flavors' => array(
                     'Belgium Cake' => 1000,
                     'Three Milky' => 1000,
                     'Red Velvet' => 1000,
                     'Ferrero Rocher' => 1000,
-                    '【entity-Kit Kat¦canonical_name=Kit Kat】' => 1000,
-                    '【entity-Cadbury¦canonical_name=Cadbury】' => 1000,
+                    'Kit Kat' => 1000,
+                    'Cadbury' => 1000,
                     'Caramel' => 1000,
                     'Lotus' => 1000
                 ),
@@ -78,7 +80,7 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Butter Cream Cake',
-                'icon' => '⬔', // was 🧈
+                'icon' =>  '⬔',
                 'price' => 760,
                 'flavors' => array(
                     'Chocolate Icing' => 760,
@@ -95,7 +97,7 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Fresh Brownie Cake',
-                'icon' => '⬓', // was 🍫
+                'icon' => '🍫',
                 'price' => 810,
                 'flavors' => array(
                     'F-Oreo Brownie' => 810,
@@ -107,7 +109,7 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Ice Cream Cake',
-                'icon' => '◐', // was 🍨
+                'icon' => '🍨',
                 'price' => 850,
                 'flavors' => array(
                     'Kulfa' => 850,
@@ -124,7 +126,7 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Chicken Cake',
-                'icon' => '⬙', // was 🍗
+                'icon' => '🍗',
                 'price' => 600,
                 'flavors' => array(
                     'Chicken Cake' => 600
@@ -133,6 +135,8 @@ function cakeConfig()
                 'ladi' => $stdLadi
             ),
         ),
+        // Fallbacks when a searched inventory item (not a predefined
+        // category) is selected:
         'default_flavors' => array(
             'Vanilla' => 0,
             'Chocolate' => 0,

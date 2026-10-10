@@ -42,7 +42,7 @@ include 'includes/app_shell.php';
             <div class="grid-3">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer (F4)</label>
-                    <div class="row" style="flex-wrap:nowrap;">
+                    <div class="row" style="flex-wrap:nowrap; display:none;">
                         <input class="inp" id="custCell" placeholder="Search name or phone..." autocomplete="off">
                         <button class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="document.getElementById('custName').focus()" title="Add new customer">＋ Add New</button>
                     </div>
@@ -89,7 +89,7 @@ include 'includes/app_shell.php';
                             <?php $img = productImageUrl(0, $c['name']); ?>
                             <?php if ($img): ?><img class="t-img" src="<?php echo $img; ?>" alt=""><?php else: ?><span class="t-ic"><?php echo $c['icon']; ?></span><?php endif; ?>
                             <span class="t-lb"><?php echo htmlspecialchars($c['name']); ?></span>
-                            <span class="t-sb">Rs. <?php echo number_format($c['price'], 0); ?></span>
+                            
                         </div>
                         <?php endforeach; ?>
                         <?php foreach ($products as $p): ?>
@@ -114,18 +114,26 @@ include 'includes/app_shell.php';
         <!-- 2 flavour + 3 shape -->
         <div class="card">
             <div class="row" style="align-items:flex-start;">
-                <div class="sec" style="flex:1;">
+                <div class="sec" style="flex:1.2;">
                     <div class="num">2</div>
                     <div class="sec-head" style="flex:1;">
                         <h4>Flavour</h4>
                         <select class="inp mt12" id="flavor" onchange="onFlavor()"></select>
+                        <div class="row mt8" style="flex-wrap:nowrap;gap:6px;align-items:center;">
+                            <input class="inp" id="flavorText" placeholder="Selected flavour(s)..." oninput="recalc()" style="font-weight:600;color:var(--blue);font-size:13px;" title="Selected flavours (select from dropdown to add more or edit directly)">
+                            <button type="button" class="btn btn-ghost btn-sm" style="flex:0 0 auto;padding:6px 9px;" onclick="clearFlavor()" title="Clear flavours">✕</button>
+                        </div>
                     </div>
                 </div>
-                <div class="sec" style="flex:1;">
+                <div class="sec" style="flex:1.2;">
                     <div class="num">3</div>
                     <div class="sec-head" style="flex:1;">
                         <h4>Ladi</h4>
-                        <select class="inp mt12" id="ladi" onchange="recalc()"></select>
+                        <select class="inp mt12" id="ladi" onchange="onLadi()"></select>
+                        <div class="row mt8" style="flex-wrap:nowrap;gap:6px;align-items:center;">
+                            <input class="inp" id="ladiText" placeholder="Selected ladi(s)..." oninput="recalc()" style="font-weight:600;color:var(--blue);font-size:13px;" title="Selected ladi (select from dropdown to add more or edit directly)">
+                            <button type="button" class="btn btn-ghost btn-sm" style="flex:0 0 auto;padding:6px 9px;" onclick="clearLadi()" title="Clear ladi">✕</button>
+                        </div>
                     </div>
                 </div>
                 <div class="sec" style="flex:1.3;">
@@ -134,7 +142,7 @@ include 'includes/app_shell.php';
                         <h4>Shape</h4>
                         <div class="tiles mt12" id="shapeTiles">
                             <?php
-                            $shapeIcons = array('Round' => '⬤', 'Square' => '▢', 'Heart' => '♡', 'Rectangle' => '▭', 'Number Shape' => '①', 'Custom Shape' => '✎');
+                            $shapeIcons = array('Round' => '⬤', 'Square' => '▢', 'Heart' => '♡', 'Rectangle' => '▭', 'Number Shape' => '①');
                             foreach ($CFG['shapes'] as $i => $s): ?>
                             <div class="tile <?php echo $i === 0 ? 'on' : ''; ?>" style="min-width:76px;padding:10px 8px;" data-shape="<?php echo htmlspecialchars($s, ENT_QUOTES); ?>" onclick="pickTile('shapeTiles', this); recalc()">
                                 <span class="tick">✓</span>
@@ -237,7 +245,7 @@ include 'includes/app_shell.php';
     <!-- ================= RIGHT / SUMMARY ================= -->
     <div>
         <div class="card">
-            <div class="card-title"><span class="ic">🖼️</span> Cake Preview <span class="spacer"></span>
+            <div class="card-title"><span class="ic">◐</span> Cake Preview <span class="spacer"></span>
                 <button class="btn btn-ghost btn-sm" onclick="pickImage(imgAdd)">＋ Add Photo</button>
             </div>
             <div class="preview-box" id="imgPrimary" data-empty="🎂"></div>
@@ -294,14 +302,33 @@ function fillSelect(id, pairs) {
 }
 function fillCombos(data) {
     // flavors: pair [value, label(with price)]
-    var fp = [];
-    for (var f in data.flavors) {
-        var pv = data.flavors[f];
-        fp.push([f, f + (pv ? ' (Rs. ' + Number(pv).toLocaleString() + ')' : '')]);
+    var fp = [['', '＋ Add Flavour...']];
+    var fKeys = [];
+    if (Array.isArray(data.flavors)) {
+        for (var i = 0; i < data.flavors.length; i++) {
+            fp.push([data.flavors[i], data.flavors[i]]);
+            fKeys.push(data.flavors[i]);
+        }
+    } else {
+        for (var f in data.flavors) {
+            var pv = data.flavors[f];
+            fp.push([f, f + (pv ? "" : '')]);
+            fKeys.push(f);
+        }
     }
     fillSelect('flavor', fp);
     fillSelect('size', data.sizes.map(function (s) { return [s, s]; }));
-    fillSelect('ladi', data.ladi.map(function (s) { return [s, s]; }));
+    var lp = [['', '＋ Add Ladi...']];
+    for (var l = 0; l < data.ladi.length; l++) {
+        if (data.ladi[l] !== 'N/A') lp.push([data.ladi[l], data.ladi[l]]);
+    }
+    fillSelect('ladi', lp);
+    
+    // Keep flavour and ladi empty by default
+    document.getElementById('flavorText').value = '';
+    document.getElementById('flavor').value = '';
+    document.getElementById('ladiText').value = '';
+    document.getElementById('ladi').value = '';
 }
 function pickCategory(el) {
     pickTile('catTiles', el);
@@ -335,11 +362,57 @@ function filterCategories() {
 }
 function onFlavor() {
     var sel = document.getElementById('flavor');
-    var label = sel.value;
+    var val = sel.value;
+    if (!val) return;
+    
+    var txt = document.getElementById('flavorText');
+    var current = (txt.value || '').trim();
+    if (!current) {
+        txt.value = val;
+    } else {
+        var parts = current.split('+').map(function (s) { return s.trim(); });
+        if (parts.indexOf(val) === -1) {
+            txt.value = current + ' + ' + val;
+        }
+    }
+    
     if (selected.kind === 'cat') {
         var c = CFG.categories[selected.idx];
-        if (c.flavors[label]) document.getElementById('price').value = Math.round(c.flavors[label]);
+        if (c && c.flavors && c.flavors[val]) {
+            document.getElementById('price').value = Math.round(c.flavors[val]);
+        }
     }
+    
+    sel.value = '';
+    recalc();
+}
+function clearFlavor() {
+    document.getElementById('flavorText').value = '';
+    document.getElementById('flavor').value = '';
+    recalc();
+}
+function onLadi() {
+    var sel = document.getElementById('ladi');
+    var val = sel.value;
+    if (!val) return;
+    
+    var txt = document.getElementById('ladiText');
+    var current = (txt.value || '').trim();
+    if (!current) {
+        txt.value = val;
+    } else {
+        var parts = current.split('+').map(function (s) { return s.trim(); });
+        if (parts.indexOf(val) === -1) {
+            txt.value = current + ' + ' + val;
+        }
+    }
+    
+    sel.value = '';
+    recalc();
+}
+function clearLadi() {
+    document.getElementById('ladiText').value = '';
+    document.getElementById('ladi').value = '';
     recalc();
 }
 function stepQty(d) {
@@ -370,8 +443,8 @@ function recalc() {
 
     document.getElementById('lineTotal').textContent = money(total);
     document.getElementById('sCat').textContent = selected.name || '—';
-    document.getElementById('sFlav').textContent = document.getElementById('flavor').value || '—';
-    document.getElementById('sLadi').textContent = document.getElementById('ladi').value || '—';
+    document.getElementById('sFlav').textContent = document.getElementById('flavorText').value || '—';
+    document.getElementById('sLadi').textContent = document.getElementById('ladiText').value || '—';
     document.getElementById('sShape').textContent = activeData('shapeTiles', 'data-shape') || '—';
     document.getElementById('sSize').textContent = sizeLabel;
     document.getElementById('sQty').textContent = qty;
@@ -392,7 +465,8 @@ function saveCake(status, btn) {
     var parsed = parseSize(document.getElementById('size').value);
     var qty = parseInt(document.getElementById('qty').value, 10) || 1;
     var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
-    var ladi = document.getElementById('ladi').value;
+    var ladi = (document.getElementById('ladiText').value || '').trim() || document.getElementById('ladi').value;
+    var flav = (document.getElementById('flavorText').value || '').trim() || document.getElementById('flavor').value;
 
     var note = document.getElementById('note').value;
     if (ladi && ladi !== 'N/A') note = 'LADI: ' + ladi + (note ? ' | ' + note : '');
@@ -403,7 +477,7 @@ function saveCake(status, btn) {
         category: selected.name,
         price: price * parsed.tiers,        // save_order.php multiplies by qty
         qty: qty,
-        flavor: document.getElementById('flavor').value,
+        flavor: flav,
         shape: activeData('shapeTiles', 'data-shape'),
         uom: parsed.uom,
         tiers: parsed.tiers,

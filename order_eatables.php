@@ -38,7 +38,7 @@ include 'includes/app_shell.php';
             <div class="grid-3" style="margin-bottom:14px;">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer (F4)</label>
-                    <div class="row" style="flex-wrap:nowrap;">
+                    <div class="row" style="flex-wrap:nowrap; display:none;">
                         <input class="inp" id="custCell" placeholder="Search name or phone..." autocomplete="off">
                         <button class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="document.getElementById('custName').focus()">＋ Add New</button>
                     </div>

@@ -84,7 +84,7 @@ body {
 </head>
 <body>
 <div class="login-card">
-    <div class="logo-ic"><img src="assets/clogo.png" alt="logo"></div>
+    <div class="logo-ic"><img src="assets/clogo.png" alt="logo" style="max-width: 100%;height: auto;object-fit: contain;" ></div>
     <h1><?php echo htmlspecialchars($brName); ?></h1>
     <div class="tag">Fresh Cakes • Sweet Moments — POS System</div>
     <?php if (!empty($brAddr)): ?><div class="addr">📍 <?php echo htmlspecialchars($brAddr); ?></div><?php endif; ?>

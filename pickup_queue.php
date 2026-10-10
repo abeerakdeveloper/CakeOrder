@@ -31,7 +31,7 @@ if ($res) {
 <?php include 'includes/header.php'; ?>
         <?php if (empty($pickups)): ?>
         <div style="text-align:center;padding:80px;color:#999;">
-            <div style="font-size:60px;margin-bottom:16px;">📦</div>
+            <div style="font-size:60px;margin-bottom:16px;"></div>
             <h3>No orders ready for pickup</h3>
         </div>
         <?php endif; ?>

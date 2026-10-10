@@ -15,21 +15,33 @@ function shellActiveBox($t) { global $currentPage;
     return ($currentPage === 'order_box.php' && (isset($_GET['type']) ? $_GET['type'] : 'lunchbox') === $t) ? 'active' : ''; }
 ?>
 <div class="app-topbar">
-    <div class="app-brand">
+    <!-- <div class="app-brand">
         <div class="logo"><img src="assets/clogo.png" alt="logo"></div>
         <div>
             <h1><?php echo htmlspecialchars($shellBranch['name']); ?></h1>
             <small>Fresh Cakes &bull; Sweet Moments</small>
         </div>
+    </div> -->
+
+
+    <div class="app-brand">
+        <div class="logo" style="border-radius: 50% !important; overflow: hidden !important; aspect-ratio: 1 / 1 !important;"><img src="assets/clogo.png" alt="logo" style="border-radius: 50% !important; aspect-ratio: 1 / 1 !important; object-fit: cover !important;"></div>
+        <div>
+            <h1>Salman Sweets and Bakers</h1>
+            <small>Fresh Cakes • Sweet Moments</small>
+        </div>
     </div>
 
-    <div class="app-top-right">
+    
+
+    <div class="app-top-right" style="float: right; align-items:right">
         <?php if (!empty($shellNoNav)): ?>
-        <a class="app-chip" href="dashboard.php" style="text-decoration:none;">🏠 Dashboard</a>
+        <a class="app-chip" href="dashboard.php" style="text-decoration:none;">⌂ Dashboard</a>
         <?php endif; ?>
+        <div hidden>
         <span class="app-chip"><?php echo htmlspecialchars(getRoleName()); ?></span>
         <span class="app-avatar"><?php echo $shellInitial; ?></span>
-        <span class="app-chip"><?php echo htmlspecialchars($_SESSION['user']); ?></span>
+        <span class="app-chip"><?php echo htmlspecialchars($_SESSION['user']); ?></span></div>
         <a class="app-btn-logout" href="logout.php">⎋ Logout</a>
     </div>
 </div>
@@ -38,35 +50,39 @@ function shellActiveBox($t) { global $currentPage;
     <?php if (empty($shellNoNav)): ?>
     <nav class="app-sidebar">
         <div class="grp">Overview</div>
-        <a class="app-nav-item <?php echo shellActive('dashboard.php'); ?>" href="dashboard.php"><span class="ic">📊</span> Dashboard</a>
-        <a class="app-nav-item <?php echo shellActive('order_list.php'); ?>" href="order_list.php"><span class="ic">🔍</span> Search Orders</a>
-        <a class="app-nav-item <?php echo shellActive('order_status.php'); ?>" href="order_status.php"><span class="ic">🕐</span> Check Status</a>
+        <a class="app-nav-item <?php echo shellActive('dashboard.php'); ?>" href="dashboard.php"><span class="ic">◫</span> Dashboard</a>
+
+        <a class="app-nav-item <?php echo shellActive('order_list.php'); ?>" href="order_list.php"><span class="ic">≡</span> Order List</a>
+
+        <a style="display: none;"  class="app-nav-item <?php echo shellActive('order_status.php'); ?>" href="order_status.php"><span class="ic">◷</span> Check Status</a>
 
         <div class="grp">New Order</div>
-        <a class="app-nav-item <?php echo shellActive('order_cake.php'); ?>" href="order_cake.php"><span class="ic">🎂</span> Cake Order</a>
-        <a class="app-nav-item <?php echo shellActiveBox('lunchbox'); ?>" href="order_box.php?type=lunchbox"><span class="ic">🍱</span> Lunch Box</a>
-        <a class="app-nav-item <?php echo shellActiveBox('sweetsbox'); ?>" href="order_box.php?type=sweetsbox"><span class="ic">🍬</span> Sweets Box</a>
-        <a class="app-nav-item <?php echo shellActive('order_eatables.php'); ?>" href="order_eatables.php"><span class="ic">🍽️</span> Eatables</a>
-        <a class="app-nav-item <?php echo shellActive('index.php'); ?>" href="index.php"><span class="ic">🧾</span> Other (POS)</a>
+        <a class="app-nav-item <?php echo shellActive('order_cake.php'); ?>" href="order_cake.php"><span class="ic">◉</span> Cake Order</a>
+        <a class="app-nav-item <?php echo shellActiveBox('lunchbox'); ?>" href="order_box.php?type=lunchbox"><span class="ic">⊞</span> Lunch Box</a>
+        <a class="app-nav-item <?php echo shellActiveBox('sweetsbox'); ?>" href="order_box.php?type=sweetsbox"><span class="ic">⬔</span> Sweets Box</a>
+
+        <a style="display: none;"  class="app-nav-item <?php echo shellActive('order_eatables.php'); ?>" href="order_eatables.php"><span class="ic">◍</span> Eatables</a>
+
+        <a class="app-nav-item <?php echo shellActive('index.php'); ?>" href="index.php"><span class="ic">⧉</span> Other (POS)</a>
 
         <?php if (isKitchen() || isAdmin()): ?>
         <div class="grp">Production</div>
-        <a class="app-nav-item <?php echo shellActive('kitchen_display.php'); ?>" href="kitchen_display.php"><span class="ic">👨‍🍳</span> Kitchen</a>
+        <a class="app-nav-item <?php echo shellActive('kitchen_display.php'); ?>" href="kitchen_display.php"><span class="ic">◎</span> Kitchen</a>
         <?php endif; ?>
 
         <?php if (isPOSUser() || isAdmin()): ?>
-        <a class="app-nav-item <?php echo shellActive('pickup_queue.php'); ?>" href="pickup_queue.php"><span class="ic">🚚</span> Pickup Queue</a>
+        <a class="app-nav-item <?php echo shellActive('pickup_queue.php'); ?>" href="pickup_queue.php"><span class="ic">⇒</span> Pickup Queue</a>
         <?php endif; ?>
 
         <?php if (isAdmin()): ?>
         <div class="grp">Admin</div>
-        <a class="app-nav-item <?php echo shellActive('admin_payments.php'); ?>" href="admin_payments.php"><span class="ic">💰</span> Payments</a>
-        <a class="app-nav-item <?php echo shellActive('admin_ledger.php'); ?>" href="admin_ledger.php"><span class="ic">📒</span> GL Ledger</a>
-        <a class="app-nav-item <?php echo shellActive('admin_users.php'); ?>" href="admin_users.php"><span class="ic">👥</span> Users</a>
+        <a class="app-nav-item <?php echo shellActive('admin_payments.php'); ?>" href="admin_payments.php"><span class="ic">Rs</span> Payments</a>
+        <a class="app-nav-item <?php echo shellActive('admin_ledger.php'); ?>" href="admin_ledger.php"><span class="ic">≣</span> GL Ledger</a>
+        <a style="display:none;" class="app-nav-item <?php echo shellActive('admin_users.php'); ?>" href="admin_users.php"><span class="ic">○○</span> Users</a>
         <?php endif; ?>
 
         <div class="love">
-            <span class="big">🧁</span>
+            <span class="big">♥</span>
             Freshly Baked<br>With Love ♥
         </div>
     </nav>

@@ -16,6 +16,11 @@ $prodRes = mysqli_query($mysqli, $prodSql);
 $products = array();
 if ($prodRes) while ($p = mysqli_fetch_assoc($prodRes)) $products[] = $p;
 
+if (empty($products)) {
+    $fallbackRes = mysqli_query($mysqli, "SELECT inv_id, prod_name, retail_price, manualbc AS barcode, packing AS uom FROM inventory WHERE active = 1 ORDER BY prod_name ASC LIMIT 500");
+    if ($fallbackRes) while ($p = mysqli_fetch_assoc($fallbackRes)) $products[] = $p;
+}
+
 $boxWord   = $isSweets ? 'Sweets Box' : 'Lunch Box';
 $boxesWord = $isSweets ? 'sweets boxes' : 'lunch boxes';
 $icon      = $isSweets ? '🍬' : '🍱';
@@ -28,6 +33,34 @@ $shellNoNav = true;
 include 'includes/app_shell.php';
 ?>
 
+<style>
+.set-card { overflow: visible !important; position: relative !important; }
+.set-body { overflow: visible !important; position: relative !important; }
+.card { overflow: visible !important; }
+.set-picker-row { position: relative !important; z-index: 100 !important; }
+.suggest-box {
+    position: absolute !important;
+    top: calc(100% + 4px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: #ffffff !important;
+    border: 1px solid #bcd3fb !important;
+    border-radius: 10px !important;
+    box-shadow: 0 10px 30px rgba(22,40,63,0.22) !important;
+    max-height: 280px !important;
+    overflow-y: auto !important;
+    z-index: 99999 !important;
+}
+.suggest-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f3f8;
+}
+.suggest-item:hover, .suggest-item.active {
+    background: #eaf1fe !important;
+}
+</style>
+
 <div class="page-head">
     <div class="ph-ic"><?php echo $icon; ?></div>
     <div>
@@ -38,32 +71,14 @@ include 'includes/app_shell.php';
     <a class="btn btn-ghost" href="order_box.php?type=<?php echo $isSweets ? 'lunchbox' : 'sweetsbox'; ?>">Switch to <?php echo $isSweets ? 'Lunch' : 'Sweets'; ?> Box</a>
 </div>
 
-<div class="order-cols three">
-    <!-- ============ LEFT: default items ============ -->
-    <div class="card side-panel" style="position:sticky;top:80px;max-height:calc(100vh - 110px);overflow-y:auto;">
-        <input class="inp" id="spSearch" placeholder="🔍 Search items..." oninput="filterSidePanel()">
-        <div class="card-title mt16" style="font-size:13px;">Default Items</div>
-        <div id="sideList">
-            <?php foreach ($products as $p):
-                $img = productImageUrl($p['inv_id'], $p['prod_name']); ?>
-            <div class="sp-item" data-name="<?php echo htmlspecialchars(strtolower($p['prod_name']), ENT_QUOTES); ?>">
-                <span class="th"><?php if ($img): ?><img src="<?php echo $img; ?>" alt=""><?php else: ?><?php echo productEmoji($p['prod_name']); ?><?php endif; ?></span>
-                <span class="nm"><?php echo htmlspecialchars($p['prod_name']); ?><br><span class="pr">Rs. <?php echo number_format($p['retail_price'], 0); ?> / <?php echo htmlspecialchars($p['uom']); ?></span></span>
-                <button class="btn btn-outline btn-sm" onclick='addDefault(<?php echo htmlspecialchars(json_encode(array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom'])), ENT_QUOTES); ?>)'>Add</button>
-            </div>
-            <?php endforeach; ?>
-            <?php if (empty($products)): ?><div class="empty">No products in inventory.</div><?php endif; ?>
-        </div>
-        <button class="btn btn-outline btn-block mt12" onclick="addCustomItem()">⊕ Add New Item</button>
-    </div>
-
-    <!-- ============ MIDDLE: sets ============ -->
+<div class="order-cols">
+    <!-- ============ MAIN: sets & customer ============ -->
     <div>
         <div class="card compact">
             <div class="grid-3">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer (F4)</label>
-                    <div class="row" style="flex-wrap:nowrap;">
+                    <div class="row" style="flex-wrap:nowrap; display:none;">
                         <input class="inp" id="custCell" placeholder="Search name or phone..." autocomplete="off">
                         <button class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="document.getElementById('custName').focus()">＋ Add New</button>
                     </div>
@@ -99,7 +114,6 @@ include 'includes/app_shell.php';
                 <span class="spacer"></span>
                 <button class="btn btn-outline btn-sm" onclick="addSet()">＋ Add another set</button>
             </div>
-            <input class="inp" id="setSearch" placeholder="🔍 Search items to add to the selected set (e.g. chicken, pizza, juice...)" oninput="filterSetPicker()">
             <div id="setsWrap"></div>
             <div class="empty" id="setsEmpty"><span class="big"><?php echo $icon; ?></span>No sets yet — click “＋ Add another set” to start.</div>
         </div>
@@ -166,6 +180,7 @@ var BOXES_WORD = '<?php echo $boxesWord; ?>';
 var UNITS = <?php echo json_encode($units); ?>;
 var PRODUCTS = <?php echo json_encode(array_values(array_map(function ($p) {
     return array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom'],
+                 'barcode' => isset($p['barcode']) ? $p['barcode'] : '',
                  'img' => productImageUrl($p['inv_id'], $p['prod_name']), 'emoji' => productEmoji($p['prod_name']));
 }, $products))); ?>;
 
@@ -198,31 +213,55 @@ function setBoxesDirect(i, v) {
     sets[i].boxes = Math.max(1, parseInt(v, 10) || 1);
     recalc(); renderSummary();
 }
-function selectSet(i) { activeSet = i; renderSets(); }
-
-function addDefault(p) {
-    if (activeSet < 0 || !sets[activeSet]) addSet();
-    var s = sets[activeSet];
-    for (var i = 0; i < s.items.length; i++) if (s.items[i].id === p.id) { s.items[i].per += 1; renderSets(); recalc(); return; }
-    s.items.push({ id: p.id, name: p.name, price: p.price, per: 1, unit: p.uom === 'kg' ? 'kg' : 'piece', on: true });
-    renderSets(); recalc();
-    showToast('Added to Set ' + (activeSet + 1) + ': ' + p.name, 'success');
+function selectSet(i) {
+    if (activeSet === i) return;
+    activeSet = i;
+    var cards = document.querySelectorAll('#setsWrap .set-card');
+    for (var c = 0; c < cards.length; c++) {
+        cards[c].style.borderColor = (c === activeSet) ? 'var(--blue)' : '';
+    }
 }
-function addCustomItem() {
-    var name = prompt('Item name:');
+
+function addPickedProduct(setIndex, prodId) {
+    var p = findProduct(prodId);
+    if (!p) return;
+    var s = sets[setIndex];
+    if (!s) return;
+    for (var k = 0; k < s.items.length; k++) {
+        if (s.items[k].id === p.id) {
+            s.items[k].per += 1;
+            renderSets();
+            recalc();
+            showToast('Increased: ' + p.name + ' (' + s.items[k].per + ' per box)', 'info');
+            setTimeout(function() {
+                var inp = document.getElementById('pick_input_' + setIndex);
+                if (inp) inp.focus();
+            }, 50);
+            return;
+        }
+    }
+    s.items.push({ id: p.id, name: p.name, price: p.price, per: 1, unit: p.uom === 'kg' ? 'kg' : 'piece', on: true });
+    renderSets();
+    recalc();
+    showToast('Added to Set ' + (setIndex + 1) + ': ' + p.name, 'success');
+    setTimeout(function() {
+        var inp = document.getElementById('pick_input_' + setIndex);
+        if (inp) inp.focus();
+    }, 50);
+}
+
+function addCustomItemToSet(setIndex, defaultName) {
+    var name = prompt('Item name:', defaultName || '');
     if (!name) return;
     var price = parseFloat(prompt('Price (Rs.):', '0')) || 0;
-    addDefault({ id: 0, name: name, price: price, uom: 'piece' });
+    var s = sets[setIndex];
+    if (!s) return;
+    s.items.push({ id: 0, name: name, price: price, per: 1, unit: 'piece', on: true });
+    renderSets();
+    recalc();
+    showToast('Added to Set ' + (setIndex + 1) + ': ' + name, 'success');
 }
-function addPicked(i) {
-    var sel = document.getElementById('pick_' + i);
-    var p = findProduct(parseInt(sel.value, 10));
-    if (!p) return;
-    var s = sets[i];
-    for (var k = 0; k < s.items.length; k++) if (s.items[k].id === p.id) { s.items[k].per += 1; renderSets(); recalc(); return; }
-    s.items.push({ id: p.id, name: p.name, price: p.price, per: 1, unit: p.uom === 'kg' ? 'kg' : 'piece', on: true });
-    renderSets(); recalc();
-}
+
 function setItemField(i, k, field, value) {
     var it = sets[i].items[k];
     if (field === 'on') it.on = value;
@@ -249,7 +288,7 @@ function renderSets() {
                 '<span class="lbl" style="font-size:11px;color:var(--muted);">(' + BOXES_WORD + ')</span>' +
                 '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeSet(' + i + ')">✕</button></div>';
         html += '<div class="set-body"><div class="lbl" style="font-size:11px;color:var(--muted);margin-bottom:6px;">Items in this set</div>';
-        if (!s.items.length) html += '<div class="empty" style="padding:14px;">No items — use “Add item” below or the Default Items panel.</div>';
+        if (!s.items.length) html += '<div class="empty" style="padding:14px;">No items — search and add items below.</div>';
         for (var k = 0; k < s.items.length; k++) {
             var it = s.items[k];
             var p = findProduct(it.id) || { img: '', emoji: '🍽️' };
@@ -263,15 +302,199 @@ function renderSets() {
             for (var u = 0; u < UNITS.length; u++) html += '<option ' + (UNITS[u] === it.unit ? 'selected' : '') + '>' + UNITS[u] + '</option>';
             html += '</select><button class="x" onclick="event.stopPropagation();removeItem(' + i + ',' + k + ')">✕</button></div>';
         }
-        html += '<div class="row mt8" style="flex-wrap:nowrap;align-items:center;">' +
-            '<select class="inp" id="pick_' + i + '" onclick="event.stopPropagation()"><option value="">＋ Add item to this set...</option>';
-        for (var q = 0; q < PRODUCTS.length; q++) html += '<option value="' + PRODUCTS[q].id + '">' + escHtml(PRODUCTS[q].name) + ' — Rs. ' + Math.round(PRODUCTS[q].price) + '</option>';
-        html += '</select><button class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="event.stopPropagation();addPicked(' + i + ')">Add</button></div>';
+        html += '<div class="set-picker-row mt8">' +
+            '<div style="position:relative;display:flex;gap:8px;align-items:center;">' +
+                '<div style="position:relative;flex:1;">' +
+                    '<input type="text" class="inp" id="pick_input_' + i + '" placeholder="🔍 Click or type to search items (e.g. samosa, chicken, gulab jamun)..." autocomplete="off" ' +
+                    'onclick="event.stopPropagation();onPickFocus(' + i + ', this.value)" ' +
+                    'onfocus="event.stopPropagation();onPickFocus(' + i + ', this.value)" ' +
+                    'oninput="event.stopPropagation();onPickSearch(' + i + ', this.value)" ' +
+                    'onkeydown="event.stopPropagation();onPickKeydown(' + i + ', event)">' +
+                    '<div id="pick_suggest_' + i + '" class="suggest-box" style="display:none;"></div>' +
+                '</div>' +
+                '<button type="button" class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="event.stopPropagation();addCustomItemToSet(' + i + ')">⊕ Custom Item</button>' +
+            '</div></div>';
         html += '</div></div>';
     }
     wrap.innerHTML = html;
     if (window.refreshTabOrder) refreshTabOrder();
 }
+
+// Fuzzy matching algorithm
+function fuzzyMatch(text, query) {
+    text = (text || '').toLowerCase();
+    query = (query || '').toLowerCase().trim();
+    if (!query) return true;
+    
+    // Direct substring
+    if (text.indexOf(query) !== -1) return true;
+    
+    // Multi-token match
+    var words = query.split(/\s+/);
+    var allMatch = true;
+    for (var w = 0; w < words.length; w++) {
+        if (words[w] && text.indexOf(words[w]) === -1) {
+            allMatch = false;
+            break;
+        }
+    }
+    if (allMatch) return true;
+    
+    // Character sequence fuzzy match
+    var qIdx = 0;
+    for (var i = 0; i < text.length && qIdx < query.length; i++) {
+        if (text[i] === query[qIdx]) qIdx++;
+    }
+    return qIdx === query.length;
+}
+
+var pickSearchTimer = null;
+
+function onPickFocus(setIndex, query) {
+    onPickSearch(setIndex, query || '');
+}
+
+function onPickSearch(setIndex, query) {
+    var q = (query || '').trim();
+    var matches = [];
+    for (var p = 0; p < PRODUCTS.length; p++) {
+        var prod = PRODUCTS[p];
+        if (!q || fuzzyMatch(prod.name + ' ' + (prod.barcode || '') + ' ' + (prod.uom || ''), q)) {
+            matches.push(prod);
+            if (matches.length >= 30) break;
+        }
+    }
+    
+    renderSuggestBox(setIndex, matches, q);
+
+    // Live server query fallback
+    if (q.length >= 2) {
+        clearTimeout(pickSearchTimer);
+        pickSearchTimer = setTimeout(function () {
+            fetch('get_products.php?search=' + encodeURIComponent(q))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.products && data.products.length > 0) {
+                        var serverMatches = data.products.map(function (p) {
+                            return {
+                                id: parseInt(p.inv_id, 10),
+                                name: p.prod_name,
+                                price: parseFloat(p.retail_price),
+                                uom: p.uom,
+                                barcode: p.barcode,
+                                img: '',
+                                emoji: '🍽️'
+                            };
+                        });
+                        for (var sm = 0; sm < serverMatches.length; sm++) {
+                            if (!findProduct(serverMatches[sm].id)) {
+                                PRODUCTS.push(serverMatches[sm]);
+                            }
+                        }
+                        renderSuggestBox(setIndex, serverMatches, q);
+                    }
+                }).catch(function () { });
+        }, 180);
+    }
+}
+
+function renderSuggestBox(setIndex, matches, q) {
+    var box = document.getElementById('pick_suggest_' + setIndex);
+    if (!box) return;
+    
+    // Hide other suggestion boxes
+    document.querySelectorAll('[id^="pick_suggest_"]').forEach(function (el) {
+        if (el.id !== 'pick_suggest_' + setIndex) el.style.display = 'none';
+    });
+
+    if (!matches || matches.length === 0) {
+        box.innerHTML = '<div class="suggest-item" style="color:var(--muted);cursor:default;padding:12px;">No matching products found</div>' +
+            (q ? '<div class="suggest-item" onmousedown="event.preventDefault();addCustomItemToSet(' + setIndex + ',\'' + escHtml(q).replace(/'/g, "\\'") + '\')"><span class="name" style="color:var(--blue);font-size:12.5px;font-weight:600;">⊕ Add "<strong>' + escHtml(q) + '</strong>" as custom item</span></div>' : '');
+        box.style.display = 'block';
+        return;
+    }
+    
+    var html = '';
+    for (var m = 0; m < matches.length; m++) {
+        var item = matches[m];
+        var thumb = item.img ? '<img src="' + item.img + '" style="width:30px;height:30px;border-radius:6px;object-fit:cover;">' : '<span style="font-size:18px;">' + (item.emoji || '🍽️') + '</span>';
+        html += '<div class="suggest-item pick-suggest-item' + (m === 0 ? ' active' : '') + '" data-id="' + item.id + '" onmousedown="event.preventDefault();addPickedProduct(' + setIndex + ',' + item.id + ')">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<span style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + thumb + '</span>' +
+            '<div style="flex:1;min-width:0;"><div class="name" style="font-size:13px;font-weight:600;color:var(--text);">' + escHtml(item.name) + '</div>' +
+            '<div class="meta" style="font-size:11.5px;color:var(--muted);">Rs. ' + Math.round(item.price).toLocaleString() + (item.uom ? ' / ' + escHtml(item.uom) : '') + '</div></div>' +
+            '<button type="button" class="btn btn-outline btn-sm" style="padding:3px 10px;font-size:11px;">＋ Add</button>' +
+            '</div></div>';
+    }
+    
+    if (q) {
+        html += '<div class="suggest-item" onmousedown="event.preventDefault();addCustomItemToSet(' + setIndex + ',\'' + escHtml(q).replace(/'/g, "\\'") + '\')" style="border-top:1px dashed var(--line);background:#fafcff;">' +
+            '<span class="name" style="color:var(--blue);font-size:12px;font-weight:600;">⊕ Add "' + escHtml(q) + '" as custom item</span></div>';
+    }
+    
+    box.innerHTML = html;
+    box.style.display = 'block';
+}
+
+function onPickKeydown(setIndex, e) {
+    var box = document.getElementById('pick_suggest_' + setIndex);
+    if (!box || box.style.display === 'none') {
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+            onPickSearch(setIndex, e.target.value);
+        }
+        return;
+    }
+    
+    var items = box.querySelectorAll('.pick-suggest-item');
+    var activeIdx = -1;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].classList.contains('active')) {
+            activeIdx = i;
+            break;
+        }
+    }
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (activeIdx >= 0 && activeIdx < items.length - 1) {
+            items[activeIdx].classList.remove('active');
+            items[activeIdx + 1].classList.add('active');
+            items[activeIdx + 1].scrollIntoView({ block: 'nearest' });
+        } else if (activeIdx < 0 && items.length > 0) {
+            items[0].classList.add('active');
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (activeIdx > 0) {
+            items[activeIdx].classList.remove('active');
+            items[activeIdx - 1].classList.add('active');
+            items[activeIdx - 1].scrollIntoView({ block: 'nearest' });
+        }
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIdx >= 0 && items[activeIdx]) {
+            var prodId = parseInt(items[activeIdx].dataset.id, 10);
+            addPickedProduct(setIndex, prodId);
+        } else if (items.length > 0) {
+            var firstId = parseInt(items[0].dataset.id, 10);
+            addPickedProduct(setIndex, firstId);
+        } else if (e.target.value.trim()) {
+            addCustomItemToSet(setIndex, e.target.value.trim());
+        }
+        box.style.display = 'none';
+        e.target.value = '';
+    } else if (e.key === 'Escape') {
+        box.style.display = 'none';
+    }
+}
+
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.set-picker-row')) {
+        document.querySelectorAll('[id^="pick_suggest_"]').forEach(function (el) {
+            el.style.display = 'none';
+        });
+    }
+});
 
 function recalc() { renderSummary(); }
 function totals() {
@@ -293,7 +516,7 @@ function renderSummary() {
     var t = totals();
     var pack = parseInt(document.getElementById('packCharge').value, 10) || 0;
     document.getElementById('sweetNote').style.display = IS_SWEETS ? '' : 'none';
-    document.getElementById('sumTotalWrap').parentNode.parentNode.style.display = IS_SWEETS ? 'none' : '';
+    document.getElementById('sumTotalWrap').parentNode.style.display = IS_SWEETS ? 'none' : '';
     document.getElementById('sumSets').textContent = sets.length;
     document.getElementById('sumBoxes').textContent = t.boxes;
     var html = '';
@@ -341,24 +564,10 @@ function saveBox(status, btn) {
     submitOrder(items, { status: status, btn: btn, extra_images: extraImages(), advance_method: document.getElementById('advMethod').value }, function (res) { defaultAfterSave(res, status); });
 }
 
-function filterSidePanel() {
-    var q = document.getElementById('spSearch').value.toLowerCase();
-    document.querySelectorAll('#sideList .sp-item').forEach(function (el) {
-        el.style.display = el.getAttribute('data-name').indexOf(q) > -1 ? '' : 'none';
-    });
-}
-function filterSetPicker() {
-    var q = document.getElementById('setSearch').value.toLowerCase();
-    document.querySelectorAll('[id^="pick_"] option').forEach(function (o) {
-        if (!o.value) return;
-        o.style.display = o.textContent.toLowerCase().indexOf(q) > -1 ? '' : 'none';
-    });
-}
-
 if (IS_SWEETS) document.body.classList.add('sweets');
 bindCustomerLookup('custCell', 'custName');
 initShortcuts({
-    searchId: 'spSearch',
+    searchId: 'custName',
     onConfirm: function () { saveBox('confirmed', null); },
     onHold: function () { saveBox('hold', null); }
 });

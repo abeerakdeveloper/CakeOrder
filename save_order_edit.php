@@ -30,13 +30,14 @@ if (in_array($check['status'], array('ready','delivered','paid','cancelled'))) {
 mysqli_autocommit($mysqli, false);
 
 try {
-    // 1. Update customer info on ALL rows of this bill
+    // 1. Update customer info and status on ALL rows of this bill
     $updateSql = "UPDATE cake_order SET 
         party_detail = '$partyDetail',
         cell_no = '$cellNo',
         deliver_date = '$deliverDate',
         delivery_time = '$deliveryTime',
         priority = '$priority',
+        status = 'confirmed',
         return_date = NOW(),
         notes = CONCAT(IFNULL(notes,''), ' | EDITED by $user at ', NOW())
         WHERE bill_no = $billNo AND ordercancel = 0";
@@ -51,7 +52,7 @@ try {
     
     $advance = intval($firstRow['advance']);
     $flatDisc = intval($firstRow['flat_disc']);
-    $status = $firstRow['status'];
+    $status = 'confirmed';
     $orderType = $firstRow['order_type'];
     
     // 3. Add new items

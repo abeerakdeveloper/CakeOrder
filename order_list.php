@@ -125,7 +125,7 @@ $pageTitle = 'Order List';
                 <span style="font-size:12px;font-weight:normal;color:#888;margin-left:10px;">
                     <span style="color:#f39c12;">⭐ VIP: <?php echo $vipCount; ?></span> &nbsp;|&nbsp;
                     <span style="color:#e74c3c;">🔴 Urgent: <?php echo $urgentCount; ?></span> &nbsp;|&nbsp;
-                    <span style="color:#3498db;">📦 Normal: <?php echo $normalCount; ?></span>
+                    <span style="color:#3498db;"> Normal: <?php echo $normalCount; ?></span>
                 </span>
                 <?php endif; ?>
                 
@@ -138,7 +138,7 @@ $pageTitle = 'Order List';
                     <button class="btn btn-sm btn-outline priority-tab active" onclick="filterPriority('all', this)">All</button>
                     <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('vip', this)" style="color:#f39c12;">⭐ VIP</button>
                     <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('urgent', this)" style="color:#e74c3c;">🔴 Urgent</button>
-                    <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('normal', this)">📦 Normal</button>
+                    <button class="btn btn-sm btn-outline priority-tab" onclick="filterPriority('normal', this)"> Normal</button>
                 </div>
             </h4>
             
@@ -167,7 +167,7 @@ $pageTitle = 'Order List';
                         
                         // Priority styling
                         $rowBg = '';
-                        $priorityIcon = '📦';
+                        $priorityIcon = '';
                         $priorityColor = '#3498db';
                         $priorityLabel = 'Normal';
                         
