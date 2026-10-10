@@ -22,8 +22,9 @@ $icon      = $isSweets ? '🍬' : '🍱';
 $units     = array('piece', 'pieces', 'portion', 'box', 'cup', 'bottle', 'kg', 'dozen');
 $sources   = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
 
-$pageTitle = $boxWord . ' Order';
-$pageKey   = $isSweets ? 'sweets' : 'lunch';
+$pageTitle  = $boxWord . ' Order';
+$pageKey    = $isSweets ? 'sweets' : 'lunch';
+$shellNoNav = true;
 include 'includes/app_shell.php';
 ?>
 
@@ -49,7 +50,7 @@ include 'includes/app_shell.php';
                 $img = productImageUrl($p['inv_id'], $p['prod_name']); ?>
             <div class="sp-item" data-name="<?php echo htmlspecialchars(strtolower($p['prod_name']), ENT_QUOTES); ?>">
                 <span class="th"><?php if ($img): ?><img src="<?php echo $img; ?>" alt=""><?php else: ?><?php echo productEmoji($p['prod_name']); ?><?php endif; ?></span>
-                <span class="nm"><?php echo htmlspecialchars($p['prod_name']); ?><br><span class="pr">Rs. <?php echo number_format($p['retail_price'], 0); ?> / <?php echo htmlspecialchars($p['uom']); ?></span></span>
+                <span class="nm"><?php echo htmlspecialchars($p['prod_name']); ?><br><span class="pr sw-hide">Rs. <?php echo number_format($p['retail_price'], 0); ?> / <?php echo htmlspecialchars($p['uom']); ?></span></span>
                 <button class="btn btn-outline btn-sm" onclick='addDefault(<?php echo htmlspecialchars(json_encode(array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom'])), ENT_QUOTES); ?>)'>Add</button>
             </div>
             <?php endforeach; ?>
@@ -60,7 +61,7 @@ include 'includes/app_shell.php';
 
     <!-- ============ MIDDLE: sets ============ -->
     <div>
-        <div class="card">
+        <div class="card compact">
             <div class="grid-3">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer</label>
@@ -73,10 +74,10 @@ include 'includes/app_shell.php';
                 </div>
                 <div class="fld">
                     <label>Order Type</label>
-                    <div class="seg">
-                        <button type="button" class="on" data-type="pickup" onclick="setOrderType('pickup', this)">🛍 Pickup</button>
-                        <button type="button" data-type="delivery" onclick="setOrderType('delivery', this)">🚚 Delivery</button>
-                    </div>
+                    <select class="inp" id="orderTypeSel" onchange="toggleAddrRow()">
+                        <option value="pickup">🛍 Pickup</option>
+                        <option value="delivery">🚚 Delivery</option>
+                    </select>
                 </div>
                 <div class="fld">
                     <label>Pickup / Delivery Date &amp; Time</label>
@@ -119,7 +120,14 @@ include 'includes/app_shell.php';
 
     <!-- ============ RIGHT: summary ============ -->
     <div>
-        <div class="card summary">
+        <div class="card">
+            <div class="card-title"><span class="ic">📷</span> Order Photos <span class="spacer"></span>
+                <button class="btn btn-ghost btn-sm" onclick="pickImage(imgAdd)">＋ Add</button>
+            </div>
+            <div class="preview-box" id="imgPrimary" data-empty="📷" style="height:150px;"></div>
+            <div class="thumbs mini mt8" id="imgStrip"></div>
+        </div>
+        <div class="card summary mt16">
             <div class="card-title"><span class="ic">🧾</span> Order Summary</div>
             <div class="s-stat">
                 <div class="box"><div class="n"><?php echo $icon; ?> <span id="sumSets">0</span></div><div class="l"><?php echo $boxWord; ?> Sets</div></div>
@@ -127,14 +135,23 @@ include 'includes/app_shell.php';
             </div>
             <div class="card-title" style="font-size:13px;">Set Breakdown</div>
             <div id="sumBreak"><div class="empty" style="padding:10px;">No sets added</div></div>
-            <div class="s-row mt12"><span class="k">Items Total</span><span class="v" id="sumItems">Rs. 0</span></div>
-            <div class="s-row" id="sumExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sumExtra">Rs. 0</span></div>
-            <div class="fld mt8">
+            <div class="s-row mt12 sw-hide"><span class="k">Items Total</span><span class="v" id="sumItems">Rs. 0</span></div>
+            <div class="s-row sw-hide" id="sumExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sumExtra">Rs. 0</span></div>
+            <div class="fld mt8 sw-hide" id="packFld">
                 <label>Extra Charges (Rs.) — added once to the bill</label>
                 <input class="inp" type="number" id="packCharge" value="0" min="0" onchange="recalc()" placeholder="Rs. 0">
                 <span class="hint">e.g. packaging, decoration, delivery</span>
             </div>
-            <div class="s-total"><span>Total Amount</span><span id="sumTotal">Rs. 0</span></div>
+            <div class="s-row sw-hide"><span class="k">Total Amount</span><span class="v" id="sumTotalWrap"><strong id="sumTotal">Rs. 0</strong></span></div>
+            <div class="s-row" id="sweetNote" style="display:none;"><span class="k">Total Amount</span><span class="v muted">Will be after weight</span></div>
+            <div class="row mt8" style="flex-wrap:nowrap;">
+                <div class="fld"><label>Advance (Rs.)</label><input class="inp" type="number" id="advance" value="0" min="0"></div>
+                <div class="fld"><label>Method</label>
+                    <select class="inp" id="advMethod">
+                        <option value="">—</option><option value="cash">💵 Cash</option><option value="bank">🏦 Bank</option>
+                        <option value="card">💳 Card</option><option value="easypaisa">📱 Easypaisa</option>
+                    </select></div>
+            </div>
             <button class="btn btn-primary btn-block mt12" onclick="saveBox('confirmed', this)">🛒 Add to Order</button>
             <button class="btn btn-ghost btn-block mt8" onclick="saveBox('hold', this)">⏸ Hold Order</button>
             <a class="btn btn-outline btn-block mt8" href="order_list.php">📋 View All Orders</a>
@@ -143,6 +160,7 @@ include 'includes/app_shell.php';
 </div>
 
 <script>
+var IS_SWEETS = <?php echo $isSweets ? 'true' : 'false'; ?>;
 var BOX_LABEL = '<?php echo $boxWord; ?>';
 var BOXES_WORD = '<?php echo $boxesWord; ?>';
 var UNITS = <?php echo json_encode($units); ?>;
@@ -238,7 +256,7 @@ function renderSets() {
             html += '<div class="set-item">' +
                 '<input type="checkbox" class="chk" ' + (it.on ? 'checked' : '') + ' onclick="event.stopPropagation();setItemField(' + i + ',' + k + ',\'on\',this.checked)">' +
                 thumbHtml(p) +
-                '<span class="nm">' + escHtml(it.name) + ' <span class="lbl">Rs. ' + Math.round(it.price).toLocaleString() + '</span></span>' +
+                '<span class="nm">' + escHtml(it.name) + ' <span class="lbl sw-hide">Rs. ' + Math.round(it.price).toLocaleString() + '</span></span>' +
                 '<span class="lbl">Qty per box</span>' +
                 '<input class="inp" style="width:64px;" type="number" min="1" value="' + it.per + '" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'per\',this.value)">' +
                 '<select class="inp" style="width:96px;" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'unit\',this.value)">';
@@ -273,6 +291,8 @@ function totals() {
 function renderSummary() {
     var t = totals();
     var pack = parseInt(document.getElementById('packCharge').value, 10) || 0;
+    document.getElementById('sweetNote').style.display = IS_SWEETS ? '' : 'none';
+    document.getElementById('sumTotalWrap').parentNode.parentNode.style.display = IS_SWEETS ? 'none' : '';
     document.getElementById('sumSets').textContent = sets.length;
     document.getElementById('sumBoxes').textContent = t.boxes;
     var html = '';
@@ -300,7 +320,7 @@ function saveBox(status, btn) {
                 inv_id: it.id,
                 name: it.name,
                 category: it.name,
-                price: it.price,
+                price: IS_SWEETS ? 0 : it.price,
                 qty: it.per * s.boxes,
                 flavor: '',
                 shape: '',
@@ -314,10 +334,10 @@ function saveBox(status, btn) {
         }
     }
     if (!any) { showToast('Each set needs at least one checked item', 'error'); return; }
-    var pack = parseInt(document.getElementById('packCharge').value, 10) || 0;
+    var pack = IS_SWEETS ? 0 : (parseInt(document.getElementById('packCharge').value, 10) || 0);
     if (pack > 0) items.push({ inv_id: 0, name: 'Extra Charges', category: 'Extra Charges', price: pack, qty: 1, flavor: '', shape: '', uom: 'pcs', tiers: 1, cake_message: '', note: 'Extra charge — ' + BOX_LABEL.toLowerCase() + ' order', image_data: '', audio_data: '' });
 
-    submitOrder(items, { status: status, btn: btn }, function (res) { defaultAfterSave(res, status); });
+    submitOrder(items, { status: status, btn: btn, extra_images: extraImages(), advance_method: document.getElementById('advMethod').value }, function (res) { defaultAfterSave(res, status); });
 }
 
 function filterSidePanel() {
@@ -334,6 +354,7 @@ function filterSetPicker() {
     });
 }
 
+if (IS_SWEETS) document.body.classList.add('sweets');
 bindCustomerLookup('custCell', 'custName');
 initShortcuts({
     searchId: 'spSearch',

@@ -84,6 +84,8 @@ function setOrderType(type, btn) {
     if (addr) addr.style.display = (type === 'delivery') ? '' : 'none';
 }
 function getOrderType() {
+    var sel = document.getElementById('orderTypeSel');
+    if (sel) return sel.value;
     var on = document.querySelector('.seg button.on');
     return on ? on.getAttribute('data-type') : 'pickup';
 }
@@ -144,6 +146,7 @@ function submitOrder(items, extra, onDone) {
 
     var data = {
         items: items,
+        extra_images: extra.extra_images || [],
         status: extra.status || 'confirmed',
         party_detail: val('custName') || 'Walk-in',
         cell_no: val('custCell'),
@@ -274,3 +277,38 @@ function initShortcuts(cfg) {
         }
     });
 }
+
+/* ---------- order type via combobox (space saver) ---------- */
+function toggleAddrRow() {
+    var a = document.getElementById('addrRow');
+    if (a) a.style.display = (getOrderType() === 'delivery') ? '' : 'none';
+}
+
+/* ---------- multi image set (primary + extras) ----------
+   imageSet[0] = primary (saved in cake_order.image_data)
+   the rest are sent as extra_images and stored per bill      */
+var imageSet = [];
+
+function imgAdd(dataUrl) { imageSet.push(dataUrl); imgRender(); showToast('📷 Photo added', 'success'); }
+function imgSetPrimary(i) { var t = imageSet.splice(i, 1)[0]; imageSet.unshift(t); imgRender(); }
+function imgRemove(i) { imageSet.splice(i, 1); imgRender(); }
+function imgRender() {
+    var prim = document.getElementById('imgPrimary');
+    var strip = document.getElementById('imgStrip');
+    if (prim) {
+        prim.innerHTML = imageSet.length ? '<img src="' + imageSet[0] + '" alt="">' : (prim.getAttribute('data-empty') || '📷');
+    }
+    if (strip) {
+        var h = '';
+        for (var i = 0; i < imageSet.length; i++) {
+            h += '<div class="thb' + (i === 0 ? ' on' : '') + '" title="' + (i === 0 ? 'Primary photo' : 'Click to make primary') + '" onclick="imgSetPrimary(' + i + ')">' +
+                 '<img src="' + imageSet[i] + '" alt="">' +
+                 (i > 0 ? '<button type="button" class="rm" onclick="event.stopPropagation();imgRemove(' + i + ')">✕</button>' : '') +
+                 '</div>';
+        }
+        strip.innerHTML = h;
+    }
+    if (window.onImageSetChange) window.onImageSetChange();
+}
+function extraImages() { return imageSet.slice(1); }
+function primaryImage() { return imageSet.length ? imageSet[0] : ''; }

@@ -19,8 +19,9 @@ if ($prodRes) while ($p = mysqli_fetch_assoc($prodRes)) $products[] = $p;
 $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
 $refImgs = productReferenceImages();
 
-$pageTitle = 'Cake Order';
-$pageKey   = 'cake';
+$pageTitle  = 'Cake Order';
+$pageKey    = 'cake';
+$shellNoNav = true;   // order pages: no sidebar, more room
 include 'includes/app_shell.php';
 ?>
 
@@ -38,7 +39,7 @@ include 'includes/app_shell.php';
     <!-- ================= LEFT / MAIN ================= -->
     <div>
         <!-- customer + type + date -->
-        <div class="card">
+        <div class="card compact">
             <div class="grid-3">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer</label>
@@ -51,10 +52,10 @@ include 'includes/app_shell.php';
                 </div>
                 <div class="fld">
                     <label>Order Type</label>
-                    <div class="seg">
-                        <button type="button" class="on" data-type="pickup" onclick="setOrderType('pickup', this)">🛍 Pickup</button>
-                        <button type="button" data-type="delivery" onclick="setOrderType('delivery', this)">🚚 Delivery</button>
-                    </div>
+                    <select class="inp" id="orderTypeSel" onchange="toggleAddrRow()">
+                        <option value="pickup">🛍 Pickup</option>
+                        <option value="delivery">🚚 Delivery</option>
+                    </select>
                 </div>
                 <div class="fld">
                     <label>Delivery / Pickup Date &amp; Time</label>
@@ -188,17 +189,10 @@ include 'includes/app_shell.php';
                 <div class="sec-head" style="flex:1;">
                     <h4>Cake Image</h4><p>Upload or choose a reference image</p>
                     <div class="row mt12" style="align-items:stretch;">
-                        <div class="dropzone" style="flex:1;" onclick="pickImage(setCakeImage)">
+                        <div class="dropzone" style="flex:1;" onclick="pickImage(imgAdd)">
                             <span class="up">⬆</span>
-                            Click to upload or drag &amp; drop<br><span class="hint">JPG, PNG — Max 5MB</span>
+                            Click to upload (add more than one)<br><span class="hint">JPG, PNG — Max 5MB each</span>
                         </div>
-                        <?php if (!empty($refImgs)): ?>
-                        <div class="thumbs" style="flex:1.4;">
-                            <?php foreach ($refImgs as $r): ?>
-                            <div class="thb" data-src="<?php echo htmlspecialchars($r, ENT_QUOTES); ?>" onclick="chooseRef(this)"><img src="<?php echo htmlspecialchars($r); ?>" alt=""></div>
-                            <?php endforeach; ?>
-                        </div>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -248,9 +242,18 @@ include 'includes/app_shell.php';
     <div>
         <div class="card">
             <div class="card-title"><span class="ic">🖼️</span> Cake Preview <span class="spacer"></span>
-                <button class="btn btn-ghost btn-sm" onclick="pickImage(setCakeImage)">Change Image</button>
+                <button class="btn btn-ghost btn-sm" onclick="pickImage(imgAdd)">＋ Add Photo</button>
             </div>
-            <div class="preview-box" id="previewBox">🎂</div>
+            <div class="preview-box" id="imgPrimary" data-empty="🎂"></div>
+            <div class="thumbs mini mt8" id="imgStrip"></div>
+            <?php if (!empty($refImgs)): ?>
+            <div class="hint mt8">Reference designs:</div>
+            <div class="thumbs mini mt8">
+                <?php foreach ($refImgs as $r): ?>
+                <div class="thb" onclick="addRef('<?php echo htmlspecialchars($r, ENT_QUOTES); ?>')"><img src="<?php echo htmlspecialchars($r); ?>" alt=""></div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </div>
 
         <div class="card summary">
@@ -277,7 +280,6 @@ var CFG = <?php echo json_encode($CFG); ?>;
 var PRODUCTS = <?php echo json_encode(array_values(array_map(function ($p) {
     return array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom']);
 }, $products))); ?>;
-var cakeImage = '';
 var selected = { kind: 'cat', idx: 0, invId: 0, name: '', price: 0 };
 
 function pickTile(groupId, el) {
@@ -355,20 +357,12 @@ function activeData(groupId, attr) {
     var el = document.querySelector('#' + groupId + ' .tile.on');
     return el ? el.getAttribute(attr) : '';
 }
-function setCakeImage(dataUrl) {
-    cakeImage = dataUrl;
-    document.getElementById('previewBox').innerHTML = '<img src="' + dataUrl + '" alt="">';
-    document.querySelectorAll('.thumbs .thb').forEach(function (t) { t.classList.remove('on'); });
-}
-function chooseRef(th) {
-    var url = th.getAttribute('data-src');
+function addRef(url) {
     fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
         var rd = new FileReader();
-        rd.onload = function () { setCakeImage(rd.result); showToast('Reference image selected', 'success'); };
+        rd.onload = function () { imgAdd(rd.result); };
         rd.readAsDataURL(b);
     });
-    document.querySelectorAll('.thumbs .thb').forEach(function (t) { t.classList.remove('on'); });
-    th.classList.add('on');
 }
 function recalc() {
     var price = parseFloat(document.getElementById('price').value) || 0;
@@ -422,14 +416,14 @@ function saveCake(status, btn) {
         tiers: parsed.tiers,
         cake_message: document.getElementById('cakeMsg').value,
         note: note,
-        image_data: cakeImage,
+        image_data: primaryImage(),
         audio_data: ''
     }];
     if (extra > 0) {
         items.push({ inv_id: 0, name: 'Extra Charges', category: 'Extra Charges', price: extra, qty: 1, flavor: '', shape: '', uom: 'pcs', tiers: 1, cake_message: '', note: 'Extra charge — cake order', image_data: '', audio_data: '' });
     }
 
-    submitOrder(items, { status: status, btn: btn }, function (res) { defaultAfterSave(res, status); });
+    submitOrder(items, { status: status, btn: btn, extra_images: extraImages() }, function (res) { defaultAfterSave(res, status); });
 }
 
 bindCustomerLookup('custCell', 'custName');

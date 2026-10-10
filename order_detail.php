@@ -146,6 +146,23 @@ $pageTitle = "Order #$billNo Details";
         </div>
 
         <!-- ORDER ITEMS -->
+        <?php
+        $extraImgs = array();
+        $er = @mysqli_query($mysqli, "SELECT id FROM order_extra_images WHERE bill_no = " . intval($billNo) . " ORDER BY id");
+        if ($er) while ($e = mysqli_fetch_assoc($er)) $extraImgs[] = $e['id'];
+        if (!empty($extraImgs)): ?>
+        <div class="data-card" style="margin-top:16px;">
+            <h4>📷 More Order Photos (<?php echo count($extraImgs); ?>)</h4>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <?php foreach ($extraImgs as $x): ?>
+                <a href="show_image.php?type=extra&id=<?php echo $x; ?>" target="_blank">
+                    <img src="show_image.php?type=extrathumb&id=<?php echo $x; ?>" style="width:90px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+                </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="data-card" style="margin-top:16px;">
             <h4>Order Items (<?php echo count($items); ?>)</h4>
             <table>

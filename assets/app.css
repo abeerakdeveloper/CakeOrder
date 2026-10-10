@@ -442,3 +442,24 @@ body { background: #f2f5f9; }
 .app-main [style*="background:#6c3483"], .app-main [style*="background: #6c3483"] { background: var(--blue) !important; color: #fff !important; }
 .app-main [style*="background:#f5f0fa"], .app-main [style*="background: #f5f0fa"] { background: var(--blue-soft) !important; }
 .app-main [style*="border-color:#6c3483"] { border-color: var(--blue) !important; }
+
+/* ============================================================
+   FINAL POLISH — softer dashboard cards, compact customer card
+   ============================================================ */
+.page-head { margin-bottom: 12px; }
+.card.compact { padding: 12px 14px; }
+.card.compact .fld > label { font-size: 11px; }
+.card.compact .inp, .card.compact select.inp { padding: 7px 10px; font-size: 13px; }
+.quick-card { border-color: transparent; }
+.qc-blue  { background: #eef4ff; } .qc-blue  .q-ic { background: #fff; }
+.qc-green { background: #ecfaf3; } .qc-green .q-ic { background: #fff; }
+.qc-amber { background: #fef7ea; } .qc-amber .q-ic { background: #fff; }
+.qc-pink  { background: #fef1f6; } .qc-pink  .q-ic { background: #fff; }
+.qc-slate { background: #f2f5fa; } .qc-slate .q-ic { background: #fff; }
+.quick-card:hover { background: #fff; border-color: var(--blue-line); }
+/* small photo strip (multi images) */
+.thumbs.mini .thb { width: 56px; height: 46px; }
+.thumbs.mini .thb .rm { position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 9px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
+
+/* sweets box: prices hidden everywhere on the screen */
+body.sweets .sw-hide { display: none !important; }

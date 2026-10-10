@@ -15,8 +15,9 @@ if ($prodRes) while ($p = mysqli_fetch_assoc($prodRes)) $products[] = $p;
 
 $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
 
-$pageTitle = 'Eatables';
-$pageKey   = 'eatables';
+$pageTitle  = 'Eatables';
+$pageKey    = 'eatables';
+$shellNoNav = true;
 include 'includes/app_shell.php';
 ?>
 
@@ -34,7 +35,7 @@ include 'includes/app_shell.php';
 <div class="order-cols">
     <!-- ============ picture grid ============ -->
     <div>
-        <div class="card">
+        <div class="card compact">
             <div class="grid-3" style="margin-bottom:14px;">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer</label>
@@ -47,10 +48,10 @@ include 'includes/app_shell.php';
                 </div>
                 <div class="fld">
                     <label>Order Type</label>
-                    <div class="seg">
-                        <button type="button" class="on" data-type="pickup" onclick="setOrderType('pickup', this)">🛍 Pickup</button>
-                        <button type="button" data-type="delivery" onclick="setOrderType('delivery', this)">🚚 Delivery</button>
-                    </div>
+                    <select class="inp" id="orderTypeSel" onchange="toggleAddrRow()">
+                        <option value="pickup">🛍 Pickup</option>
+                        <option value="delivery">🚚 Delivery</option>
+                    </select>
                 </div>
                 <div class="fld">
                     <label>Pickup / Delivery Date &amp; Time</label>
@@ -88,7 +89,14 @@ include 'includes/app_shell.php';
 
     <!-- ============ cart ============ -->
     <div>
-        <div class="card summary">
+        <div class="card">
+            <div class="card-title"><span class="ic">📷</span> Order Photos <span class="spacer"></span>
+                <button class="btn btn-ghost btn-sm" onclick="pickImage(imgAdd)">＋ Add</button>
+            </div>
+            <div class="preview-box" id="imgPrimary" data-empty="📷" style="height:150px;"></div>
+            <div class="thumbs mini mt8" id="imgStrip"></div>
+        </div>
+        <div class="card summary mt16">
             <div class="card-title"><span class="ic">🧾</span> Order Summary
                 <span class="spacer"></span>
                 <button class="btn btn-ghost btn-sm" onclick="clearCart()">🗑 Clear</button>
@@ -226,7 +234,7 @@ function saveEat(status, btn) {
     }
     var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
     if (extra > 0) items.push({ inv_id: 0, name: 'Extra Charges', category: 'Extra Charges', price: extra, qty: 1, flavor: '', shape: '', uom: 'pcs', tiers: 1, cake_message: '', note: 'Extra charge — eatables order', image_data: '', audio_data: '' });
-    submitOrder(items, { status: status, btn: btn, advance_method: document.getElementById('advMethod').value }, function (res) { defaultAfterSave(res, status); });
+    submitOrder(items, { status: status, btn: btn, advance_method: document.getElementById('advMethod').value, extra_images: extraImages() }, function (res) { defaultAfterSave(res, status); });
 }
 
 bindCustomerLookup('custCell', 'custName');

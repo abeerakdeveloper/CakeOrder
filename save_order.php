@@ -124,6 +124,29 @@ try {
     }
     
     // ============================================
+    // Extra photos for this bill (multi-image orders)
+    // ============================================
+    if ($success && !empty($input['extra_images']) && is_array($input['extra_images'])) {
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS order_extra_images (
+            id INT NOT NULL AUTO_INCREMENT,
+            bill_no INT NOT NULL,
+            image_data MEDIUMTEXT,
+            thumb_data MEDIUMTEXT,
+            dateent DATETIME,
+            PRIMARY KEY (id), KEY idx_bill (bill_no)
+        ) ENGINE=MyISAM");
+        foreach ($input['extra_images'] as $durl) {
+            $hex  = dataUrlToHex($durl);
+            $thex = generateThumbnailHex($durl, 200);
+            if ($hex) {
+                mysqli_query($mysqli, "INSERT INTO order_extra_images
+                    (bill_no, image_data, thumb_data, dateent)
+                    VALUES ($billNo, '" . esc($hex) . "', '" . esc($thex) . "', NOW())");
+            }
+        }
+    }
+
+    // ============================================
     // If advance payment given, record in gledg
     // ============================================
     if ($success && $advance > 0 && $advanceMethod) {

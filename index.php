@@ -39,9 +39,10 @@ $occasions = array('Birthday', 'Anniversary', 'Wedding', 'Engagement', 'Baby Sho
 $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
 ?>
 <?php
-$pageTitle = 'Other (Classic POS)';
-$pageKey   = 'pos';
-$preCss    = array('style.css');
+$pageTitle  = 'Other (Classic POS)';
+$pageKey    = 'pos';
+$preCss     = array('style.css');
+$shellNoNav = true;
 include 'includes/app_shell.php';
 ?>
 <style>
@@ -199,7 +200,7 @@ include 'includes/app_shell.php';
     <!-- MAIN AREA -->
     <div>
         <!-- CUSTOMER BAR ENHANCED -->
-        <div class="card customer-bar" style="display:block;">
+        <div class="card compact customer-bar" style="display:block;">
             <div class="grid-4">
                 <div class="fld" style="position:relative;">
                     <label>📱 Phone (search by number)</label>
@@ -220,13 +221,13 @@ include 'includes/app_shell.php';
                     <input type="time" class="inp" id="deliverTime" value="<?php echo date('H:i', strtotime('+30 minutes')); ?>">
                 </div>
             </div>
-            <div class="row mt12" style="align-items:center;flex-wrap:nowrap;">
-                <div class="fld" style="flex:0 0 auto;">
+            <div class="row mt12" style="align-items:flex-end;flex-wrap:nowrap;">
+                <div class="fld" style="flex:0 0 150px;">
                     <label>🚚 Type</label>
-                    <div class="seg">
-                        <button type="button" class="on" data-type="pickup" onclick="pickType('pickup', this)">🛍 Pickup</button>
-                        <button type="button" data-type="delivery" onclick="pickType('delivery', this)">🚚 Delivery</button>
-                    </div>
+                    <select class="inp" id="deliveryType" onchange="toggleDeliveryAddress()">
+                        <option value="pickup">🛍 Pickup</option>
+                        <option value="delivery">🚚 Home Delivery</option>
+                    </select>
                 </div>
                 <div class="spacer"></div>
                 <button class="collapse-btn" onclick="toggleCollapse('moreOpts', this)">▾ More options</button>
@@ -256,13 +257,6 @@ include 'includes/app_shell.php';
                             <?php foreach ($sources as $k => $v): ?>
                             <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
                             <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="fld">
-                        <label>🚚 Type (legacy)</label>
-                        <select class="inp" id="deliveryType" onchange="toggleDeliveryAddress()">
-                            <option value="pickup">Pickup</option>
-                            <option value="delivery">Home Delivery</option>
                         </select>
                     </div>
                 </div>
@@ -415,9 +409,8 @@ function switchTab(tab, btn) {
 }
 
 // ===== PICKUP / DELIVERY SEGMENT =====
-function pickType(t, btn) {
+function pickType(t) {
     document.getElementById('deliveryType').value = t;
-    setOrderType(t, btn);
     toggleDeliveryAddress();
 }
 

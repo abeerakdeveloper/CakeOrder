@@ -35,10 +35,7 @@ $sql = "SELECT bill_no, party_detail, cell_no, deliver_date, delivery_time,
     COUNT(*) AS item_count
     FROM cake_order $where
     GROUP BY bill_no
-    ORDER BY 
-        FIELD(MAX(priority), 'vip', 'urgent', 'normal'),
-        deliver_date ASC,
-        delivery_time ASC
+    ORDER BY bill_no DESC
     LIMIT 500";
 
 $res = mysqli_query($mysqli, $sql);
@@ -234,7 +231,7 @@ $pageTitle = 'Order List';
                             <?php if ($deliveryAlert): ?><br><?php echo $deliveryAlert; ?><?php endif; ?>
                         </td>
                         <td>
-                            <strong>Rs. <?php echo number_format($o['total_amount'] - $o['flat_disc']); ?></strong>
+                            <?php if ($o['total_amount'] - $o['flat_disc'] > 0): ?><strong>Rs. <?php echo number_format($o['total_amount'] - $o['flat_disc']); ?></strong><?php else: ?><span class="muted">After weight</span><?php endif; ?>
                             <?php if ($o['flat_disc'] > 0): ?>
                             <br><small style="color:#27ae60;">Disc: <?php echo number_format($o['flat_disc']); ?></small>
                             <?php endif; ?>

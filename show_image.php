@@ -12,6 +12,19 @@ if (!$billNo && !$id) {
     exit;
 }
 
+// Extra bill photos (multi-image orders)
+if ($type == 'extra' || $type == 'extrathumb') {
+    $row = null;
+    $r = @mysqli_query($mysqli, "SELECT image_data, thumb_data FROM order_extra_images WHERE id = $id LIMIT 1");
+    if ($r) $row = mysqli_fetch_assoc($r);
+    if (!$row) { http_response_code(404); exit; }
+    header('Cache-Control: public, max-age=86400');
+    if ($type == 'extra' && !empty($row['image_data'])) { header('Content-Type: image/jpeg'); echo pack('H*', $row['image_data']); }
+    elseif ($type == 'extrathumb' && !empty($row['thumb_data'])) { header('Content-Type: image/jpeg'); echo pack('H*', $row['thumb_data']); }
+    else http_response_code(404);
+    exit;
+}
+
 if ($id) {
     $sql = "SELECT image_data, thumb_data, audio_data FROM cake_order WHERE id = $id LIMIT 1";
 } else {

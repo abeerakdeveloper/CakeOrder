@@ -20,7 +20,7 @@ function cakeConfig() {
         '3 Kg (30-35 servings)',
         '5 Kg (50-60 servings)'
     );
-    $stdLadi = array('N/A', 'Quarter Ladi', 'Half Ladi', 'Full Ladi');
+    $stdLadi = array('White Laddi', 'Chocolate Laddi', 'Mix Laddi', 'N/A');
 
     return array(
         'categories' => array(

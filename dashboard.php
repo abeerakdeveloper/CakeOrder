@@ -61,10 +61,7 @@ $pendingSql = "SELECT bill_no, party_detail, cell_no, deliver_date, delivery_tim
     WHERE status IN ('pending','confirmed','preparing','ready')
     AND ordercancel = 0
     GROUP BY bill_no
-    ORDER BY
-        FIELD(MAX(priority), 'vip', 'urgent', 'normal'),
-        deliver_date ASC,
-        delivery_time ASC";
+    ORDER BY bill_no DESC";
 $pendingRes = mysqli_query($mysqli, $pendingSql);
 $allPending = array();
 if ($pendingRes) while ($p = mysqli_fetch_assoc($pendingRes)) $allPending[] = $p;
@@ -192,7 +189,7 @@ include 'includes/app_shell.php';
                 <td><strong><?php echo htmlspecialchars($o['party_detail']); ?></strong><br><span class="muted" style="font-size:11px;">📱 <?php echo htmlspecialchars($o['cell_no']); ?></span></td>
                 <td style="max-width:220px;"><span class="muted" style="font-size:12px;"><?php echo htmlspecialchars($o['items']); ?></span><br><span style="font-size:11px;color:var(--blue);font-weight:600;"><?php echo $o['item_count']; ?> items</span></td>
                 <td><strong><?php echo date('d M Y', strtotime($o['deliver_date'])); ?></strong><br><span class="muted" style="font-size:11px;">🕐 <?php echo $o['delivery_time']; ?></span> <?php echo $deliveryAlert; ?></td>
-                <td><strong>Rs. <?php echo number_format($o['total'] - $o['disc']); ?></strong><br><span class="muted" style="font-size:11px;color:var(--green);">Paid <?php echo number_format($o['advance'] + $o['paid']); ?></span></td>
+                <td><?php if ($o['total'] - $o['disc'] > 0): ?><strong>Rs. <?php echo number_format($o['total'] - $o['disc']); ?></strong><?php else: ?><span class="muted">After weight</span><?php endif; ?><br><span class="muted" style="font-size:11px;color:var(--green);">Paid <?php echo number_format($o['advance'] + $o['paid']); ?></span></td>
                 <td style="color:<?php echo $balance > 0 ? 'var(--red)' : 'var(--green)'; ?>;font-weight:700;">Rs. <?php echo number_format(max(0, $balance)); ?></td>
                 <td><span class="bdg <?php echo htmlspecialchars($o['status']); ?>"><?php echo ucfirst($o['status']); ?></span></td>
                 <td>

@@ -23,12 +23,10 @@ function shellActiveBox($t) { global $currentPage;
         </div>
     </div>
 
-    <form class="app-topsearch" action="order_list.php" method="get">
-        <span class="ic">🔍</span>
-        <input type="text" name="search" placeholder="Search orders, customers...">
-    </form>
-
     <div class="app-top-right">
+        <?php if (!empty($shellNoNav)): ?>
+        <a class="app-chip" href="dashboard.php" style="text-decoration:none;">🏠 Dashboard</a>
+        <?php endif; ?>
         <span class="app-chip"><?php echo htmlspecialchars(getRoleName()); ?></span>
         <span class="app-avatar"><?php echo $shellInitial; ?></span>
         <span class="app-chip"><?php echo htmlspecialchars($_SESSION['user']); ?></span>
@@ -37,6 +35,7 @@ function shellActiveBox($t) { global $currentPage;
 </div>
 
 <div class="app-layout">
+    <?php if (empty($shellNoNav)): ?>
     <nav class="app-sidebar">
         <div class="grp">Overview</div>
         <a class="app-nav-item <?php echo shellActive('dashboard.php'); ?>" href="dashboard.php"><span class="ic">📊</span> Dashboard</a>
@@ -71,5 +70,6 @@ function shellActiveBox($t) { global $currentPage;
             Freshly Baked<br>With Love ♥
         </div>
     </nav>
+    <?php endif; ?>
 
     <main class="app-main">

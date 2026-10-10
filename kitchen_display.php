@@ -32,10 +32,7 @@ $sql = "SELECT co.bill_no, co.party_detail, co.deliver_date, co.delivery_time,
         FROM cake_order co
         WHERE $statusWhere AND co.ordercancel = 0
         GROUP BY bill_no
-        ORDER BY
-            FIELD(MAX(co.priority), 'urgent', 'vip', 'normal'),
-            co.deliver_date ASC,
-            co.delivery_time ASC";
+        ORDER BY co.bill_no DESC";
 
 $result = mysqli_query($mysqli, $sql);
 $orders = array();
@@ -176,6 +173,15 @@ $pageTitle = 'Kitchen Orders';
                         <button data-type="custom" onclick="setTypeFilter('custom', this)">Custom</button>
                     </div>
                 </div>
+                <div class="fld" style="flex:0 0 130px;">
+                    <label>Priority</label>
+                    <select class="inp" id="prioSel" onchange="filterKitchen()">
+                        <option value="all">All</option>
+                        <option value="vip">⭐ VIP</option>
+                        <option value="urgent">🔴 Urgent</option>
+                        <option value="normal">📦 Normal</option>
+                    </select>
+                </div>
                 <div class="fld" style="flex:1;min-width:160px;">
                     <label>Status</label>
                     <select class="inp" onchange="location.search='?kf='+this.value">
@@ -215,7 +221,7 @@ $pageTitle = 'Kitchen Orders';
                 $itemDetails = array();
                 if ($itemDetailsRes) while ($d = mysqli_fetch_assoc($itemDetailsRes)) $itemDetails[] = $d;
             ?>
-            <div class="ko-card <?php echo $isUrgent ? 'urgent' : ''; ?> fade-in" data-type="<?php echo $kind; ?>" data-bill="<?php echo $o['bill_no']; ?>">
+            <div class="ko-card <?php echo $isUrgent ? 'urgent' : ''; ?> fade-in" data-type="<?php echo $kind; ?>" data-priority="<?php echo htmlspecialchars($o['priority']); ?>" data-bill="<?php echo $o['bill_no']; ?>">
                 <div class="ko-head">
                     <span class="bill">#<?php echo $o['bill_no']; ?></span>
                     <span class="kd-badge <?php echo $meta['cls']; ?>"><?php echo $meta['label']; ?></span>
@@ -274,7 +280,7 @@ $pageTitle = 'Kitchen Orders';
                     <?php if ($kind === 'lunch' || $kind === 'sweets'): ?>
                     <span class="chip">📦 Total Boxes: <?php echo intval($o['total_qty']); ?></span>
                     <?php endif; ?>
-                    <span class="chip">💰 Rs. <?php echo number_format($o['total_amount']); ?></span>
+                    <?php if ($o['total_amount'] > 0): ?><span class="chip">💰 Rs. <?php echo number_format($o['total_amount']); ?></span><?php else: ?><span class="chip">️ After weight</span><?php endif; ?>
                 </div>
 
                 <?php if (!empty($notesList)): ?>
@@ -370,10 +376,12 @@ function setTypeFilter(t, btn) {
 
 function filterKitchen() {
     var q = document.getElementById('kitchenSearch').value.toLowerCase();
+    var pr = document.getElementById('prioSel').value;
     document.querySelectorAll('.ko-card').forEach(function (card) {
         var okType = (typeFilter === 'all' || card.dataset.type === typeFilter);
+        var okPrio = (pr === 'all' || card.dataset.priority === pr);
         var okText = !q || card.textContent.toLowerCase().indexOf(q) > -1;
-        card.style.display = (okType && okText) ? '' : 'none';
+        card.style.display = (okType && okPrio && okText) ? '' : 'none';
     });
 }
 
