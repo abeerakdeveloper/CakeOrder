@@ -189,9 +189,9 @@ include 'includes/app_shell.php';
                         <option value="1">1 Tier</option>
                         <option value="2">2 Tiers</option>
                         <option value="3">3 Tiers</option>
-                        <option value="3">4 Tiers</option>
-                        <option value="3">5 Tiers</option>
-                        <option value="3">6 Tiers</option>
+                        <option value="4">4 Tiers</option>
+                        <option value="5">5 Tiers</option>
+                        <option value="6">6 Tiers</option>
                     </select>
                 </div>
                 <div class="fld" style="flex:1;">
@@ -575,15 +575,10 @@ include 'includes/app_shell.php';
     }
 
     function parseSize(label) {
-        var m = String(label).match(/^\s*([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z]+)?/);
-        if (!m) return {
-            tiers: 1,
-            uom: 'kg'
-        };
-        return {
-            tiers: parseFloat(m[1]),
-            uom: (m[2] || 'kg').toLowerCase()
-        };
+        var s0 = String(label || '').trim();
+        var m = s0.match(/^([0-9]+(?:\.[0-9]+)?)\s*(.+)$/);
+        if (m) return { tiers: parseFloat(m[1]), uom: m[2].trim() };
+        return { tiers: 1, uom: s0 };   // Pound / Kg / Piece exactly as in cake_config
     }
 
     /* ---- eatable / decoration rows ---- */
@@ -653,28 +648,12 @@ include 'includes/app_shell.php';
             image_data: primaryImage(),
             audio_data: voiceGet()
         }];
-        if (extra > 0) {
-            items.push({
-                inv_id: 0,
-                name: 'Extra Charges',
-                category: 'Extra Charges',
-                price: extra,
-                qty: 1,
-                flavor: '',
-                shape: '',
-                uom: 'pcs',
-                tiers: 1,
-                cake_message: '',
-                note: 'Extra charge — cake order',
-                image_data: '',
-                audio_data: ''
-            });
-        }
 
         submitOrder(items, {
             status: status,
             btn: btn,
             extra_images: extraImages(),
+            extra_charge: extra,
             eatables: eatRows.filter(function(r) { return r.img || r.desc || parseFloat(r.price) > 0; })
         }, function(res) {
             defaultAfterSave(res, status);

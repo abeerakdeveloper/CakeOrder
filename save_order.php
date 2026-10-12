@@ -19,6 +19,7 @@ $priority = isset($input['priority']) ? $input['priority'] : 'normal';
 $flatDisc = isset($input['flat_disc']) ? intval($input['flat_disc']) : 0;
 $advance = isset($input['advance']) ? intval($input['advance']) : 0;
 $advanceMethod = isset($input['advance_method']) ? $input['advance_method'] : '';
+$extraCharge = isset($input['extra_charge']) ? intval($input['extra_charge']) : 0;
 $occasion = isset($input['occasion']) ? esc($input['occasion']) : '';
 $deliveryType = isset($input['delivery_type']) ? esc($input['delivery_type']) : 'pickup';
 $deliveryAddress = isset($input['delivery_address']) ? esc($input['delivery_address']) : '';
@@ -44,11 +45,13 @@ if ($billNo <= 0) {
 $user = $_SESSION['user'];
 $salesman = !empty($_SESSION['salesman_name']) ? $_SESSION['salesman_name'] : $user;
 
-// Calculate total
+// Calculate total (extra charge added once, not as a separate item row)
 $totalAmount = 0;
 foreach ($items as $item) {
     $totalAmount += $item['price'] * $item['qty'];
 }
+$totalAmount += $extraCharge;
+$extraApplied = false;
 
 // Begin transaction
 mysqli_autocommit($mysqli, false);
@@ -99,6 +102,8 @@ try {
         $imageSql = $imageHex ? "'" . esc($imageHex) . "'" : "NULL";
         $thumbSql = $thumbHex ? "'" . esc($thumbHex) . "'" : "NULL";
         $audioSql = $audioHex ? "'" . esc($audioHex) . "'" : "NULL";
+        $extPay = 0;
+        if ($extraCharge > 0 && !$extraApplied) { $amount += $extraCharge; $extPay = $extraCharge; $extraApplied = true; }
         
         $sql = "INSERT INTO cake_order 
             (bill_no, inv_date, return_date, deliver_date, delivery_time, 
@@ -113,7 +118,7 @@ try {
              $amount, $advance, 0, '".esc($cellNo)."', '".esc($partyDetail)."', '$fullNote',
              '".esc($user)."', NOW(), '".esc($salesman)."', 'main', 0,
              '".esc($status)."', 0, NOW(), $flatDisc, '".esc($deliverDate)."',
-             '".esc($source)."', $invId, $qty, 0, '$flavor', 0,
+             '".esc($source)."', $invId, $qty, $extPay, '$flavor', 0,
              '".esc($priority)."', '$category', $tiers, '$shape', '$cakeMsg', $price,
              $imageSql, $thumbSql, $audioSql, '$uom', NULL)";
 

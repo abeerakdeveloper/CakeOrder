@@ -236,6 +236,8 @@ function invDate($d)
             flex: 0 0 auto;
         }
 
+        .photorow { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 10px; }
+        .photorow img { width: 110px; height: 82px; object-fit: cover; border: 1px solid #ddd; }
         .dtitle { font-size: 12px; font-weight: 700; color: #9b1c2e; margin: 8px 0 2px; }
         .dthumbs { display: flex; gap: 6px; overflow-x: auto; margin: 4px 0 6px; }
         .dthumbs img { width: 54px; height: 44px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; flex: 0 0 auto; }
@@ -439,6 +441,8 @@ function invDate($d)
         }
 
         @media print {
+            .photorow img { width: 72px; height: 54px; }
+            .dthumbs img { width: 40px; height: 32px; }
             html, body {
                 background: #fff;
                 padding: 0;
@@ -740,9 +744,11 @@ function invDate($d)
         </div>
 
         <div class="invoice-content-body">
-            <?php if ($kind === 'cake' && $photoId): ?>
-                <div class="photo">
-                    <img src="show_image.php?type=thumb&id=<?php echo $photoId; ?>" alt="">
+            <?php if ($kind === 'cake' && ($photoId || !empty($extras) || !empty($details))): ?>
+                <div class="photorow">
+                    <?php if ($photoId): ?><img src="show_image.php?type=thumb&id=<?php echo $photoId; ?>" alt=""><?php endif; ?>
+                    <?php foreach ($extras as $x): ?><img src="show_image.php?type=extrathumb&id=<?php echo intval($x); ?>" alt=""><?php endforeach; ?>
+                    <?php foreach ($details as $d): if (!empty($d['thumb_data'])): ?><img src="data:image/jpeg;base64,<?php echo base64_encode(hex2bin($d['thumb_data'])); ?>" alt=""><?php endif; endforeach; ?>
                 </div>
             <?php endif; ?>
 
@@ -824,18 +830,25 @@ function invDate($d)
                     <?php foreach ($items as $it):
                         if ($it['category'] === 'Extra Charges') continue;
                         $perBoxQty = round($it['qty'] / $setBoxesFirst, 2);
-                        $perLine   = $it['price'] * $perBoxQty;
+                        $perLine   = floatval($it['retail_price']) * $perBoxQty;
                         $perBoxTotal += $perLine;
                     ?>
                         <li><span class="q"><?php echo rtrim(rtrim(number_format($perBoxQty, 2), '0'), '.'); ?></span><span class="n"><?php echo htmlspecialchars($it['category']); ?></span><span class="a"><?php echo number_format($perLine); ?></span></li>
                     <?php endforeach; ?>
                 </ul>
+                <?php $extraAmt = 0; foreach ($items as $it) { if ($it['category'] === 'Extra Charges') $extraAmt += floatval($it['amount']); } ?>
                 <div class="tot">
                     <table>
                         <tr>
                             <td class="k">Each Box</td>
                             <td class="v">:<?php echo number_format($perBoxTotal); ?></td>
                         </tr>
+                        <?php if ($extraAmt > 0): ?>
+                        <tr>
+                            <td class="k">Extra Charges</td>
+                            <td class="v">:<?php echo number_format($extraAmt); ?></td>
+                        </tr>
+                        <?php endif; ?>
                         <tr>
                             <td class="k">Total Amount</td>
                             <td class="v">:<?php echo number_format($netTotal); ?></td>

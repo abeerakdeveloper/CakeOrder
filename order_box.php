@@ -274,6 +274,7 @@ function setItemField(i, k, field, value) {
     var it = sets[i].items[k];
     if (field === 'on') it.on = value;
     else if (field === 'per') it.per = Math.max(1, parseInt(value, 10) || 1);
+    else if (field === 'price') it.price = Math.max(0, parseFloat(value) || 0);
     else it[field] = value;
     recalc(); renderSummary();
 }
@@ -304,6 +305,8 @@ function renderSets() {
                 '<input type="checkbox" class="chk" ' + (it.on ? 'checked' : '') + ' onclick="event.stopPropagation();setItemField(' + i + ',' + k + ',\'on\',this.checked)">' +
                 thumbHtml(p) +
                 '<span class="nm">' + escHtml(it.name) + ' <span class="lbl">Rs. ' + Math.round(it.price).toLocaleString() + '</span></span>' +
+                '<span class="lbl">Price</span>' +
+                '<input class="inp" style="width:86px;" type="number" min="0" value="' + (Math.round(it.price) || 0) + '" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'price\',this.value)">' +
                 '<span class="lbl">Qty per box</span>' +
                 '<input class="inp" style="width:64px;" type="number" min="1" value="' + it.per + '" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'per\',this.value)">' +
                 '<select class="inp" style="width:96px;" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'unit\',this.value)">';
