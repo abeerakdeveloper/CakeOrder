@@ -169,6 +169,7 @@ function submitOrder(items, extra, onDone) {
     var data = {
         items: items,
         extra_images: extra.extra_images || [],
+        eatables: extra.eatables || [],
         status: extra.status || 'confirmed',
         party_detail: val('custName') || 'Walk-in',
         cell_no: val('custPhone') || val('custCell'),
@@ -338,3 +339,71 @@ function imgRender() {
 }
 function extraImages() { return imageSet.slice(1); }
 function primaryImage() { return imageSet.length ? imageSet[0] : ''; }
+
+/* ---------- fuzzy item search (chickn pic -> chicken piece) ---------- */
+if (!window.fuzzyMatch) {
+    window.fuzzyMatch = function (text, query) {
+        text = (text || '').toLowerCase();
+        query = (query || '').toLowerCase().trim();
+        if (!query) return true;
+        if (text.indexOf(query) > -1) return true;
+        var words = query.split(/\s+/), all = true, w, t;
+        for (w = 0; w < words.length; w++) {
+            if (!words[w]) continue;
+            if (text.indexOf(words[w]) > -1) continue;
+            // per-token subsequence fallback
+            var okTok = false, toks = text.split(/[^a-z0-9]+/);
+            for (t = 0; t < toks.length; t++) {
+                var name = toks[t], qi = 0;
+                for (var i = 0; i < name.length && qi < words[w].length; i++) {
+                    if (name[i] === words[w][qi]) qi++;
+                }
+                if (qi === words[w].length) { okTok = true; break; }
+            }
+            if (!okTok) { all = false; break; }
+        }
+        return all;
+    };
+}
+
+/* ---------- voice note (record / play) shared by cake create + edit ---------- */
+var _vr = null, _vc = [], voiceData = '';
+window.voiceGet = function () { return voiceData; };
+window.voiceSet = function (d) { voiceData = d || ''; };
+window.voiceToggle = function (btn) {
+    if (_vr) {
+        _vr.onstop = function () {
+            var blob = new Blob(_vc, { type: 'audio/webm' });
+            var r = new FileReader();
+            r.onload = function () {
+                voiceData = r.result;
+                showToast('Voice note attached', 'success');
+                var p = document.getElementById('voicePlayBtn');
+                if (p) p.disabled = false;
+            };
+            r.readAsDataURL(blob);
+            _vr.stream.getTracks().forEach(function (t) { t.stop(); });
+            _vr = null;
+        };
+        _vr.stop();
+        btn.textContent = 'Record Voice';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-outline');
+        return;
+    }
+    if (!navigator.mediaDevices || !window.MediaRecorder) { showToast('Microphone not supported', 'error'); return; }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (st) {
+        _vc = [];
+        _vr = new MediaRecorder(st);
+        _vr.ondataavailable = function (e) { _vc.push(e.data); };
+        _vr.start();
+        btn.textContent = 'Stop Recording';
+        btn.classList.add('btn-danger');
+        showToast('Recording... press again to stop', 'success');
+    }).catch(function () { showToast('Microphone permission denied', 'error'); });
+};
+window.voicePlayNote = function (src) {
+    if (voiceData) { new Audio(voiceData).play(); return; }
+    if (src) { new Audio(src).play(); return; }
+    showToast('No voice note on this order', 'error');
+};

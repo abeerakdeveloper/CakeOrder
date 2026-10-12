@@ -38,7 +38,9 @@ foreach ($items as $i) {
     if (stripos($i['notes'], 'Sweets Box Set') !== false) $isSweets = true;
     if (stripos($i['notes'], 'Lunch Box Set') !== false)  $isLunch  = true;
 }
-$kind = $isSweets ? 'sweets' : ($isLunch ? 'lunch' : 'cake');
+$isCustom = false;
+foreach ($items as $i) { if (stripos($i['notes'], 'CUSTOM:') !== false) $isCustom = true; }
+$kind = $isCustom ? 'custom' : ($isSweets ? 'sweets' : ($isLunch ? 'lunch' : 'cake'));
 
 if ($balance <= 0 && $netTotal > 0)      $payStatus = 'Paid';
 elseif ($advance > 0 || $paid > 0)       $payStatus = 'Advance';
@@ -66,6 +68,11 @@ foreach ($items as $i) {
 }
 
 // extra photos
+// eatable / decoration detail rows
+$details = array();
+$dr = @mysqli_query($mysqli, "SELECT * FROM cake_detail WHERE bill_no = $billNo ORDER BY id");
+if ($dr) while ($d = mysqli_fetch_assoc($dr)) $details[] = $d;
+
 $extras = array();
 $er = @mysqli_query($mysqli, "SELECT id FROM order_extra_images WHERE bill_no = $billNo ORDER BY id");
 if ($er) while ($e = mysqli_fetch_assoc($er)) $extras[] = $e['id'];
@@ -229,6 +236,9 @@ function invDate($d)
             flex: 0 0 auto;
         }
 
+        .dtitle { font-size: 12px; font-weight: 700; color: #9b1c2e; margin: 8px 0 2px; }
+        .dthumbs { display: flex; gap: 6px; overflow-x: auto; margin: 4px 0 6px; }
+        .dthumbs img { width: 54px; height: 44px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; flex: 0 0 auto; }
         .photo {
             margin: 4px 0 10px;
         }
@@ -749,14 +759,16 @@ function invDate($d)
                     </thead>
                     <tbody>
                         <?php foreach ($items as $it):
-                            $noteClean = preg_replace('/^(OCCASION: .*? \| )?(LADI: .*? \| )?(DELIVERY ADDR: .*)?$/', '', (string)$it['notes']);
-                            $noteClean = trim(str_replace(array('DELIVERY ADDR:'), '', preg_replace('/OCCASION: .*?(\||$)/', '', $noteClean)));
+                            $noteClean = preg_replace('/(OCCASION:|LADI:|TIERS:|DELIVERY ADDR:)[^|]*/', '', (string)$it['notes']);
+                            $noteClean = trim(preg_replace('/\|+/', '|', $noteClean), " |");
                         ?>
                             <tr>
                                 <td>
                                     <div><span class="dk">Product&nbsp;&nbsp;:</span> <?php echo htmlspecialchars($it['category']); ?></div>
                                     <?php if ($it['flavor']): ?><div><span class="dk">Flavours&nbsp;&nbsp;:</span> <?php echo htmlspecialchars($it['flavor']); ?></div><?php endif; ?>
                                     <?php if ($ladi): ?><div><span class="dk">Material&nbsp;&nbsp;:</span> <?php echo htmlspecialchars($ladi); ?></div><?php endif; ?>
+                                    <?php if ($it['shape']): ?><div><span class="dk">Shape&nbsp;&nbsp;:</span> <?php echo htmlspecialchars($it['shape']); ?></div><?php endif; ?>
+                                    <?php if (preg_match('/TIERS: (\d+)/', (string)$it['notes'], $tm)): ?><div><span class="dk">Tiers&nbsp;&nbsp;:</span> <?php echo intval($tm[1]); ?></div><?php endif; ?>
                                     <?php if ($it['cake_message']): ?><div><span class="dk">Cake Message&nbsp;&nbsp;:</span> <?php echo htmlspecialchars($it['cake_message']); ?></div><?php endif; ?>
                                     <?php if ($noteClean !== ''): ?><div><span class="dk">Cake Instructions&nbsp;&nbsp;:</span> <?php echo htmlspecialchars(strtoupper($noteClean)); ?></div><?php endif; ?>
                                 </td>
@@ -767,6 +779,24 @@ function invDate($d)
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                <?php if (!empty($details)): ?>
+                <div class="dtitle">Eatables &amp; Decoration</div>
+                <div class="dthumbs">
+                    <?php foreach ($details as $d): if (!empty($d['thumb_data'])): ?>
+                        <img src="data:image/jpeg;base64,<?php echo base64_encode(hex2bin($d['thumb_data'])); ?>" alt="">
+                    <?php endif; endforeach; ?>
+                </div>
+                <table class="lines">
+                    <tbody>
+                        <?php foreach ($details as $d): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($d['qty']); ?> &times; <?php echo htmlspecialchars($d['description'] !== '' ? $d['description'] : 'Eatable item'); ?></td>
+                            <td class="r" style="width:90px;"><?php echo number_format($d['price']); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
                 <div class="tot">
                     <table>
                         <tr>
@@ -818,6 +848,24 @@ function invDate($d)
                             <td class="k" style="font-weight:400;">Balance</td>
                             <td class="v" style="font-weight:400;">:<?php echo number_format(max(0, $balance)); ?></td>
                         </tr>
+                    </table>
+                </div>
+
+            <?php elseif ($kind === 'custom'): ?>
+                <!-- ============ CUSTOM SALE LAYOUT ============ -->
+                <ul class="plist">
+                    <?php foreach ($items as $it):
+                        $desc = '';
+                        if (preg_match('/CUSTOM:(.*)$/s', (string)$it['notes'], $mm)) $desc = trim($mm[1], " |");
+                    ?>
+                        <li><span class="q"><?php echo rtrim(rtrim(number_format($it['qty'], 2), '0'), '.'); ?></span><span class="n"><?php echo htmlspecialchars($it['category']); ?><?php if ($desc !== ''): ?><br><span style="font-size:10px;color:#666;"><?php echo htmlspecialchars($desc); ?></span><?php endif; ?></span><span class="a"><?php echo number_format($it['amount']); ?></span></li>
+                    <?php endforeach; ?>
+                </ul>
+                <div class="tot">
+                    <table>
+                        <tr><td class="k">Total</td><td class="v"><?php echo number_format($netTotal); ?> (Rs)</td></tr>
+                        <tr><td class="k">Advance</td><td class="v"><?php echo number_format($advance + $paid); ?> (Rs)</td></tr>
+                        <tr><td class="k">Balance</td><td class="v"><?php echo number_format(max(0, $balance)); ?> (Rs)</td></tr>
                     </table>
                 </div>
 

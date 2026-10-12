@@ -1,5 +1,6 @@
 <?php
 require_once 'db.php';
+require_once 'includes/cake_config.php';
 requireRole(array(1, 3));
 
 date_default_timezone_set('Asia/Karachi');
@@ -291,6 +292,12 @@ include 'includes/app_shell.php';
         </div>
 
         <input type="text" id="searchItems" class="inp" style="margin-bottom:10px;" placeholder="🔍 Search products...">
+        <select id="posCat" class="inp" style="margin-bottom:10px;" onchange="document.getElementById('searchItems').dispatchEvent(new Event('input'))">
+            <option value="all">All Categories</option>
+            <?php foreach (orderCategories($mysqli, 'pos') as $pc): ?>
+            <option value="<?php echo htmlspecialchars(strtolower($pc['name']), ENT_QUOTES); ?>"><?php echo htmlspecialchars($pc['name']); ?></option>
+            <?php endforeach; ?>
+        </select>
 
         <div class="tabs" style="margin-bottom:10px;">
             <button class="active" onclick="switchTab('all', this)">📋 All</button>
@@ -303,6 +310,7 @@ include 'includes/app_shell.php';
                 <div class="product-item"
                     data-id="<?php echo $p['inv_id']; ?>"
                     data-name="<?php echo htmlspecialchars($p['prod_name'], ENT_QUOTES); ?>"
+                    data-cats="<?php echo productCatAttr($mysqli, $p['prod_name']); ?>"
                     data-price="<?php echo $p['retail_price']; ?>"
                     data-uom="<?php echo htmlspecialchars($p['uom'], ENT_QUOTES); ?>"
                     data-barcode="<?php echo htmlspecialchars($p['barcode'], ENT_QUOTES); ?>"
@@ -1278,10 +1286,14 @@ include 'includes/app_shell.php';
     // ===== SEARCH PRODUCTS =====
     document.getElementById('searchItems').addEventListener('input', function(e) {
         var q = e.target.value.toLowerCase();
+        var catEl = document.getElementById('posCat');
+        var curCat = catEl ? catEl.value : 'all';
         var items = document.querySelectorAll('.pos-sidebar .product-item');
         for (var i = 0; i < items.length; i++) {
-            var text = items[i].textContent.toLowerCase();
-            items[i].style.display = text.indexOf(q) > -1 ? '' : 'none';
+            var d = items[i].dataset;
+            var okCat = (curCat === 'all') || ((d.cats || '').split(',').indexOf(curCat) > -1);
+            var text = (d.name || '') + ' ' + (d.barcode || '');
+            items[i].style.display = (okCat && fuzzyMatch(text, q)) ? '' : 'none';
         }
     });
 

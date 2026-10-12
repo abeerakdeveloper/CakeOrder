@@ -1,6 +1,7 @@
 <?php
 require_once 'db.php';
 require_once 'includes/product_images.php';
+require_once 'includes/cake_config.php';
 requireRole(array(1, 3));
 
 date_default_timezone_set('Asia/Karachi');
@@ -28,6 +29,12 @@ include 'includes/app_shell.php';
     </div>
     <div class="spacer"></div>
     <input class="inp" style="max-width:260px;" id="gridSearch" placeholder="🔍 Search eatables..." oninput="filterGrid()">
+    <select class="inp" style="max-width:170px;" id="gridCat" onchange="filterGrid()">
+        <option value="all">All Categories</option>
+        <?php foreach (orderCategories($mysqli, 'pos') as $ec): ?>
+        <option value="<?php echo htmlspecialchars(strtolower($ec['name']), ENT_QUOTES); ?>"><?php echo htmlspecialchars($ec['name']); ?></option>
+        <?php endforeach; ?>
+    </select>
     <a class="btn btn-outline" href="order_eatables.php">＋ New Order</a>
 </div>
 
@@ -75,6 +82,7 @@ include 'includes/app_shell.php';
                 <div class="eat-card" id="card_<?php echo intval($p['inv_id']); ?>"
                     data-id="<?php echo intval($p['inv_id']); ?>"
                     data-name="<?php echo htmlspecialchars(strtolower($p['prod_name']), ENT_QUOTES); ?>"
+                    data-cats="<?php echo productCatAttr($mysqli, $p['prod_name']); ?>"
                     onclick='tapEat(<?php echo htmlspecialchars(json_encode(array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom'], 'img' => $img, 'emoji' => productEmoji($p['prod_name']))), ENT_QUOTES); ?>)'>
                     <span class="cnt" id="cnt_<?php echo intval($p['inv_id']); ?>">0</span>
                     <div class="ph"><?php if ($img): ?><img src="<?php echo $img; ?>" alt=""><?php else: ?><?php echo productEmoji($p['prod_name']); ?><?php endif; ?></div>
@@ -265,7 +273,10 @@ include 'includes/app_shell.php';
     function filterGrid() {
         var q = document.getElementById('gridSearch').value.toLowerCase();
         document.querySelectorAll('.eat-card').forEach(function(el) {
-            el.style.display = el.getAttribute('data-name').indexOf(q) > -1 ? '' : 'none';
+            var okCat = true;
+            var cs = document.getElementById('gridCat');
+            if (cs && cs.value !== 'all') okCat = (el.getAttribute('data-cats') || '').split(',').indexOf(cs.value) > -1;
+            el.style.display = (okCat && fuzzyMatch(el.getAttribute('data-name'), q)) ? '' : 'none';
         });
     }
 

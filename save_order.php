@@ -42,6 +42,7 @@ if ($billNo <= 0) {
 }
 
 $user = $_SESSION['user'];
+$salesman = !empty($_SESSION['salesman_name']) ? $_SESSION['salesman_name'] : $user;
 
 // Calculate total
 $totalAmount = 0;
@@ -110,7 +111,7 @@ try {
             VALUES 
             ($billNo, CURDATE(), NOW(), '".esc($deliverDate)."', '".esc($deliveryTime)."',
              $amount, $advance, 0, '".esc($cellNo)."', '".esc($partyDetail)."', '$fullNote',
-             '".esc($user)."', NOW(), '".esc($user)."', 'main', 0,
+             '".esc($user)."', NOW(), '".esc($salesman)."', 'main', 0,
              '".esc($status)."', 0, NOW(), $flatDisc, '".esc($deliverDate)."',
              '".esc($source)."', $invId, $qty, 0, '$flavor', 0,
              '".esc($priority)."', '$category', $tiers, '$shape', '$cakeMsg', $price,
@@ -178,7 +179,28 @@ try {
     }
     
     if ($success) {
-        mysqli_commit($mysqli);
+        // eatable / decoration pictures (cake_detail table)
+if (!empty($input['eatables'])) {
+    mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS cake_detail (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        bill_no INT, image_data MEDIUMTEXT, thumb_data MEDIUMTEXT,
+        qty VARCHAR(10), price DECIMAL(10,2), description VARCHAR(255),
+        dateent DATETIME, KEY (bill_no))");
+    foreach ($input['eatables'] as $eat) {
+        $eImg = ''; $eThumb = '';
+        if (!empty($eat['image']) && strpos($eat['image'], 'data:') === 0) {
+            $eImg = dataUrlToHex($eat['image']);
+            $eThumb = generateThumbnailHex($eat['image'], 200);
+        }
+        $eq = mysqli_real_escape_string($mysqli, isset($eat['qty']) ? $eat['qty'] : '1');
+        $ep = floatval(isset($eat['price']) ? $eat['price'] : 0);
+        $ed = mysqli_real_escape_string($mysqli, isset($eat['desc']) ? $eat['desc'] : '');
+        mysqli_query($mysqli, "INSERT INTO cake_detail (bill_no, image_data, thumb_data, qty, price, description, dateent)
+            VALUES ($billNo, '$eImg', '$eThumb', '$eq', $ep, '$ed', NOW())");
+    }
+}
+
+mysqli_commit($mysqli);
         jsonResponse(array(
             'success' => true,
             'bill_no' => $billNo,

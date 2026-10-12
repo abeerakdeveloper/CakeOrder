@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user'] = $row['user'];
             $_SESSION['role'] = intval($row['role']);
             $_SESSION['login_time'] = time();
+            $_SESSION['salesman_name'] = '';
             
             // Redirect based on role
             switch ($_SESSION['role']) {

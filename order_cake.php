@@ -81,6 +81,10 @@ include 'includes/app_shell.php';
                     <h4>Category (F2)</h4>
                     <input class="inp mt12" id="cakeSearch" placeholder="🔍 Search cake item... e.g. cream, brownie, chocolate" oninput="filterCategories()" autocomplete="off">
                     <div class="tiles scroll mt12" id="catTiles">
+                        <div class="tile" data-kind="allcat" data-name="all" onclick="pickAllCategories(this)">
+                            <span class="tick">✓</span>
+                            <span class="t-lb">All Categories</span>
+                        </div>
                         <?php foreach ($CFG['categories'] as $i => $c): ?>
                             <div class="tile <?php echo $i === 0 ? 'on' : ''; ?>" data-kind="cat" data-idx="<?php echo $i; ?>"
                                 data-name="<?php echo htmlspecialchars(strtolower($c['name']), ENT_QUOTES); ?>"
@@ -98,6 +102,7 @@ include 'includes/app_shell.php';
                                 data-name="<?php echo htmlspecialchars(strtolower($p['prod_name']), ENT_QUOTES); ?>"
                                 data-price="<?php echo floatval($p['retail_price']); ?>"
                                 data-uom="<?php echo htmlspecialchars($p['uom'], ENT_QUOTES); ?>"
+                                data-cats="<?php echo productCatAttr($mysqli, $p['prod_name']); ?>"
                                 onclick="pickInventory(this)">
                                 <span class="tick">✓</span>
                                 <?php $img = productImageUrl($p['inv_id'], $p['prod_name']); ?>
@@ -177,6 +182,14 @@ include 'includes/app_shell.php';
                         </div>
                     </div>
                 </div>
+                <div class="fld" style="flex:.8;">
+                    <label>Tiers</label>
+                    <select class="inp" id="tiersSel">
+                        <option value="1">1 Tier</option>
+                        <option value="2">2 Tiers</option>
+                        <option value="3">3 Tiers</option>
+                    </select>
+                </div>
                 <div class="fld" style="flex:1;">
                     <label>Price (per unit, Rs.)</label>
                     <input class="inp" type="number" id="price" value="0" min="0" onchange="recalc()">
@@ -204,6 +217,16 @@ include 'includes/app_shell.php';
             </div>
         </div>
 
+        <!-- eatables / decoration pictures -->
+        <div class="card">
+            <div class="card-title">Eatables &amp; Decoration
+                <span class="spacer"></span>
+                <button type="button" class="btn btn-outline btn-sm" onclick="eatAdd()">+ Add Row</button>
+            </div>
+            <div id="eatRows"></div>
+            <div class="hint" id="eatEmpty" style="padding:4px 2px;">Optional — pictures with quantity (1 or 1/2), price and description.</div>
+        </div>
+
         <!-- 8 extra charges + 9 remarks -->
         <div class="card">
             <div class="row" style="align-items:flex-start;">
@@ -223,6 +246,10 @@ include 'includes/app_shell.php';
                         <div class="fld mt12">
                             <input class="inp" id="cakeMsg" placeholder="✍ Cake message (written on the cake)...">
                             <textarea class="inp mt8" id="note" maxlength="300" placeholder="Any special message, notes or custom design details..." oninput="document.getElementById('noteCount').textContent=this.value.length+'/300'"></textarea>
+                            <div class="row mt8">
+                                <button type="button" class="btn btn-outline btn-sm" onclick="voiceToggle(this)">Record Voice</button>
+                                <button type="button" class="btn btn-ghost btn-sm" id="voicePlayBtn" onclick="voicePlayNote()" disabled>Play Voice</button>
+                            </div>
                             <span class="hint" style="text-align:right;" id="noteCount">0/300</span>
                         </div>
                     </div>
@@ -365,6 +392,7 @@ include 'includes/app_shell.php';
     }
 
     function pickCategory(el) {
+        catMode = 'cat';
         pickTile('catTiles', el);
         var i = parseInt(el.dataset.idx, 10);
         var c = CFG.categories[i];
@@ -404,13 +432,27 @@ include 'includes/app_shell.php';
         return 0;
     }
 
+    var catMode = 'cat';
+
+    function pickAllCategories(el) {
+        catMode = 'all';
+        document.querySelectorAll('#catTiles .tile').forEach(function(t) { t.classList.remove('on'); });
+        el.classList.add('on');
+        var s = document.getElementById('cakeSearch');
+        s.focus();
+        filterCategories();
+    }
+
     function filterCategories() {
-        var q = document.getElementById('cakeSearch').value.toLowerCase().trim();
+        var q = document.getElementById('cakeSearch').value.trim();
+        var cur = (catMode === 'all') ? 'all' : (selected.name || '').toLowerCase();
         document.querySelectorAll('#catTiles .tile').forEach(function(t) {
+            if (t.dataset.kind === 'allcat') { t.style.display = ''; return; }
             if (t.dataset.kind === 'cat') {
-                t.style.display = (!q || t.dataset.name.indexOf(q) > -1) ? '' : 'none';
+                t.style.display = (!q || fuzzyMatch(t.dataset.name, q)) ? '' : 'none';
             } else {
-                t.style.display = (q && t.dataset.name.indexOf(q) > -1) ? '' : 'none';
+                var okCat = (cur === 'all') || ((t.dataset.cats || '').split(',').indexOf(cur) > -1);
+                t.style.display = (q && okCat && fuzzyMatch(t.dataset.name, q)) ? '' : 'none';
             }
         });
     }
@@ -537,6 +579,36 @@ include 'includes/app_shell.php';
         };
     }
 
+    /* ---- eatable / decoration rows ---- */
+    var eatRows = [];
+    function eatEsc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+    function eatAdd() { eatRows.push({ img: '', qty: '1', price: 0, desc: '' }); eatRender(); }
+    function eatDel(i) { eatRows.splice(i, 1); eatRender(); }
+    function eatSet(i, k, v) { eatRows[i][k] = v; }
+    function eatImg(i) {
+        pickImage(function(d) { eatRows[i].img = d; eatRender(); });
+    }
+    function eatRender() {
+        var wrap = document.getElementById('eatRows');
+        document.getElementById('eatEmpty').style.display = eatRows.length ? 'none' : '';
+        var html = '';
+        for (var i = 0; i < eatRows.length; i++) {
+            var r = eatRows[i];
+            html += '<div class="row mt8" style="flex-wrap:nowrap;align-items:center;gap:8px;">' +
+                '<div style="width:56px;height:46px;border:1px dashed #b9c4d6;border-radius:8px;flex:0 0 auto;cursor:pointer;overflow:hidden;background:#f7f9fc;" onclick="eatImg(' + i + ')">' +
+                (r.img ? '<img src="' + r.img + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="display:block;text-align:center;line-height:44px;color:#8a97ad;">+</span>') +
+                '</div>' +
+                '<select class="inp" style="width:74px;flex:0 0 auto;" onchange="eatSet(' + i + ',\'qty\',this.value)">' +
+                '<option value="1"' + (r.qty === '1' ? ' selected' : '') + '>1</option>' +
+                '<option value="1/2"' + (r.qty === '1/2' ? ' selected' : '') + '>1/2</option></select>' +
+                '<input class="inp" style="width:96px;flex:0 0 auto;" type="number" min="0" placeholder="Price" value="' + (parseFloat(r.price) || '') + '" onchange="eatSet(' + i + ',\'price\',this.value)">' +
+                '<input class="inp" style="flex:1;" placeholder="Description" value="' + eatEsc(r.desc) + '" onchange="eatSet(' + i + ',\'desc\',this.value)">' +
+                '<button type="button" class="btn btn-ghost btn-sm" onclick="eatDel(' + i + ')">x</button></div>';
+        }
+        wrap.innerHTML = html;
+        if (window.refreshTabOrder) refreshTabOrder();
+    }
+
     function saveCake(status, btn) {
         if (!selected.name) {
             showToast('Select a cake category first', 'error');
@@ -551,6 +623,8 @@ include 'includes/app_shell.php';
 
         var note = document.getElementById('note').value;
         if (ladi && ladi !== 'N/A') note = 'LADI: ' + ladi + (note ? ' | ' + note : '');
+        var tv = parseInt(document.getElementById('tiersSel').value, 10) || 1;
+        if (tv > 1) note = 'TIERS: ' + tv + (note ? ' | ' + note : '');
 
         var items = [{
             inv_id: selected.invId || 0,
@@ -565,7 +639,7 @@ include 'includes/app_shell.php';
             cake_message: document.getElementById('cakeMsg').value,
             note: note,
             image_data: primaryImage(),
-            audio_data: ''
+            audio_data: voiceGet()
         }];
         if (extra > 0) {
             items.push({
@@ -588,7 +662,8 @@ include 'includes/app_shell.php';
         submitOrder(items, {
             status: status,
             btn: btn,
-            extra_images: extraImages()
+            extra_images: extraImages(),
+            eatables: eatRows.filter(function(r) { return r.img || r.desc || parseFloat(r.price) > 0; })
         }, function(res) {
             defaultAfterSave(res, status);
         });

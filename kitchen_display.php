@@ -31,6 +31,9 @@ $sql = "SELECT co.bill_no, co.party_detail, co.deliver_date, co.delivery_time,
         COUNT(*) AS item_count
         FROM cake_order co
         WHERE $statusWhere AND co.ordercancel = 0
+          AND co.notes NOT LIKE '%Lunch Box Set%'
+          AND co.notes NOT LIKE '%Sweets Box Set%'
+          AND co.notes NOT LIKE '%CUSTOM:%'
         GROUP BY bill_no
         ORDER BY co.bill_no DESC";
 
@@ -40,7 +43,8 @@ if ($result) while ($r = mysqli_fetch_assoc($result)) $orders[] = $r;
 
 // Progress counts (always over the whole active board)
 $progRes = mysqli_query($mysqli, "SELECT status, COUNT(DISTINCT bill_no) c FROM cake_order
-    WHERE status IN ('confirmed','preparing','ready') AND ordercancel = 0 GROUP BY status");
+    WHERE status IN ('confirmed','preparing','ready') AND ordercancel = 0
+      AND notes NOT LIKE '%Lunch Box Set%' AND notes NOT LIKE '%Sweets Box Set%' AND notes NOT LIKE '%CUSTOM:%' GROUP BY status");
 $prog = array('confirmed' => 0, 'preparing' => 0, 'ready' => 0);
 if ($progRes) while ($p = mysqli_fetch_assoc($progRes)) $prog[$p['status']] = intval($p['c']);
 

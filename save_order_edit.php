@@ -17,6 +17,7 @@ $priority = esc($input['priority']);
 $newItems = isset($input['new_items']) ? $input['new_items'] : array();
 
 $user = esc($_SESSION['user']);
+$salesman = !empty($_SESSION['salesman_name']) ? esc($_SESSION['salesman_name']) : $user;
 
 // Verify order is editable
 $res = mysqli_query($mysqli, "SELECT status, ordercancel FROM cake_order WHERE bill_no = $billNo LIMIT 1");
@@ -37,6 +38,7 @@ try {
         deliver_date = '$deliverDate',
         delivery_time = '$deliveryTime',
         priority = '$priority',
+        order_taker = '$salesman',
         status = 'confirmed',
         return_date = NOW(),
         notes = CONCAT(IFNULL(notes,''), ' | EDITED by $user at ', NOW())
@@ -80,7 +82,7 @@ try {
             VALUES 
             ($billNo, CURDATE(), NOW(), '$deliverDate', '$deliveryTime',
              $amount, $advance, 0, '$cellNo', '$partyDetail', '[ADDED LATER by $user] $itemNote',
-             '$user', NOW(), '$user', 'main', 0,
+             '$user', NOW(), '$salesman', 'main', 0,
              '$status', 0, NOW(), $flatDisc, '$deliverDate',
              '$orderType', $invId, $qty, 0, '$flavor', 0,
              '$priority', '$category', $tiers, '$shape', '$cakeMsg', $price,
@@ -91,6 +93,35 @@ try {
         }
     }
     
+    // voice note re-record (attach to one existing item row)
+    if (!empty($input['audio_data']) && !empty($input['audio_item_id'])) {
+        $aid = intval($input['audio_item_id']);
+        $aHex = dataUrlToHex($input['audio_data']);
+        mysqli_query($mysqli, "UPDATE cake_order SET audio_data = '$aHex' WHERE id = $aid AND bill_no = $billNo");
+    }
+
+    // eatable / decoration pictures replace
+    if (isset($input['eatables'])) {
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS cake_detail (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            bill_no INT, image_data MEDIUMTEXT, thumb_data MEDIUMTEXT,
+            qty VARCHAR(10), price DECIMAL(10,2), description VARCHAR(255),
+            dateent DATETIME, KEY (bill_no))");
+        mysqli_query($mysqli, "DELETE FROM cake_detail WHERE bill_no = $billNo");
+        foreach ($input['eatables'] as $eat) {
+            $eImg = ''; $eThumb = '';
+            if (!empty($eat['image']) && strpos($eat['image'], 'data:') === 0) {
+                $eImg = dataUrlToHex($eat['image']);
+                $eThumb = generateThumbnailHex($eat['image'], 200);
+            }
+            $eq = mysqli_real_escape_string($mysqli, isset($eat['qty']) ? $eat['qty'] : '1');
+            $ep = floatval(isset($eat['price']) ? $eat['price'] : 0);
+            $ed = mysqli_real_escape_string($mysqli, isset($eat['desc']) ? $eat['desc'] : '');
+            mysqli_query($mysqli, "INSERT INTO cake_detail (bill_no, image_data, thumb_data, qty, price, description, dateent)
+                VALUES ($billNo, '$eImg', '$eThumb', '$eq', $ep, '$ed', NOW())");
+        }
+    }
+
     mysqli_commit($mysqli);
     
     jsonResponse(array(

@@ -20,6 +20,11 @@ if (isKitchen()) {
     exit;
 }
 
+// salesman name: saved once per login, printed on every invoice
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salesman_name'])) {
+    $_SESSION['salesman_name'] = trim($_POST['salesman_name']);
+}
+
 $today = date('Y-m-d');
 $weekLater = date('Y-m-d', strtotime('+7 days'));
 
@@ -104,9 +109,25 @@ include 'includes/app_shell.php';
             <span class="q-arrow">→</span>
             <span class="q-ic">≡</span>
             <span class="q-lb">Other (POS)</span>
-        </a> 
+        </a>
+        <a class="quick-card qc-pink" href="custom_pos.php">
+            <span class="q-arrow">→</span>
+            <span class="q-ic">✎</span>
+            <span class="q-lb">Custom Sale</span>
+        </a>
     </div>
     <?php endif; ?>
+
+<!-- ============ SALESMAN NAME ============ -->
+<div class="card compact" style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <label style="font-weight:600;white-space:nowrap;">Salesman Name</label>
+    <form method="post" style="display:flex;gap:8px;flex:1;min-width:240px;">
+        <input class="inp" name="salesman_name" placeholder="Name printed on invoices"
+               value="<?php echo htmlspecialchars(!empty($_SESSION['salesman_name']) ? $_SESSION['salesman_name'] : ''); ?>">
+        <button class="btn btn-primary" style="flex:0 0 auto;">Save</button>
+    </form>
+    <span class="hint">Enter once per login — saved on every order and printed on invoices.</span>
+</div>
 
 <!-- ============ MINI STATS ============ -->
 <div class="mini-stats">

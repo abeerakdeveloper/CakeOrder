@@ -162,3 +162,64 @@ function parseSizeLabel($label)
     }
     return array($tiers, $uom);
 }
+
+/* ---------- order categories (DB managed, with defaults) ----------
+   cake_order_category(id, name, order_type, keywords)
+   order_type: cake | lunchbox | sweetsbox | pos | all               */
+function ensureCategoryTable($mysqli) {
+    mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS cake_order_category (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        order_type VARCHAR(20) NOT NULL DEFAULT 'cake',
+        keywords VARCHAR(500) NOT NULL DEFAULT '',
+        dateent DATETIME NULL)");
+    $r = mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM cake_order_category");
+    $row = $r ? mysqli_fetch_assoc($r) : null;
+    if (!$row || intval($row['c']) == 0) {
+        $seed = array(
+            array('Fresh Cream Cake', 'cake', 'cream,fresh'),
+            array('Chocolate Cake',   'cake', 'chocolate,brownie,truffle'),
+            array('Cheese Cake',      'cake', 'cheese'),
+            array('Pastry',           'cake', 'pastry,cupcake,muffin,donut'),
+            array('Lunch Items',      'lunchbox', 'chicken,rice,roti,kebab,pizza,juice,drink,shawarma'),
+            array('Sweets',           'sweetsbox', 'sweet,laddu,barfi,gulab,jaman,kheer,halwa'),
+            array('General',          'pos', ''),
+        );
+        foreach ($seed as $sd) {
+            $n = mysqli_real_escape_string($mysqli, $sd[0]);
+            $t = mysqli_real_escape_string($mysqli, $sd[1]);
+            $k = mysqli_real_escape_string($mysqli, $sd[2]);
+            mysqli_query($mysqli, "INSERT INTO cake_order_category (name, order_type, keywords, dateent) VALUES ('$n','$t','$k',NOW())");
+        }
+    }
+}
+function orderCategories($mysqli, $type) {
+    ensureCategoryTable($mysqli);
+    $t = mysqli_real_escape_string($mysqli, $type);
+    $out = array();
+    $r = mysqli_query($mysqli, "SELECT name, order_type, keywords FROM cake_order_category
+        WHERE order_type IN ('$t','all') ORDER BY id");
+    if ($r) while ($x = mysqli_fetch_assoc($r)) $out[] = $x;
+    return $out;
+}
+function allCategories($mysqli) {
+    ensureCategoryTable($mysqli);
+    $out = array();
+    $r = mysqli_query($mysqli, "SELECT name, order_type, keywords FROM cake_order_category ORDER BY id");
+    if ($r) while ($x = mysqli_fetch_assoc($r)) $out[] = $x;
+    return $out;
+}
+/* comma list of category names whose keywords appear in product name */
+function productCatAttr($mysqli, $name) {
+    static $cats = null;
+    if ($cats === null) $cats = allCategories($mysqli);
+    $hit = array();
+    foreach ($cats as $c) {
+        $kws = array_filter(array_map('trim', explode(',', $c['keywords'])));
+        if (!$kws) { $hit[] = strtolower($c['name']); continue; }   // no keywords = general, matches all
+        foreach ($kws as $k) {
+            if ($k !== '' && stripos($name, $k) !== false) { $hit[] = strtolower($c['name']); break; }
+        }
+    }
+    return htmlspecialchars(implode(',', $hit), ENT_QUOTES);
+}

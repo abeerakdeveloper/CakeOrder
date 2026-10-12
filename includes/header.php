@@ -64,6 +64,8 @@ function shellActiveBox($t) { global $currentPage;
         <a style="display: none;"  class="app-nav-item <?php echo shellActive('order_eatables.php'); ?>" href="order_eatables.php"><span class="ic">◍</span> Eatables</a>
 
         <a class="app-nav-item <?php echo shellActive('index.php'); ?>" href="index.php"><span class="ic">⧉</span> Other (POS)</a>
+        <a class="app-nav-item <?php echo shellActive('custom_pos.php'); ?>" href="custom_pos.php"><span class="ic">✎</span> Custom Sale</a>
+        <a class="app-nav-item <?php echo shellActive('categories.php'); ?>" href="categories.php"><span class="ic">▤</span> Categories</a>
 
         <?php if (isKitchen() || isAdmin()): ?>
         <div class="grp">Production</div>

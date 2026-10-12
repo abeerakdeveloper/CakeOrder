@@ -1,6 +1,7 @@
 <?php
 require_once 'db.php';
 require_once 'includes/product_images.php';
+require_once 'includes/cake_config.php';
 requireRole(array(1, 3));
 
 date_default_timezone_set('Asia/Karachi');
@@ -111,6 +112,12 @@ include 'includes/app_shell.php';
 
         <div class="card">
             <div class="card-title"><span class="ic"><?php echo $icon; ?></span> <?php echo $boxWord; ?> Sets
+                <select class="inp" style="width:160px;flex:0 0 auto;" id="boxCat">
+                    <option value="all">All Categories</option>
+                    <?php foreach (orderCategories($mysqli, $isSweets ? 'sweetsbox' : 'lunchbox') as $bc): ?>
+                    <option value="<?php echo htmlspecialchars(strtolower($bc['name']), ENT_QUOTES); ?>"><?php echo htmlspecialchars($bc['name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
                 <span class="spacer"></span>
                 <button class="btn btn-outline btn-sm" onclick="addSet()">＋ Add another set</button>
             </div>
@@ -181,7 +188,8 @@ var UNITS = <?php echo json_encode($units); ?>;
 var PRODUCTS = <?php echo json_encode(array_values(array_map(function ($p) {
     return array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom'],
                  'barcode' => isset($p['barcode']) ? $p['barcode'] : '',
-                 'img' => productImageUrl($p['inv_id'], $p['prod_name']), 'emoji' => productEmoji($p['prod_name']));
+                 'img' => productImageUrl($p['inv_id'], $p['prod_name']), 'emoji' => productEmoji($p['prod_name']),
+                 'cats' => strtolower(productCatAttr($mysqli, $p['prod_name'])));
 }, $products))); ?>;
 
 var sets = [];          // [{boxes:6, items:[{id,name,price,per,unit,on}]}]
@@ -357,9 +365,12 @@ function onPickFocus(setIndex, query) {
 function onPickSearch(setIndex, query) {
     var q = (query || '').trim();
     var matches = [];
+    var catSel = document.getElementById('boxCat');
+    var curCat = catSel ? catSel.value : 'all';
     for (var p = 0; p < PRODUCTS.length; p++) {
         var prod = PRODUCTS[p];
-        if (!q || fuzzyMatch(prod.name + ' ' + (prod.barcode || '') + ' ' + (prod.uom || ''), q)) {
+        var okCat = (curCat === 'all') || ((prod.cats || '').split(',').indexOf(curCat) > -1);
+        if (okCat && (!q || fuzzyMatch(prod.name + ' ' + (prod.barcode || '') + ' ' + (prod.uom || ''), q))) {
             matches.push(prod);
             if (matches.length >= 30) break;
         }

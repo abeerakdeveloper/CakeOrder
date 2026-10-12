@@ -13,6 +13,8 @@ while ($r = mysqli_fetch_assoc($res)) $items[] = $r;
 if (empty($items)) { die("Order not found"); }
 
 $first = $items[0];
+$voiceId = 0;
+foreach ($items as $it) { if (!empty($it['audio_data'])) { $voiceId = intval($it['id']); break; } }
 
 // Permission check
 if (in_array($first['status'], array('ready','delivered','paid','cancelled'))) {
@@ -59,6 +61,7 @@ $currentBalance = $currentNet - $first['advance'] - $first['paid'];
 }
 .existing-item .info { display: flex; justify-content: space-between; align-items: center; }
 </style>
+<script src="assets/pos_common.js"></script>
 </head>
 <body>
 
@@ -174,6 +177,19 @@ $currentBalance = $currentNet - $first['advance'] - $first['paid'];
                 </div>
                 <div class="action-btns">
                     <button class="btn-hold" onclick="window.location.href='dashboard.php'">✕ Cancel</button>
+            <div style="margin:14px 0 4px;padding:10px 12px;background:#f8f9fb;border:1px solid #e3e8f0;border-radius:8px;">
+                <strong style="font-size:12px;">Voice Note</strong>
+                <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+                    <?php if ($voiceId): ?>
+                        <audio controls preload="none" src="show_image.php?type=voice&id=<?php echo $voiceId; ?>" style="height:32px;max-width:230px;"></audio>
+                    <?php else: ?>
+                        <span style="font-size:12px;color:#888;">No voice note on this order.</span>
+                    <?php endif; ?>
+                    <button type="button" class="btn-small" onclick="voiceToggle(this)">Record Voice</button>
+                    <button type="button" class="btn-small" onclick="voicePlayNote()">Play New</button>
+                </div>
+                <span style="font-size:11px;color:#888;">A new recording replaces the order voice note when you save.</span>
+            </div>
                     <button class="btn-confirm" onclick="saveChanges()">💾 Save Changes</button>
                 </div>
             </div>
@@ -332,6 +348,8 @@ function saveChanges() {
         deliver_date: document.getElementById('deliverDate').value,
         delivery_time: document.getElementById('deliverTime').value,
         priority: document.getElementById('priority').value,
+        audio_data: voiceGet(),
+        audio_item_id: <?php echo intval($first['id']); ?>,
         new_items: collectNewItems()
     };
     
