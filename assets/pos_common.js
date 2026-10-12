@@ -170,6 +170,7 @@ function submitOrder(items, extra, onDone) {
         items: items,
         extra_images: extra.extra_images || [],
         eatables: extra.eatables || [],
+        extra_charge: parseInt(extra.extra_charge, 10) || 0,
         status: extra.status || 'confirmed',
         party_detail: val('custName') || 'Walk-in',
         cell_no: val('custPhone') || val('custCell'),

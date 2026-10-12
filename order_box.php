@@ -252,10 +252,14 @@ function addPickedProduct(setIndex, prodId) {
     renderSets();
     recalc();
     showToast('Added to Set ' + (setIndex + 1) + ': ' + p.name, 'success');
+    focusPrice(setIndex, s.items.length - 1);
+}
+
+function focusPrice(i, k) {
     setTimeout(function() {
-        var inp = document.getElementById('pick_input_' + setIndex);
-        if (inp) inp.focus();
-    }, 50);
+        var inp = document.getElementById('iprice_' + i + '_' + k);
+        if (inp) { inp.focus(); if (inp.select) inp.select(); }
+    }, 60);
 }
 
 function addCustomItemToSet(setIndex, defaultName) {
@@ -268,6 +272,7 @@ function addCustomItemToSet(setIndex, defaultName) {
     renderSets();
     recalc();
     showToast('Added to Set ' + (setIndex + 1) + ': ' + name, 'success');
+    focusPrice(setIndex, s.items.length - 1);
 }
 
 function setItemField(i, k, field, value) {
@@ -306,7 +311,7 @@ function renderSets() {
                 thumbHtml(p) +
                 '<span class="nm">' + escHtml(it.name) + ' <span class="lbl">Rs. ' + Math.round(it.price).toLocaleString() + '</span></span>' +
                 '<span class="lbl">Price</span>' +
-                '<input class="inp" style="width:86px;" type="number" min="0" value="' + (Math.round(it.price) || 0) + '" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'price\',this.value)">' +
+                '<input class="inp" style="width:86px;" type="number" min="0" id="iprice_' + i + '_' + k + '" value="' + (Math.round(it.price) || 0) + '" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'price\',this.value)">' +
                 '<span class="lbl">Qty per box</span>' +
                 '<input class="inp" style="width:64px;" type="number" min="1" value="' + it.per + '" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'per\',this.value)">' +
                 '<select class="inp" style="width:96px;" onclick="event.stopPropagation()" onchange="setItemField(' + i + ',' + k + ',\'unit\',this.value)">';

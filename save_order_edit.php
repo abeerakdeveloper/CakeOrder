@@ -31,6 +31,118 @@ if (in_array($check['status'], array('ready','delivered','paid','cancelled'))) {
 mysqli_autocommit($mysqli, false);
 
 try {
+    // 0. FULL REPLACE (cake edit mode): rebuild every row of this bill
+    if (!empty($input['full_replace'])) {
+        $oldRes = mysqli_query($mysqli, "SELECT * FROM cake_order WHERE bill_no = $billNo AND ordercancel = 0 ORDER BY id LIMIT 1");
+        $old = mysqli_fetch_assoc($oldRes);
+        $oldStatus  = $old ? $old['status'] : 'confirmed';
+        $oldAdvance = $old ? intval($old['advance']) : 0;
+        $oldPaid    = $old ? intval($old['paid']) : 0;
+        $oldAudio   = ($old && !empty($old['audio_data'])) ? $old['audio_data'] : '';
+        $oldFactory = $old ? $old['order_factory'] : 'main';
+        $oldFlat    = $old ? intval($old['flat_disc']) : 0;
+
+        mysqli_query($mysqli, "DELETE FROM cake_order WHERE bill_no = $billNo");
+        mysqli_query($mysqli, "DELETE FROM order_extra_images WHERE bill_no = $billNo");
+        mysqli_query($mysqli, "DELETE FROM cake_detail WHERE bill_no = $billNo");
+
+        $extraCharge  = isset($input['extra_charge']) ? intval($input['extra_charge']) : 0;
+        $extraApplied = false;
+        $occasion     = isset($input['occasion']) ? esc($input['occasion']) : '';
+        $deliveryType = isset($input['delivery_type']) ? esc($input['delivery_type']) : 'pickup';
+        $deliveryAddress = isset($input['delivery_address']) ? esc($input['delivery_address']) : '';
+        $newAudioHex  = (!empty($input['audio_data']) && strpos($input['audio_data'], 'data:') === 0) ? dataUrlToHex($input['audio_data']) : '';
+        $rItems = isset($input['items']) ? $input['items'] : array();
+        $firstItem = true;
+        foreach ($rItems as $item) {
+            $invId  = isset($item['inv_id']) ? intval($item['inv_id']) : 0;
+            $qty    = floatval($item['qty']);
+            $price  = floatval($item['price']);
+            $amount = round($price * $qty);
+            $category = isset($item['category']) ? esc($item['category']) : esc($item['name']);
+            $flavor = isset($item['flavor']) ? esc($item['flavor']) : '';
+            $shape  = isset($item['shape']) ? esc($item['shape']) : '';
+            $tiers  = isset($item['tiers']) ? intval($item['tiers']) : 1;
+            $uom    = isset($item['uom']) ? esc($item['uom']) : 'pcs';
+            $cakeMsg = isset($item['cake_message']) ? esc($item['cake_message']) : '';
+            $itemNote = isset($item['note']) ? esc($item['note']) : '';
+            $fullNote = $itemNote;
+            if ($occasion) $fullNote = "OCCASION: $occasion | " . $fullNote;
+            if ($deliveryType == 'delivery' && $deliveryAddress) $fullNote .= " | DELIVERY ADDR: " . $deliveryAddress;
+            $fullNote = esc($fullNote);
+
+            $imageHex = null; $thumbHex = null;
+            if (!empty($item['image_data']) && strpos($item['image_data'], 'data:') === 0) {
+                $imageHex = dataUrlToHex($item['image_data']);
+                $thumbHex = generateThumbnailHex($item['image_data']);
+            }
+            $audioHex = null;
+            if ($firstItem) {
+                if ($newAudioHex) $audioHex = $newAudioHex;
+                elseif ($oldAudio) $audioHex = $oldAudio;
+            }
+            $extPay = 0;
+            if ($extraCharge > 0 && !$extraApplied) { $amount += $extraCharge; $extPay = $extraCharge; $extraApplied = true; }
+
+            $imageSql = $imageHex ? "'" . esc($imageHex) . "'" : "NULL";
+            $thumbSql = $thumbHex ? "'" . esc($thumbHex) . "'" : "NULL";
+            $audioSql = $audioHex ? "'" . esc($audioHex) . "'" : "NULL";
+            $sql = "INSERT INTO cake_order
+                (bill_no, inv_date, return_date, deliver_date, delivery_time,
+                 amount, advance, paid, cell_no, party_detail, notes,
+                 user, dateent, order_taker, order_factory, ordercancel,
+                 status, off_bill_no, off_dateent, flat_disc, pay_date,
+                 order_type, inv_id, qty, ext_pay, flavor, flavor_amt,
+                 priority, category, tiers, shape, cake_message, retail_price,
+                 image_data, thumb_data, audio_data, uom, payment_method)
+                VALUES
+                ($billNo, CURDATE(), NOW(), '$deliverDate', '$deliveryTime',
+                 $amount, $oldAdvance, $oldPaid, '$cellNo', '$partyDetail', '$fullNote',
+                 '$user', NOW(), '$salesman', '$oldFactory', 0,
+                 '$oldStatus', 0, NOW(), $oldFlat, '$deliverDate',
+                 '" . esc(isset($input['source']) ? $input['source'] : 'walk-in') . "', $invId, $qty, $extPay, '$flavor', 0,
+                 '$priority', '$category', $tiers, '$shape', '$cakeMsg', $price,
+                 $imageSql, $thumbSql, $audioSql, '$uom', NULL)";
+            if (!mysqli_query($mysqli, $sql)) throw new Exception('Replace insert failed: ' . mysqli_error($mysqli));
+            $firstItem = false;
+        }
+        if (!empty($input['extra_images']) && is_array($input['extra_images'])) {
+            mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS order_extra_images (
+                id INT AUTO_INCREMENT PRIMARY KEY, bill_no INT,
+                image_data MEDIUMTEXT, thumb_data MEDIUMTEXT, dateent DATETIME, KEY (bill_no))");
+            foreach ($input['extra_images'] as $durl) {
+                if (empty($durl) || strpos($durl, 'data:') !== 0) continue;
+                $ih = dataUrlToHex($durl);
+                $th = generateThumbnailHex($durl, 200);
+                mysqli_query($mysqli, "INSERT INTO order_extra_images (bill_no, image_data, thumb_data, dateent)
+                    VALUES ($billNo, '" . esc($ih) . "', '" . esc($th) . "', NOW())");
+            }
+        }
+        if (isset($input['eatables'])) {
+            mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS cake_detail (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                bill_no INT, image_data MEDIUMTEXT, thumb_data MEDIUMTEXT,
+                qty VARCHAR(10), price DECIMAL(10,2), description VARCHAR(255),
+                dateent DATETIME, KEY (bill_no))");
+            mysqli_query($mysqli, "DELETE FROM cake_detail WHERE bill_no = $billNo");
+            foreach ($input['eatables'] as $eat) {
+                $eSrc = !empty($eat['image']) ? $eat['image'] : (!empty($eat['img']) ? $eat['img'] : '');
+                $eImg = ''; $eThumb = '';
+                if (!empty($eSrc) && strpos($eSrc, 'data:') === 0) {
+                    $eImg = dataUrlToHex($eSrc);
+                    $eThumb = generateThumbnailHex($eSrc, 200);
+                }
+                $eq = mysqli_real_escape_string($mysqli, isset($eat['qty']) ? $eat['qty'] : '1');
+                $ep = floatval(isset($eat['price']) ? $eat['price'] : 0);
+                $ed = mysqli_real_escape_string($mysqli, isset($eat['desc']) ? $eat['desc'] : '');
+                mysqli_query($mysqli, "INSERT INTO cake_detail (bill_no, image_data, thumb_data, qty, price, description, dateent)
+                    VALUES ($billNo, '$eImg', '$eThumb', '$eq', $ep, '$ed', NOW())");
+            }
+        }
+        mysqli_commit($mysqli);
+        jsonResponse(array('success' => true, 'bill_no' => $billNo, 'message' => 'Order updated successfully'));
+    }
+
     // 1. Update customer info and status on ALL rows of this bill
     $updateSql = "UPDATE cake_order SET 
         party_detail = '$partyDetail',
@@ -109,10 +221,11 @@ try {
             dateent DATETIME, KEY (bill_no))");
         mysqli_query($mysqli, "DELETE FROM cake_detail WHERE bill_no = $billNo");
         foreach ($input['eatables'] as $eat) {
+            $eSrc = !empty($eat['image']) ? $eat['image'] : (!empty($eat['img']) ? $eat['img'] : '');
             $eImg = ''; $eThumb = '';
-            if (!empty($eat['image']) && strpos($eat['image'], 'data:') === 0) {
-                $eImg = dataUrlToHex($eat['image']);
-                $eThumb = generateThumbnailHex($eat['image'], 200);
+            if (!empty($eSrc) && strpos($eSrc, 'data:') === 0) {
+                $eImg = dataUrlToHex($eSrc);
+                $eThumb = generateThumbnailHex($eSrc, 200);
             }
             $eq = mysqli_real_escape_string($mysqli, isset($eat['qty']) ? $eat['qty'] : '1');
             $ep = floatval(isset($eat['price']) ? $eat['price'] : 0);

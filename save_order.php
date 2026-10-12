@@ -192,10 +192,11 @@ if (!empty($input['eatables'])) {
         qty VARCHAR(10), price DECIMAL(10,2), description VARCHAR(255),
         dateent DATETIME, KEY (bill_no))");
     foreach ($input['eatables'] as $eat) {
+        $eSrc = !empty($eat['image']) ? $eat['image'] : (!empty($eat['img']) ? $eat['img'] : '');
         $eImg = ''; $eThumb = '';
-        if (!empty($eat['image']) && strpos($eat['image'], 'data:') === 0) {
-            $eImg = dataUrlToHex($eat['image']);
-            $eThumb = generateThumbnailHex($eat['image'], 200);
+        if (!empty($eSrc) && strpos($eSrc, 'data:') === 0) {
+            $eImg = dataUrlToHex($eSrc);
+            $eThumb = generateThumbnailHex($eSrc, 200);
         }
         $eq = mysqli_real_escape_string($mysqli, isset($eat['qty']) ? $eat['qty'] : '1');
         $ep = floatval(isset($eat['price']) ? $eat['price'] : 0);

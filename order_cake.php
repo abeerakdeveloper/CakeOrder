@@ -19,6 +19,59 @@ if ($prodRes) while ($p = mysqli_fetch_assoc($prodRes)) $products[] = $p;
 $sources = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
 $refImgs = productReferenceImages();
 
+// ---------- EDIT MODE: load an existing cake bill into this same form ----------
+$EDIT = null;
+if (!empty($_GET['edit'])) {
+    $eb = intval($_GET['edit']);
+    $er = mysqli_query($mysqli, "SELECT * FROM cake_order WHERE bill_no = $eb AND ordercancel = 0 ORDER BY id");
+    $erows = array();
+    if ($er) while ($r = mysqli_fetch_assoc($er)) $erows[] = $r;
+    if (!empty($erows)) {
+        $f = $erows[0];
+        $exImgs = array();
+        $xr = @mysqli_query($mysqli, "SELECT image_data FROM order_extra_images WHERE bill_no = $eb ORDER BY id");
+        if ($xr) while ($x = mysqli_fetch_assoc($xr)) {
+            if (!empty($x['image_data'])) $exImgs[] = 'data:image/jpeg;base64,' . base64_encode(hex2bin($x['image_data']));
+        }
+        $detRows = array();
+        $dtr = @mysqli_query($mysqli, "SELECT qty, price, description, image_data FROM cake_detail WHERE bill_no = $eb ORDER BY id");
+        if ($dtr) while ($d = mysqli_fetch_assoc($dtr)) {
+            $detRows[] = array(
+                'qty' => $d['qty'], 'price' => floatval($d['price']), 'desc' => $d['description'],
+                'img' => !empty($d['image_data']) ? 'data:image/jpeg;base64,' . base64_encode(hex2bin($d['image_data'])) : '',
+            );
+        }
+        $EDIT = array(
+            'bill'      => $eb,
+            'status'    => $f['status'],
+            'customer'  => $f['party_detail'],
+            'phone'     => $f['cell_no'],
+            'date'      => $f['deliver_date'],
+            'time'      => $f['delivery_time'],
+            'priority'  => $f['priority'],
+            'source'    => $f['order_type'],
+            'address'   => (preg_match('/DELIVERY ADDR: (.*)$/s', (string)$f['notes'], $m) ? trim($m[1]) : ''),
+            'category'  => $f['category'],
+            'flavor'    => $f['flavor'],
+            'ladi'      => (preg_match('/LADI: ([^|]+)/', (string)$f['notes'], $m) ? trim($m[1]) : ''),
+            'shape'     => $f['shape'],
+            'uom'       => $f['uom'],
+            'wtiers'    => floatval($f['tiers']),
+            'cakeTiers' => (preg_match('/TIERS: (\d+)/', (string)$f['notes'], $m) ? intval($m[1]) : 1),
+            'qty'       => intval($f['qty']),
+            'price'     => floatval($f['retail_price']) / max(1, floatval($f['tiers'])),
+            'cakeMsg'   => $f['cake_message'],
+            'note'      => trim(preg_replace('/\|+/', '|', preg_replace('/(OCCASION:|LADI:|TIERS:|DELIVERY ADDR:)[^|]*/', '', (string)$f['notes'])), " |"),
+            'occasion'  => (preg_match('/OCCASION: ([^|]+)/', (string)$f['notes'], $m) ? trim($m[1]) : ''),
+            'extra'     => intval($f['ext_pay']),
+            'primary'   => !empty($f['image_data']) ? 'data:image/jpeg;base64,' . base64_encode(hex2bin($f['image_data'])) : '',
+            'extras'    => $exImgs,
+            'eatables'  => $detRows,
+            'voiceUrl'  => !empty($f['audio_data']) ? ('show_image.php?type=voice&id=' . intval($f['id'])) : '',
+        );
+    }
+}
+
 $pageTitle  = 'Cake Order';
 $pageKey    = 'cake';
 $shellNoNav = true;   // order pages: no sidebar, more room
@@ -28,7 +81,7 @@ include 'includes/app_shell.php';
 <div class="page-head">
     <div class="ph-ic"></div>
     <div>
-        <h2>Create Cake Order</h2>
+        <h2><?php echo $EDIT ? 'Edit Cake Order #' . intval($EDIT['bill']) : 'Create Cake Order'; ?></h2>
     </div>
     <div class="spacer"></div>
     <a class="btn btn-outline" href="order_cake.php">＋ New Order</a>
@@ -39,6 +92,7 @@ include 'includes/app_shell.php';
     <div>
         <!-- customer + type + date -->
         <div class="card compact">
+            <input type="hidden" id="editBillNo" value="<?php echo $EDIT ? intval($EDIT['bill']) : 0; ?>">
             <div class="grid-3">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer (F4)</label>
@@ -340,8 +394,7 @@ include 'includes/app_shell.php';
         price: 0
     };
     document.addEventListener('DOMContentLoaded',()=>{
-        document.getElementById('add-eatable-row').click();
-
+        if (!(window.EDIT && EDIT.bill)) document.getElementById('add-eatable-row').click();
     })
     function pickTile(groupId, el) {
         document.querySelectorAll('#' + groupId + ' .tile').forEach(function(t) {
@@ -649,19 +702,108 @@ include 'includes/app_shell.php';
             audio_data: voiceGet()
         }];
 
+        var eatSend = eatRows.filter(function(r) { return r.img || r.desc || parseFloat(r.price) > 0; });
+        var editBill = parseInt(document.getElementById('editBillNo').value, 10) || 0;
+        if (editBill) {
+            if (btn) btn.disabled = true;
+            fetch('save_order_edit.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bill_no: editBill,
+                    full_replace: true,
+                    items: items,
+                    extra_images: extraImages(),
+                    extra_charge: extra,
+                    eatables: eatSend,
+                    party_detail: val('custName') || 'Walk-in',
+                    cell_no: val('custPhone') || val('custCell'),
+                    deliver_date: val('deliverDate'),
+                    delivery_time: val('deliverTime'),
+                    priority: val('priority') || 'normal',
+                    occasion: val('occasion') || '',
+                    delivery_type: getOrderType(),
+                    delivery_address: (getOrderType() === 'delivery') ? val('deliveryAddress') : '',
+                    source: val('orderSource') || 'walk-in',
+                    audio_data: voiceGet()
+                })
+            }).then(function(r) { return r.json(); }).then(function(res) {
+                if (res.success) {
+                    showToast('Order #' + editBill + ' updated', 'success');
+                    setTimeout(function() { window.location.href = 'order_list.php'; }, 700);
+                } else {
+                    showToast(res.message || 'Update failed', 'error');
+                    if (btn) btn.disabled = false;
+                }
+            }).catch(function() { showToast('Update failed', 'error'); if (btn) btn.disabled = false; });
+            return;
+        }
         submitOrder(items, {
             status: status,
             btn: btn,
             extra_images: extraImages(),
             extra_charge: extra,
-            eatables: eatRows.filter(function(r) { return r.img || r.desc || parseFloat(r.price) > 0; })
+            eatables: eatSend
         }, function(res) {
             defaultAfterSave(res, status);
         });
     }
 
+    var EDIT = <?php echo json_encode($EDIT); ?>;
+    if (EDIT) {
+        document.getElementById('custName').value = EDIT.customer || 'Walk-in';
+        document.getElementById('custPhone').value = EDIT.phone || '';
+        var cc = document.getElementById('custCell'); if (cc) cc.value = EDIT.phone || '';
+        document.getElementById('deliverDate').value = EDIT.date || '';
+        document.getElementById('deliverTime').value = EDIT.time || '';
+        if (EDIT.priority) document.getElementById('priority').value = EDIT.priority;
+        if (EDIT.source) document.getElementById('orderSource').value = EDIT.source;
+        if (EDIT.address) {
+            document.getElementById('orderTypeSel').value = 'delivery';
+            document.getElementById('deliveryAddress').value = EDIT.address;
+            toggleAddrRow();
+        }
+        if (EDIT.occasion) document.getElementById('occasion').value = EDIT.occasion;
+    }
+
     bindCustomerLookup('custCell', 'custName');
     pickCategory(document.querySelector('#catTiles .tile.on'));
+    if (EDIT) {
+        var tiles = document.querySelectorAll('#catTiles .tile[data-kind="cat"]');
+        for (var ti = 0; ti < tiles.length; ti++) {
+            if (tiles[ti].dataset.name === String(EDIT.category || '').toLowerCase()) { pickCategory(tiles[ti]); break; }
+        }
+        document.getElementById('flavorText').value = EDIT.flavor || '';
+        document.getElementById('ladiText').value = EDIT.ladi || '';
+        if (EDIT.shape) {
+            document.querySelectorAll('#shapeTiles .tile').forEach(function(t) {
+                t.classList.toggle('on', t.getAttribute('data-shape') === EDIT.shape);
+            });
+        }
+        var sizeSel = document.getElementById('size');
+        var want = (EDIT.wtiers && EDIT.wtiers != 1 ? EDIT.wtiers + ' ' : '') + (EDIT.uom || '');
+        var has = false;
+        for (var so = 0; so < sizeSel.options.length; so++) if (sizeSel.options[so].value === want) has = true;
+        if (!has && want) { var op = document.createElement('option'); op.value = want; op.textContent = want; sizeSel.appendChild(op); }
+        if (want) sizeSel.value = want;
+        document.getElementById('tiersSel').value = String(EDIT.cakeTiers || 1);
+        document.getElementById('qty').value = EDIT.qty || 1;
+        document.getElementById('price').value = Math.round(EDIT.price || 0);
+        document.getElementById('cakeMsg').value = EDIT.cakeMsg || '';
+        document.getElementById('note').value = EDIT.note || '';
+        document.getElementById('extraCharge').value = EDIT.extra || 0;
+        if (EDIT.primary) imageSet.push(EDIT.primary);
+        (EDIT.extras || []).forEach(function(u) { imageSet.push(u); });
+        imgRender();
+        eatRows.length = 0;
+        (EDIT.eatables || []).forEach(function(r) { eatRows.push(r); });
+        eatRender();
+        if (EDIT.voiceUrl) {
+            var pb = document.getElementById('voicePlayBtn');
+            if (pb) { pb.disabled = false; pb.setAttribute('onclick', "voicePlayNote('" + EDIT.voiceUrl + "')"); }
+        }
+        recalc();
+    }
     initShortcuts({
         searchId: 'cakeSearch',
         onConfirm: function() {

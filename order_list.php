@@ -32,6 +32,7 @@ $sql = "SELECT bill_no, party_detail, cell_no, deliver_date, delivery_time,
     MAX(status) AS status, MAX(priority) AS priority, MAX(flat_disc) AS flat_disc,
     MAX(payment_method) AS payment_method, MAX(dateent) AS dateent, MAX(ordercancel) AS cancelled,
     GROUP_CONCAT(category SEPARATOR ', ') AS items,
+    GROUP_CONCAT(IFNULL(notes,'') SEPARATOR '||') AS all_notes,
     COUNT(*) AS item_count
     FROM cake_order $where
     GROUP BY bill_no
@@ -252,7 +253,7 @@ $pageTitle = 'Order List';
                                 
                                 <?php if ($canEdit): ?>
                                 <button class="btn btn-sm btn-warning" 
-                                        onclick="editOrder(<?php echo $o['bill_no']; ?>)" 
+                                        onclick="editOrder(<?php echo $o['bill_no']; ?>, <?php echo (strpos((string)$o['all_notes'], 'Box Set') === false && strpos((string)$o['all_notes'], 'CUSTOM:') === false) ? 'true' : 'false'; ?>)" 
                                         title="Edit Order">✎</button>
                                 <?php endif; ?>
                                 
@@ -354,8 +355,8 @@ function filterPriority(priority, btn) {
 }
 
 // ===== EDIT ORDER =====
-function editOrder(billNo) {
-    window.location.href = 'edit_order.php?bill=' + billNo;
+function editOrder(billNo, isCake) {
+    window.location.href = isCake ? ('order_cake.php?edit=' + billNo) : ('edit_order.php?bill=' + billNo);
 }
 
 // ===== STATUS UPDATE =====
