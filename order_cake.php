@@ -26,7 +26,7 @@ include 'includes/app_shell.php';
 ?>
 
 <div class="page-head">
-    <div class="ph-ic">🎂</div>
+    <div class="ph-ic"></div>
     <div>
         <h2>Create Cake Order</h2>
     </div>
@@ -56,7 +56,7 @@ include 'includes/app_shell.php';
                     <label>Order Type</label>
                     <select class="inp" id="orderTypeSel" onchange="toggleAddrRow()">
                         <option value="pickup">🛍 Pickup</option>
-                        <option value="delivery">🚚 Delivery</option>
+                        <option value="delivery"> Delivery</option>
                     </select>
                 </div>
                 <div class="fld">
@@ -68,7 +68,7 @@ include 'includes/app_shell.php';
                 </div>
             </div>
             <div class="fld mt12" id="addrRow" style="display:none;">
-                <label>📍 Delivery Address</label>
+                <label>Delivery Address</label>
                 <input class="inp" id="deliveryAddress" placeholder="Full delivery address...">
             </div>
         </div>
@@ -82,29 +82,29 @@ include 'includes/app_shell.php';
                     <input class="inp mt12" id="cakeSearch" placeholder="🔍 Search cake item... e.g. cream, brownie, chocolate" oninput="filterCategories()" autocomplete="off">
                     <div class="tiles scroll mt12" id="catTiles">
                         <?php foreach ($CFG['categories'] as $i => $c): ?>
-                        <div class="tile <?php echo $i === 0 ? 'on' : ''; ?>" data-kind="cat" data-idx="<?php echo $i; ?>"
-                             data-name="<?php echo htmlspecialchars(strtolower($c['name']), ENT_QUOTES); ?>"
-                             onclick="pickCategory(this)">
-                            <span class="tick">✓</span>
-                            <?php $img = productImageUrl(0, $c['name']); ?>
-                            <?php if ($img): ?><img class="t-img" src="<?php echo $img; ?>" alt=""><?php else: ?><span class="t-ic"><?php echo $c['icon']; ?></span><?php endif; ?>
-                            <span class="t-lb"><?php echo htmlspecialchars($c['name']); ?></span>
-                            
-                        </div>
+                            <div class="tile <?php echo $i === 0 ? 'on' : ''; ?>" data-kind="cat" data-idx="<?php echo $i; ?>"
+                                data-name="<?php echo htmlspecialchars(strtolower($c['name']), ENT_QUOTES); ?>"
+                                onclick="pickCategory(this)">
+                                <span class="tick">✓</span>
+                                <?php $img = productImageUrl(0, $c['name']); ?>
+                                <?php if ($img): ?><img class="t-img" src="<?php echo $img; ?>" alt=""><?php else: ?><span class="t-ic"><?php echo $c['icon']; ?></span><?php endif; ?>
+                                <span class="t-lb"><?php echo htmlspecialchars($c['name']); ?></span>
+
+                            </div>
                         <?php endforeach; ?>
                         <?php foreach ($products as $p): ?>
-                        <div class="tile" data-kind="inv" style="display:none;"
-                             data-id="<?php echo intval($p['inv_id']); ?>"
-                             data-name="<?php echo htmlspecialchars(strtolower($p['prod_name']), ENT_QUOTES); ?>"
-                             data-price="<?php echo floatval($p['retail_price']); ?>"
-                             data-uom="<?php echo htmlspecialchars($p['uom'], ENT_QUOTES); ?>"
-                             onclick="pickInventory(this)">
-                            <span class="tick">✓</span>
-                            <?php $img = productImageUrl($p['inv_id'], $p['prod_name']); ?>
-                            <?php if ($img): ?><img class="t-img" src="<?php echo $img; ?>" alt=""><?php else: ?><span class="t-ic"><?php echo productEmoji($p['prod_name']); ?></span><?php endif; ?>
-                            <span class="t-lb"><?php echo htmlspecialchars($p['prod_name']); ?></span>
-                            <span class="t-sb">Rs. <?php echo number_format($p['retail_price'], 0); ?></span>
-                        </div>
+                            <div class="tile" data-kind="inv" style="display:none;"
+                                data-id="<?php echo intval($p['inv_id']); ?>"
+                                data-name="<?php echo htmlspecialchars(strtolower($p['prod_name']), ENT_QUOTES); ?>"
+                                data-price="<?php echo floatval($p['retail_price']); ?>"
+                                data-uom="<?php echo htmlspecialchars($p['uom'], ENT_QUOTES); ?>"
+                                onclick="pickInventory(this)">
+                                <span class="tick">✓</span>
+                                <?php $img = productImageUrl($p['inv_id'], $p['prod_name']); ?>
+                                <?php if ($img): ?><img class="t-img" src="<?php echo $img; ?>" alt=""><?php else: ?><span class="t-ic"><?php echo productEmoji($p['prod_name']); ?></span><?php endif; ?>
+                                <span class="t-lb"><?php echo htmlspecialchars($p['prod_name']); ?></span>
+                                <span class="t-sb">Rs. <?php echo number_format($p['retail_price'], 0); ?></span>
+                            </div>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -144,11 +144,11 @@ include 'includes/app_shell.php';
                             <?php
                             $shapeIcons = array('Round' => '⬤', 'Square' => '▢', 'Heart' => '♡', 'Rectangle' => '▭', 'Number Shape' => '①');
                             foreach ($CFG['shapes'] as $i => $s): ?>
-                            <div class="tile <?php echo $i === 0 ? 'on' : ''; ?>" style="min-width:76px;padding:10px 8px;" data-shape="<?php echo htmlspecialchars($s, ENT_QUOTES); ?>" onclick="pickTile('shapeTiles', this); recalc()">
-                                <span class="tick">✓</span>
-                                <span class="t-ic" style="font-size:18px;"><?php echo isset($shapeIcons[$s]) ? $shapeIcons[$s] : '▢'; ?></span>
-                                <span class="t-lb"><?php echo htmlspecialchars($s); ?></span>
-                            </div>
+                                <div class="tile <?php echo $i === 0 ? 'on' : ''; ?>" style="min-width:76px;padding:10px 8px;" data-shape="<?php echo htmlspecialchars($s, ENT_QUOTES); ?>" onclick="pickTile('shapeTiles', this); recalc()">
+                                    <span class="tick">✓</span>
+                                    <span class="t-ic" style="font-size:18px;"><?php echo isset($shapeIcons[$s]) ? $shapeIcons[$s] : '▢'; ?></span>
+                                    <span class="t-lb"><?php echo htmlspecialchars($s); ?></span>
+                                </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
@@ -231,12 +231,29 @@ include 'includes/app_shell.php';
             <button class="collapse-btn" onclick="toggleCollapse('moreOpts', this)">▾ More options</button>
             <div class="collapse-body" id="moreOpts">
                 <div class="grid-3 mt8">
-                    <div class="fld"><label>⚡ Priority</label>
-                        <select class="inp" id="priority"><option value="normal">Normal</option><option value="urgent">Urgent</option><option value="vip">VIP</option></select></div>
-                    <div class="fld"><label>🎉 Occasion</label>
-                        <select class="inp" id="occasion"><option value="">— None —</option><option>Birthday</option><option>Anniversary</option><option>Wedding</option><option>Engagement</option><option>Baby Shower</option><option>Graduation</option><option>Corporate</option><option>Other</option></select></div>
-                    <div class="fld"><label>📍 Source</label>
-                        <select class="inp" id="orderSource"><?php foreach ($sources as $k => $v): ?><option value="<?php echo $k; ?>"><?php echo $v; ?></option><?php endforeach; ?></select></div>
+                    <div class="fld"><label>Priority</label>
+                        <select class="inp" id="priority">
+                            <option value="normal">Normal</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="vip">VIP</option>
+                        </select>
+                    </div>
+                    <div class="fld"><label> Occasion</label>
+                        <select class="inp" id="occasion">
+                            <option value="">— None —</option>
+                            <option>Birthday</option>
+                            <option>Anniversary</option>
+                            <option>Wedding</option>
+                            <option>Engagement</option>
+                            <option>Baby Shower</option>
+                            <option>Graduation</option>
+                            <option>Corporate</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                    <div class="fld"><label> Source</label>
+                        <select class="inp" id="orderSource"><?php foreach ($sources as $k => $v): ?><option value="<?php echo $k; ?>"><?php echo $v; ?></option><?php endforeach; ?></select>
+                    </div>
                 </div>
             </div>
         </div>
@@ -248,15 +265,15 @@ include 'includes/app_shell.php';
             <div class="card-title"><span class="ic">◐</span> Cake Preview <span class="spacer"></span>
                 <button class="btn btn-ghost btn-sm" onclick="pickImage(imgAdd)">＋ Add Photo</button>
             </div>
-            <div class="preview-box" id="imgPrimary" data-empty="🎂"></div>
+            <div class="preview-box" id="imgPrimary" data-empty=""></div>
             <div class="thumbs mini mt8" id="imgStrip"></div>
             <?php if (!empty($refImgs)): ?>
-            <div class="hint mt8">Reference designs:</div>
-            <div class="thumbs mini mt8">
-                <?php foreach ($refImgs as $r): ?>
-                <div class="thb" onclick="addRef('<?php echo htmlspecialchars($r, ENT_QUOTES); ?>')"><img src="<?php echo htmlspecialchars($r); ?>" alt=""></div>
-                <?php endforeach; ?>
-            </div>
+                <div class="hint mt8">Reference designs:</div>
+                <div class="thumbs mini mt8">
+                    <?php foreach ($refImgs as $r): ?>
+                        <div class="thb" onclick="addRef('<?php echo htmlspecialchars($r, ENT_QUOTES); ?>')"><img src="<?php echo htmlspecialchars($r); ?>" alt=""></div>
+                    <?php endforeach; ?>
+                </div>
             <?php endif; ?>
         </div>
 
@@ -280,226 +297,314 @@ include 'includes/app_shell.php';
 </div>
 
 <script>
-var CFG = <?php echo json_encode($CFG); ?>;
-var PRODUCTS = <?php echo json_encode(array_values(array_map(function ($p) {
-    return array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom']);
-}, $products))); ?>;
-var selected = { kind: 'cat', idx: 0, invId: 0, name: '', price: 0 };
+    var CFG = <?php echo json_encode($CFG); ?>;
+    var PRODUCTS = <?php echo json_encode(array_values(array_map(function ($p) {
+                        return array('id' => intval($p['inv_id']), 'name' => $p['prod_name'], 'price' => floatval($p['retail_price']), 'uom' => $p['uom']);
+                    }, $products))); ?>;
+    var selected = {
+        kind: 'cat',
+        idx: 0,
+        invId: 0,
+        name: '',
+        price: 0
+    };
 
-function pickTile(groupId, el) {
-    document.querySelectorAll('#' + groupId + ' .tile').forEach(function (t) { t.classList.remove('on'); });
-    el.classList.add('on');
-}
-function fillSelect(id, pairs) {
-    var sel = document.getElementById(id);
-    sel.innerHTML = '';
-    for (var i = 0; i < pairs.length; i++) {
-        var o = document.createElement('option');
-        o.value = pairs[i][0];
-        o.textContent = pairs[i][1];
-        sel.appendChild(o);
+    function pickTile(groupId, el) {
+        document.querySelectorAll('#' + groupId + ' .tile').forEach(function(t) {
+            t.classList.remove('on');
+        });
+        el.classList.add('on');
     }
-}
-function fillCombos(data) {
-    // flavors: pair [value, label(with price)]
-    var fp = [['', '＋ Add Flavour...']];
-    var fKeys = [];
-    if (Array.isArray(data.flavors)) {
-        for (var i = 0; i < data.flavors.length; i++) {
-            fp.push([data.flavors[i], data.flavors[i]]);
-            fKeys.push(data.flavors[i]);
-        }
-    } else {
-        for (var f in data.flavors) {
-            var pv = data.flavors[f];
-            fp.push([f, f + (pv ? "" : '')]);
-            fKeys.push(f);
+
+    function fillSelect(id, pairs) {
+        var sel = document.getElementById(id);
+        sel.innerHTML = '';
+        for (var i = 0; i < pairs.length; i++) {
+            var o = document.createElement('option');
+            o.value = pairs[i][0];
+            o.textContent = pairs[i][1];
+            sel.appendChild(o);
         }
     }
-    fillSelect('flavor', fp);
-    fillSelect('size', data.sizes.map(function (s) { return [s, s]; }));
-    var lp = [['', '＋ Add Ladi...']];
-    for (var l = 0; l < data.ladi.length; l++) {
-        if (data.ladi[l] !== 'N/A') lp.push([data.ladi[l], data.ladi[l]]);
-    }
-    fillSelect('ladi', lp);
-    
-    // Keep flavour and ladi empty by default
-    document.getElementById('flavorText').value = '';
-    document.getElementById('flavor').value = '';
-    document.getElementById('ladiText').value = '';
-    document.getElementById('ladi').value = '';
-}
-function pickCategory(el) {
-    pickTile('catTiles', el);
-    var i = parseInt(el.dataset.idx, 10);
-    var c = CFG.categories[i];
-    selected = { kind: 'cat', idx: i, invId: invIdByName(c.name), name: c.name, price: c.price };
-    fillCombos(c);
-    document.getElementById('price').value = Math.round(c.price);
-    recalc();
-}
-function pickInventory(el) {
-    pickTile('catTiles', el);
-    selected = { kind: 'inv', idx: -1, invId: parseInt(el.dataset.id, 10), name: el.querySelector('.t-lb').textContent, price: parseFloat(el.dataset.price) };
-    fillCombos({ flavors: CFG.default_flavors, sizes: CFG.default_sizes, ladi: CFG.default_ladi });
-    document.getElementById('price').value = Math.round(selected.price);
-    recalc();
-}
-function invIdByName(name) {
-    for (var i = 0; i < PRODUCTS.length; i++) if (PRODUCTS[i].name.toLowerCase() === String(name).toLowerCase()) return PRODUCTS[i].id;
-    return 0;
-}
-function filterCategories() {
-    var q = document.getElementById('cakeSearch').value.toLowerCase().trim();
-    document.querySelectorAll('#catTiles .tile').forEach(function (t) {
-        if (t.dataset.kind === 'cat') {
-            t.style.display = (!q || t.dataset.name.indexOf(q) > -1) ? '' : 'none';
+
+    function fillCombos(data) {
+        // flavors: pair [value, label(with price)]
+        var fp = [
+            ['', '＋ Add Flavour...']
+        ];
+        var fKeys = [];
+        if (Array.isArray(data.flavors)) {
+            for (var i = 0; i < data.flavors.length; i++) {
+                fp.push([data.flavors[i], data.flavors[i]]);
+                fKeys.push(data.flavors[i]);
+            }
         } else {
-            t.style.display = (q && t.dataset.name.indexOf(q) > -1) ? '' : 'none';
+            for (var f in data.flavors) {
+                var pv = data.flavors[f];
+                fp.push([f, f + (pv ? "" : '')]);
+                fKeys.push(f);
+            }
+        }
+        fillSelect('flavor', fp);
+        fillSelect('size', data.sizes.map(function(s) {
+            return [s, s];
+        }));
+        var lp = [
+            ['', '＋ Add Ladi...']
+        ];
+        for (var l = 0; l < data.ladi.length; l++) {
+            if (data.ladi[l] !== 'N/A') lp.push([data.ladi[l], data.ladi[l]]);
+        }
+        fillSelect('ladi', lp);
+
+        // Keep flavour and ladi empty by default
+        document.getElementById('flavorText').value = '';
+        document.getElementById('flavor').value = '';
+        document.getElementById('ladiText').value = '';
+        document.getElementById('ladi').value = '';
+    }
+
+    function pickCategory(el) {
+        pickTile('catTiles', el);
+        var i = parseInt(el.dataset.idx, 10);
+        var c = CFG.categories[i];
+        selected = {
+            kind: 'cat',
+            idx: i,
+            invId: invIdByName(c.name),
+            name: c.name,
+            price: c.price
+        };
+        fillCombos(c);
+        document.getElementById('price').value = Math.round(c.price);
+        recalc();
+    }
+
+    function pickInventory(el) {
+        pickTile('catTiles', el);
+        selected = {
+            kind: 'inv',
+            idx: -1,
+            invId: parseInt(el.dataset.id, 10),
+            name: el.querySelector('.t-lb').textContent,
+            price: parseFloat(el.dataset.price)
+        };
+        fillCombos({
+            flavors: CFG.default_flavors,
+            sizes: CFG.default_sizes,
+            ladi: CFG.default_ladi
+        });
+        document.getElementById('price').value = Math.round(selected.price);
+        recalc();
+    }
+
+    function invIdByName(name) {
+        for (var i = 0; i < PRODUCTS.length; i++)
+            if (PRODUCTS[i].name.toLowerCase() === String(name).toLowerCase()) return PRODUCTS[i].id;
+        return 0;
+    }
+
+    function filterCategories() {
+        var q = document.getElementById('cakeSearch').value.toLowerCase().trim();
+        document.querySelectorAll('#catTiles .tile').forEach(function(t) {
+            if (t.dataset.kind === 'cat') {
+                t.style.display = (!q || t.dataset.name.indexOf(q) > -1) ? '' : 'none';
+            } else {
+                t.style.display = (q && t.dataset.name.indexOf(q) > -1) ? '' : 'none';
+            }
+        });
+    }
+
+    function onFlavor() {
+        var sel = document.getElementById('flavor');
+        var val = sel.value;
+        if (!val) return;
+
+        var txt = document.getElementById('flavorText');
+        var current = (txt.value || '').trim();
+        if (!current) {
+            txt.value = val;
+        } else {
+            var parts = current.split('+').map(function(s) {
+                return s.trim();
+            });
+            if (parts.indexOf(val) === -1) {
+                txt.value = current + ' + ' + val;
+            }
+        }
+
+        if (selected.kind === 'cat') {
+            var c = CFG.categories[selected.idx];
+            if (c && c.flavors && c.flavors[val]) {
+                document.getElementById('price').value = Math.round(c.flavors[val]);
+            }
+        }
+
+        sel.value = '';
+        recalc();
+    }
+
+    function clearFlavor() {
+        document.getElementById('flavorText').value = '';
+        document.getElementById('flavor').value = '';
+        recalc();
+    }
+
+    function onLadi() {
+        var sel = document.getElementById('ladi');
+        var val = sel.value;
+        if (!val) return;
+
+        var txt = document.getElementById('ladiText');
+        var current = (txt.value || '').trim();
+        if (!current) {
+            txt.value = val;
+        } else {
+            var parts = current.split('+').map(function(s) {
+                return s.trim();
+            });
+            if (parts.indexOf(val) === -1) {
+                txt.value = current + ' + ' + val;
+            }
+        }
+
+        sel.value = '';
+        recalc();
+    }
+
+    function clearLadi() {
+        document.getElementById('ladiText').value = '';
+        document.getElementById('ladi').value = '';
+        recalc();
+    }
+
+    function stepQty(d) {
+        var q = document.getElementById('qty');
+        q.value = Math.max(1, (parseInt(q.value, 10) || 1) + d);
+        recalc();
+    }
+
+    function activeData(groupId, attr) {
+        var el = document.querySelector('#' + groupId + ' .tile.on');
+        return el ? el.getAttribute(attr) : '';
+    }
+
+    function addRef(url) {
+        fetch(url).then(function(r) {
+            return r.blob();
+        }).then(function(b) {
+            var rd = new FileReader();
+            rd.onload = function() {
+                imgAdd(rd.result);
+            };
+            rd.readAsDataURL(b);
+        });
+    }
+
+    function recalc() {
+        var price = parseFloat(document.getElementById('price').value) || 0;
+        var sizeLabel = document.getElementById('size').value || '1 Kg';
+        var parsed = parseSize(sizeLabel);
+        var qty = parseInt(document.getElementById('qty').value, 10) || 1;
+        var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
+
+        var sub = price * parsed.tiers * qty;
+        var total = sub + extra;
+
+        document.getElementById('lineTotal').textContent = money(total);
+        document.getElementById('sCat').textContent = selected.name || '—';
+        document.getElementById('sFlav').textContent = document.getElementById('flavorText').value || '—';
+        document.getElementById('sLadi').textContent = document.getElementById('ladiText').value || '—';
+        document.getElementById('sShape').textContent = activeData('shapeTiles', 'data-shape') || '—';
+        document.getElementById('sSize').textContent = sizeLabel;
+        document.getElementById('sQty').textContent = qty;
+        document.getElementById('sPrice').textContent = money(price);
+        document.getElementById('sSub').textContent = money(sub);
+        document.getElementById('sExtraRow').style.display = extra > 0 ? '' : 'none';
+        document.getElementById('sExtra').textContent = money(extra);
+        document.getElementById('sTotal').textContent = money(total);
+    }
+
+    function parseSize(label) {
+        var m = String(label).match(/^\s*([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z]+)?/);
+        if (!m) return {
+            tiers: 1,
+            uom: 'kg'
+        };
+        return {
+            tiers: parseFloat(m[1]),
+            uom: (m[2] || 'kg').toLowerCase()
+        };
+    }
+
+    function saveCake(status, btn) {
+        if (!selected.name) {
+            showToast('Select a cake category first', 'error');
+            return;
+        }
+        var price = parseFloat(document.getElementById('price').value) || 0;
+        var parsed = parseSize(document.getElementById('size').value);
+        var qty = parseInt(document.getElementById('qty').value, 10) || 1;
+        var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
+        var ladi = (document.getElementById('ladiText').value || '').trim() || document.getElementById('ladi').value;
+        var flav = (document.getElementById('flavorText').value || '').trim() || document.getElementById('flavor').value;
+
+        var note = document.getElementById('note').value;
+        if (ladi && ladi !== 'N/A') note = 'LADI: ' + ladi + (note ? ' | ' + note : '');
+
+        var items = [{
+            inv_id: selected.invId || 0,
+            name: selected.name,
+            category: selected.name,
+            price: price * parsed.tiers, // save_order.php multiplies by qty
+            qty: qty,
+            flavor: flav,
+            shape: activeData('shapeTiles', 'data-shape'),
+            uom: parsed.uom,
+            tiers: parsed.tiers,
+            cake_message: document.getElementById('cakeMsg').value,
+            note: note,
+            image_data: primaryImage(),
+            audio_data: ''
+        }];
+        if (extra > 0) {
+            items.push({
+                inv_id: 0,
+                name: 'Extra Charges',
+                category: 'Extra Charges',
+                price: extra,
+                qty: 1,
+                flavor: '',
+                shape: '',
+                uom: 'pcs',
+                tiers: 1,
+                cake_message: '',
+                note: 'Extra charge — cake order',
+                image_data: '',
+                audio_data: ''
+            });
+        }
+
+        submitOrder(items, {
+            status: status,
+            btn: btn,
+            extra_images: extraImages()
+        }, function(res) {
+            defaultAfterSave(res, status);
+        });
+    }
+
+    bindCustomerLookup('custCell', 'custName');
+    pickCategory(document.querySelector('#catTiles .tile.on'));
+    initShortcuts({
+        searchId: 'cakeSearch',
+        onConfirm: function() {
+            saveCake('confirmed', document.getElementById('confirmBtn'));
+        },
+        onHold: function() {
+            saveCake('hold', null);
         }
     });
-}
-function onFlavor() {
-    var sel = document.getElementById('flavor');
-    var val = sel.value;
-    if (!val) return;
-    
-    var txt = document.getElementById('flavorText');
-    var current = (txt.value || '').trim();
-    if (!current) {
-        txt.value = val;
-    } else {
-        var parts = current.split('+').map(function (s) { return s.trim(); });
-        if (parts.indexOf(val) === -1) {
-            txt.value = current + ' + ' + val;
-        }
-    }
-    
-    if (selected.kind === 'cat') {
-        var c = CFG.categories[selected.idx];
-        if (c && c.flavors && c.flavors[val]) {
-            document.getElementById('price').value = Math.round(c.flavors[val]);
-        }
-    }
-    
-    sel.value = '';
-    recalc();
-}
-function clearFlavor() {
-    document.getElementById('flavorText').value = '';
-    document.getElementById('flavor').value = '';
-    recalc();
-}
-function onLadi() {
-    var sel = document.getElementById('ladi');
-    var val = sel.value;
-    if (!val) return;
-    
-    var txt = document.getElementById('ladiText');
-    var current = (txt.value || '').trim();
-    if (!current) {
-        txt.value = val;
-    } else {
-        var parts = current.split('+').map(function (s) { return s.trim(); });
-        if (parts.indexOf(val) === -1) {
-            txt.value = current + ' + ' + val;
-        }
-    }
-    
-    sel.value = '';
-    recalc();
-}
-function clearLadi() {
-    document.getElementById('ladiText').value = '';
-    document.getElementById('ladi').value = '';
-    recalc();
-}
-function stepQty(d) {
-    var q = document.getElementById('qty');
-    q.value = Math.max(1, (parseInt(q.value, 10) || 1) + d);
-    recalc();
-}
-function activeData(groupId, attr) {
-    var el = document.querySelector('#' + groupId + ' .tile.on');
-    return el ? el.getAttribute(attr) : '';
-}
-function addRef(url) {
-    fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
-        var rd = new FileReader();
-        rd.onload = function () { imgAdd(rd.result); };
-        rd.readAsDataURL(b);
-    });
-}
-function recalc() {
-    var price = parseFloat(document.getElementById('price').value) || 0;
-    var sizeLabel = document.getElementById('size').value || '1 Kg';
-    var parsed = parseSize(sizeLabel);
-    var qty = parseInt(document.getElementById('qty').value, 10) || 1;
-    var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
-
-    var sub = price * parsed.tiers * qty;
-    var total = sub + extra;
-
-    document.getElementById('lineTotal').textContent = money(total);
-    document.getElementById('sCat').textContent = selected.name || '—';
-    document.getElementById('sFlav').textContent = document.getElementById('flavorText').value || '—';
-    document.getElementById('sLadi').textContent = document.getElementById('ladiText').value || '—';
-    document.getElementById('sShape').textContent = activeData('shapeTiles', 'data-shape') || '—';
-    document.getElementById('sSize').textContent = sizeLabel;
-    document.getElementById('sQty').textContent = qty;
-    document.getElementById('sPrice').textContent = money(price);
-    document.getElementById('sSub').textContent = money(sub);
-    document.getElementById('sExtraRow').style.display = extra > 0 ? '' : 'none';
-    document.getElementById('sExtra').textContent = money(extra);
-    document.getElementById('sTotal').textContent = money(total);
-}
-function parseSize(label) {
-    var m = String(label).match(/^\s*([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z]+)?/);
-    if (!m) return { tiers: 1, uom: 'kg' };
-    return { tiers: parseFloat(m[1]), uom: (m[2] || 'kg').toLowerCase() };
-}
-function saveCake(status, btn) {
-    if (!selected.name) { showToast('Select a cake category first', 'error'); return; }
-    var price = parseFloat(document.getElementById('price').value) || 0;
-    var parsed = parseSize(document.getElementById('size').value);
-    var qty = parseInt(document.getElementById('qty').value, 10) || 1;
-    var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
-    var ladi = (document.getElementById('ladiText').value || '').trim() || document.getElementById('ladi').value;
-    var flav = (document.getElementById('flavorText').value || '').trim() || document.getElementById('flavor').value;
-
-    var note = document.getElementById('note').value;
-    if (ladi && ladi !== 'N/A') note = 'LADI: ' + ladi + (note ? ' | ' + note : '');
-
-    var items = [{
-        inv_id: selected.invId || 0,
-        name: selected.name,
-        category: selected.name,
-        price: price * parsed.tiers,        // save_order.php multiplies by qty
-        qty: qty,
-        flavor: flav,
-        shape: activeData('shapeTiles', 'data-shape'),
-        uom: parsed.uom,
-        tiers: parsed.tiers,
-        cake_message: document.getElementById('cakeMsg').value,
-        note: note,
-        image_data: primaryImage(),
-        audio_data: ''
-    }];
-    if (extra > 0) {
-        items.push({ inv_id: 0, name: 'Extra Charges', category: 'Extra Charges', price: extra, qty: 1, flavor: '', shape: '', uom: 'pcs', tiers: 1, cake_message: '', note: 'Extra charge — cake order', image_data: '', audio_data: '' });
-    }
-
-    submitOrder(items, { status: status, btn: btn, extra_images: extraImages() }, function (res) { defaultAfterSave(res, status); });
-}
-
-bindCustomerLookup('custCell', 'custName');
-pickCategory(document.querySelector('#catTiles .tile.on'));
-initShortcuts({
-    searchId: 'cakeSearch',
-    onConfirm: function () { saveCake('confirmed', document.getElementById('confirmBtn')); },
-    onHold: function () { saveCake('hold', null); }
-});
 </script>
 
 <?php include 'includes/app_footer.php'; ?>

@@ -320,7 +320,7 @@ function quickStatusCheck() {
                 for (var i = 0; i < res.orders.length; i++) {
                     var o = res.orders[i];
                     html += '<div class="cart-row"><span class="mid"><span class="nm">Bill #' + o.bill_no + ' — ' + escHtml(o.party_detail) + ' (' + escHtml(o.cell_no) + ')</span>' +
-                        '<br><span class="sb">' + escHtml(o.items) + ' · 🚚 ' + escHtml(o.deliver_date) + ' ' + escHtml(o.delivery_time) +
+                        '<br><span class="sb">' + escHtml(o.items) + ' ·  ' + escHtml(o.deliver_date) + ' ' + escHtml(o.delivery_time) +
                         ' · 💰 Rs. ' + o.total + ' (Paid ' + o.paid + ' / Balance ' + o.balance + ')</span></span>' +
                         '<span class="bdg ' + escHtml(String(o.status || '').toLowerCase()) + '">' + escHtml(o.status_badge.replace(/<[^>]+>/g, '')) + '</span>' +
                         '<a class="btn btn-sm btn-outline" href="order_detail.php?bill=' + o.bill_no + '">👁 View</a></div>';

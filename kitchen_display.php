@@ -143,7 +143,7 @@ $pageTitle = 'Kitchen Orders';
 <?php endif; ?>
 
 <div class="page-head">
-    <div class="ph-ic">👨‍🍳</div>
+    <div class="ph-ic"></div>
     <div>
         <h2>Kitchen Orders</h2>
     </div>
@@ -194,7 +194,7 @@ $pageTitle = 'Kitchen Orders';
 
         <!-- cards -->
         <?php if (empty($orders)): ?>
-        <div class="card mt16 empty"><span class="big">👨‍🍳</span>No orders in this view.<br>New orders appear automatically.</div>
+        <div class="card mt16 empty"><span class="big"></span>No orders in this view.<br>New orders appear automatically.</div>
         <?php endif; ?>
 
         <div class="kd-grid mt16">
@@ -240,7 +240,7 @@ $pageTitle = 'Kitchen Orders';
                         <div class="ph" <?php if (!empty($thumbHex) && $hasImage0): ?>onclick="viewImage(<?php echo $itemId0; ?>, '<?php echo addslashes($firstPretty); ?>', <?php echo $o['bill_no']; ?>)" title="Click to view full image"<?php endif; ?>>
                             <?php if (!empty($thumbHex) && $hasImage0): ?>
                                 <img src="show_image.php?type=thumb&id=<?php echo $itemId0; ?>" alt="">
-                            <?php else: ?><?php echo $kind === 'lunch' ? '🍱' : ($kind === 'sweets' ? '🍬' : '🎂'); ?><?php endif; ?>
+                            <?php else: ?><?php echo $kind === 'lunch' ? '' : ($kind === 'sweets' ? '' : ''); ?><?php endif; ?>
                         </div>
                         <div class="tt">
                             <h5><?php echo htmlspecialchars(kdShort($firstPretty, 60)); ?></h5>
@@ -333,7 +333,7 @@ $pageTitle = 'Kitchen Orders';
         </div>
 
         <div class="card mt16 center" style="background:var(--blue-soft);border-color:var(--blue-line);padding:26px 16px;">
-            <div style="font-size:30px;">👨‍🍳</div>
+            <div style="font-size:30px;"></div>
             <div style="font-size:13px;font-weight:600;color:var(--blue);margin-top:8px;line-height:1.5;">Great food<br>makes happy customers!</div>
             <div style="color:var(--blue);margin-top:6px;">♥</div>
         </div>

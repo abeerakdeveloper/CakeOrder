@@ -23,7 +23,7 @@ if (empty($products)) {
 
 $boxWord   = $isSweets ? 'Sweets Box' : 'Lunch Box';
 $boxesWord = $isSweets ? 'sweets boxes' : 'lunch boxes';
-$icon      = $isSweets ? '🍬' : '🍱';
+$icon      = $isSweets ? '' : '';
 $units     = array('piece', 'pieces', 'portion', 'box', 'cup', 'bottle', 'kg', 'dozen');
 $sources   = array('walk-in' => 'Walk-in', 'phone' => 'Phone Call', 'whatsapp' => 'WhatsApp', 'online' => 'Online/Web', 'instagram' => 'Instagram', 'facebook' => 'Facebook');
 
@@ -92,7 +92,7 @@ include 'includes/app_shell.php';
                     <label>Order Type</label>
                     <select class="inp" id="orderTypeSel" onchange="toggleAddrRow()">
                         <option value="pickup">🛍 Pickup</option>
-                        <option value="delivery">🚚 Delivery</option>
+                        <option value="delivery"> Delivery</option>
                     </select>
                 </div>
                 <div class="fld">
@@ -104,7 +104,7 @@ include 'includes/app_shell.php';
                 </div>
             </div>
             <div class="fld mt12" id="addrRow" style="display:none;">
-                <label>📍 Delivery Address</label>
+                <label> Delivery Address</label>
                 <input class="inp" id="deliveryAddress" placeholder="Full delivery address...">
             </div>
         </div>
@@ -122,11 +122,11 @@ include 'includes/app_shell.php';
         <div class="collapse-body" id="moreOpts">
             <div class="card">
                 <div class="grid-3">
-                    <div class="fld"><label>⚡ Priority</label>
+                    <div class="fld"><label> Priority</label>
                         <select class="inp" id="priority"><option value="normal">Normal</option><option value="urgent">Urgent</option><option value="vip">VIP</option></select></div>
-                    <div class="fld"><label>🎉 Occasion</label>
+                    <div class="fld"><label> Occasion</label>
                         <select class="inp" id="occasion"><option value="">— None —</option><option>Birthday</option><option>Anniversary</option><option>Wedding</option><option>Corporate</option><option>Other</option></select></div>
-                    <div class="fld"><label>📍 Source</label>
+                    <div class="fld"><label>Source</label>
                         <select class="inp" id="orderSource"><?php foreach ($sources as $k => $v): ?><option value="<?php echo $k; ?>"><?php echo $v; ?></option><?php endforeach; ?></select></div>
                 </div>
             </div>
@@ -136,17 +136,17 @@ include 'includes/app_shell.php';
     <!-- ============ RIGHT: summary ============ -->
     <div>
         <div class="card">
-            <div class="card-title"><span class="ic">📷</span> Order Photos <span class="spacer"></span>
+            <div class="card-title"><span class="ic"></span> Order Photos <span class="spacer"></span>
                 <button class="btn btn-ghost btn-sm" onclick="pickImage(imgAdd)">＋ Add</button>
             </div>
-            <div class="preview-box" id="imgPrimary" data-empty="📷" style="height:150px;"></div>
+            <div class="preview-box" id="imgPrimary" data-empty="" style="height:150px;"></div>
             <div class="thumbs mini mt8" id="imgStrip"></div>
         </div>
         <div class="card summary mt16">
-            <div class="card-title"><span class="ic">🧾</span> Order Summary</div>
+            <div class="card-title"><span class="ic"></span> Order Summary</div>
             <div class="s-stat">
                 <div class="box"><div class="n"><?php echo $icon; ?> <span id="sumSets">0</span></div><div class="l"><?php echo $boxWord; ?> Sets</div></div>
-                <div class="box"><div class="n">🍴 <span id="sumBoxes">0</span></div><div class="l">Total <?php echo ucfirst($boxesWord); ?></div></div>
+                <div class="box"><div class="n"><span id="sumBoxes">0</span></div><div class="l">Total <?php echo ucfirst($boxesWord); ?></div></div>
             </div>
             <div class="card-title" style="font-size:13px;">Set Breakdown</div>
             <div id="sumBreak"><div class="empty" style="padding:10px;">No sets added</div></div>
@@ -162,13 +162,13 @@ include 'includes/app_shell.php';
                 <div class="fld"><label>Advance (Rs.)</label><input class="inp" type="number" id="advance" value="0" min="0"></div>
                 <div class="fld"><label>Method</label>
                     <select class="inp" id="advMethod">
-                        <option value="">—</option><option value="cash">💵 Cash</option><option value="bank">🏦 Bank</option>
-                        <option value="card">💳 Card</option><option value="easypaisa">📱 Easypaisa</option>
+                        <option value="">—</option><option value="cash"> Cash</option><option value="bank"> Bank</option>
+                        <option value="card"> Card</option><option value="easypaisa">Easypaisa</option>
                     </select></div>
             </div>
-            <button class="btn btn-primary btn-block mt12" onclick="saveBox('confirmed', this)">🛒 Add to Order</button>
+            <button class="btn btn-primary btn-block mt12" onclick="saveBox('confirmed', this)"> Add to Order</button>
             <button class="btn btn-ghost btn-block mt8" onclick="saveBox('hold', this)">⏸ Hold Order</button>
-            <a class="btn btn-outline btn-block mt8" href="order_list.php">📋 View All Orders</a>
+            <a class="btn btn-outline btn-block mt8" href="order_list.php">View All Orders</a>
         </div>
     </div>
 </div>
@@ -191,7 +191,7 @@ function thumbHtml(p, cls) {
     var inner = p.img ? '<img src="' + p.img + '" alt="">' : (p.emoji || productEmojiLocal(p.name));
     return '<span class="' + (cls || 'th') + '">' + inner + '</span>';
 }
-function productEmojiLocal(n) { return '🍽️'; }
+function productEmojiLocal(n) { return ''; }
 function findProduct(id) { for (var i = 0; i < PRODUCTS.length; i++) if (PRODUCTS[i].id === id) return PRODUCTS[i]; return null; }
 
 function addSet() {

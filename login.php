@@ -87,18 +87,18 @@ body {
     <div class="logo-ic"><img src="assets/clogo.png" alt="logo" style="max-width: 100%;height: auto;object-fit: contain;" ></div>
     <h1><?php echo htmlspecialchars($brName); ?></h1>
     <div class="tag">Fresh Cakes • Sweet Moments — POS System</div>
-    <?php if (!empty($brAddr)): ?><div class="addr">📍 <?php echo htmlspecialchars($brAddr); ?></div><?php endif; ?>
+    <?php if (!empty($brAddr)): ?><div class="addr"><?php echo htmlspecialchars($brAddr); ?></div><?php endif; ?>
 
     <?php if ($error): ?><div class="login-err">⚠ <?php echo htmlspecialchars($error); ?></div><?php endif; ?>
     <?php if (isset($_GET['timeout'])): ?><div class="login-info">⏰ Session expired after 8 hours — please login again.</div><?php endif; ?>
 
     <form method="POST">
         <div class="fld">
-            <label>👤 Username</label>
+            <label>Username</label>
             <input class="inp" type="text" name="user" placeholder="Enter username" required autofocus>
         </div>
         <div class="fld">
-            <label>🔒 Password</label>
+            <label>Password</label>
             <input class="inp" type="password" name="mpass" placeholder="Enter password" required>
         </div>
         <button type="submit" class="btn-login">🔐 LOGIN</button>

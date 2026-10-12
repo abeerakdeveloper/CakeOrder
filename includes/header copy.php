@@ -48,9 +48,9 @@ function shellActiveBox($t) { global $currentPage;
         <a style="display: none;"  class="app-nav-item <?php echo shellActive('order_status.php'); ?>" href="order_status.php"><span class="ic">🕐</span> Check Status</a>
 
         <div class="grp">New Order</div>
-        <a class="app-nav-item <?php echo shellActive('order_cake.php'); ?>" href="order_cake.php"><span class="ic">🎂</span> Cake Order</a>
-        <a class="app-nav-item <?php echo shellActiveBox('lunchbox'); ?>" href="order_box.php?type=lunchbox"><span class="ic">🍱</span> Lunch Box</a>
-        <a class="app-nav-item <?php echo shellActiveBox('sweetsbox'); ?>" href="order_box.php?type=sweetsbox"><span class="ic">🍬</span> Sweets Box</a>
+        <a class="app-nav-item <?php echo shellActive('order_cake.php'); ?>" href="order_cake.php"><span class="ic"></span> Cake Order</a>
+        <a class="app-nav-item <?php echo shellActiveBox('lunchbox'); ?>" href="order_box.php?type=lunchbox"><span class="ic"></span> Lunch Box</a>
+        <a class="app-nav-item <?php echo shellActiveBox('sweetsbox'); ?>" href="order_box.php?type=sweetsbox"><span class="ic"></span> Sweets Box</a>
 
 
         <a style="display: none;"  class="app-nav-item <?php echo shellActive('order_eatables.php'); ?>" href="order_eatables.php"><span class="ic">🍽️</span> Eatables</a>

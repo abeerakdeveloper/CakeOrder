@@ -373,10 +373,10 @@ include 'includes/app_shell.php';
             </div>
             <div class="row mt12" style="align-items:flex-end;flex-wrap:nowrap;">
                 <div class="fld" style="flex:0 0 150px;">
-                    <label>🚚 Type</label>
+                    <label> Type</label>
                     <select class="inp" id="deliveryType" onchange="toggleDeliveryAddress()">
                         <option value="pickup">🛍 Pickup</option>
-                        <option value="delivery">🚚 Home Delivery</option>
+                        <option value="delivery"> Home Delivery</option>
                     </select>
                 </div>
                 <div class="spacer"></div>
@@ -393,7 +393,7 @@ include 'includes/app_shell.php';
                         </select>
                     </div>
                     <div class="fld">
-                        <label>🎉 Occasion</label>
+                        <label> Occasion</label>
                         <select class="inp" id="occasion">
                             <option value="">-- None --</option>
                             <?php foreach ($occasions as $o): ?>
@@ -402,7 +402,7 @@ include 'includes/app_shell.php';
                         </select>
                     </div>
                     <div class="fld">
-                        <label>📍 Source</label>
+                        <label>Source</label>
                         <select class="inp" id="orderSource">
                             <?php foreach ($sources as $k => $v): ?>
                                 <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
@@ -416,7 +416,7 @@ include 'includes/app_shell.php';
         <!-- DELIVERY ADDRESS ROW -->
         <div id="deliveryAddrRow" class="card" style="margin:0 0 12px;display:none;">
             <div class="fld">
-                <label style="font-size:12px;font-weight:600;color:var(--blue);">📍 Delivery Address</label>
+                <label style="font-size:12px;font-weight:600;color:var(--blue);"> Delivery Address</label>
                 <input type="text" class="inp" id="deliveryAddress" placeholder="Full delivery address...">
             </div>
         </div>
