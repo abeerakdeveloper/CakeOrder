@@ -79,9 +79,9 @@ include 'includes/app_shell.php';
                 <div class="num">1</div>
                 <div class="sec-head" style="flex:1;">
                     <h4>Category (F2)</h4>
-                    <input class="inp mt12" id="cakeSearch" placeholder="🔍 Search cake item... e.g. cream, brownie, chocolate" oninput="filterCategories()" autocomplete="off">
+                    <input class="inp mt12" style="display: none;" id="cakeSearch" placeholder="🔍 Search cake item... e.g. cream, brownie, chocolate" oninput="filterCategories()" autocomplete="off">
                     <div class="tiles scroll mt12" id="catTiles">
-                        <div class="tile" data-kind="allcat" data-name="all" onclick="pickAllCategories(this)">
+                        <div class="tile" style="display:none;" data-kind="allcat" data-name="all" onclick="pickAllCategories(this)">
                             <span class="tick">✓</span>
                             <span class="t-lb">All Categories</span>
                         </div>
@@ -166,6 +166,7 @@ include 'includes/app_shell.php';
             <div class="row" style="align-items:flex-end;">
                 <div class="sec" style="flex:1.3;">
                     <div class="num">5</div>
+                    
                     <div class="sec-head" style="flex:1;">
                         <h4>Size / UOM</h4>
                         <select class="inp mt12" id="size" onchange="recalc()"></select>
@@ -188,6 +189,9 @@ include 'includes/app_shell.php';
                         <option value="1">1 Tier</option>
                         <option value="2">2 Tiers</option>
                         <option value="3">3 Tiers</option>
+                        <option value="3">4 Tiers</option>
+                        <option value="3">5 Tiers</option>
+                        <option value="3">6 Tiers</option>
                     </select>
                 </div>
                 <div class="fld" style="flex:1;">
@@ -202,7 +206,7 @@ include 'includes/app_shell.php';
         </div>
 
         <!-- 7 cake image -->
-        <div class="card">
+        <div class="card" style='display:none;'>
             <div class="sec">
                 <div class="num">7</div>
                 <div class="sec-head" style="flex:1;">
@@ -219,9 +223,9 @@ include 'includes/app_shell.php';
 
         <!-- eatables / decoration pictures -->
         <div class="card">
-            <div class="card-title">Eatables &amp; Decoration
+            <div class="card-title">Eatables Pictures &amp; Decoration
                 <span class="spacer"></span>
-                <button type="button" class="btn btn-outline btn-sm" onclick="eatAdd()">+ Add Row</button>
+                <button type="button" class="btn btn-outline btn-sm" id = 'add-eatable-row' onclick="eatAdd()">+ Add Row</button>
             </div>
             <div id="eatRows"></div>
             <div class="hint" id="eatEmpty" style="padding:4px 2px;">Optional — pictures with quantity (1 or 1/2), price and description.</div>
@@ -335,7 +339,10 @@ include 'includes/app_shell.php';
         name: '',
         price: 0
     };
+    document.addEventListener('DOMContentLoaded',()=>{
+        document.getElementById('add-eatable-row').click();
 
+    })
     function pickTile(groupId, el) {
         document.querySelectorAll('#' + groupId + ' .tile').forEach(function(t) {
             t.classList.remove('on');
@@ -596,14 +603,19 @@ include 'includes/app_shell.php';
             var r = eatRows[i];
             html += '<div class="row mt8" style="flex-wrap:nowrap;align-items:center;gap:8px;">' +
                 '<div style="width:56px;height:46px;border:1px dashed #b9c4d6;border-radius:8px;flex:0 0 auto;cursor:pointer;overflow:hidden;background:#f7f9fc;" onclick="eatImg(' + i + ')">' +
+                
+
                 (r.img ? '<img src="' + r.img + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="display:block;text-align:center;line-height:44px;color:#8a97ad;">+</span>') +
                 '</div>' +
+
+                '<input class="inp" style="flex:1;" placeholder="Description" value="' + eatEsc(r.desc) + '" onchange="eatSet(' + i + ',\'desc\',this.value)">' +
+
                 '<select class="inp" style="width:74px;flex:0 0 auto;" onchange="eatSet(' + i + ',\'qty\',this.value)">' +
                 '<option value="1"' + (r.qty === '1' ? ' selected' : '') + '>1</option>' +
                 '<option value="1/2"' + (r.qty === '1/2' ? ' selected' : '') + '>1/2</option></select>' +
                 '<input class="inp" style="width:96px;flex:0 0 auto;" type="number" min="0" placeholder="Price" value="' + (parseFloat(r.price) || '') + '" onchange="eatSet(' + i + ',\'price\',this.value)">' +
-                '<input class="inp" style="flex:1;" placeholder="Description" value="' + eatEsc(r.desc) + '" onchange="eatSet(' + i + ',\'desc\',this.value)">' +
-                '<button type="button" class="btn btn-ghost btn-sm" onclick="eatDel(' + i + ')">x</button></div>';
+                
+                '<button type="button" class="btn btn-ghost btn-sm" style="max-width:100px;" onclick="eatDel(' + i + ')">x</button></div>';
         }
         wrap.innerHTML = html;
         if (window.refreshTabOrder) refreshTabOrder();
