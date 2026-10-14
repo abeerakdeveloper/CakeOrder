@@ -60,6 +60,7 @@ while ($r = mysqli_fetch_assoc($res)) {
 $pendingSql = "SELECT bill_no, party_detail, cell_no, deliver_date, delivery_time,
     MAX(status) AS status, MAX(priority) AS priority,
     GROUP_CONCAT(category SEPARATOR ', ') AS items,
+    GROUP_CONCAT(IFNULL(notes,'') SEPARATOR '||') AS all_notes,
     SUM(amount) AS total, MAX(advance) AS advance, MAX(paid) AS paid,
     MAX(flat_disc) AS disc, COUNT(*) AS item_count
     FROM cake_order
@@ -211,7 +212,7 @@ include 'includes/app_shell.php';
                     <div style="display:flex;gap:6px;">
                         <a class="btn btn-sm btn-outline" title="View" href="order_detail.php?bill=<?php echo $o['bill_no']; ?>">👁</a>
                         <?php if ($canEdit && (isPOSUser() || isAdmin())): ?>
-                        <button class="btn btn-sm btn-outline" title="Edit order" onclick="editOrder(<?php echo $o['bill_no']; ?>)">✎</button>
+                        <button class="btn btn-sm btn-outline" title="Edit order" onclick="editOrder(<?php echo $o['bill_no']; ?>, <?php echo (strpos((string)$o['all_notes'], 'Box Set') === false && strpos((string)$o['all_notes'], 'CUSTOM:') === false) ? 'true' : 'false'; ?>)">✎</button>
                         <button class="btn btn-sm btn-outline" title="Add advance" onclick="addMoreAdvance(<?php echo $o['bill_no']; ?>, <?php echo max(0, $balance); ?>, '<?php echo addslashes($o['party_detail']); ?>')">💰</button>
                         <?php endif; ?>
                     </div>
@@ -268,7 +269,7 @@ function filterPriority(priority, btn) {
 }
 
 // ===== EDIT ORDER =====
-function editOrder(billNo) { window.location.href = 'edit_order.php?bill=' + billNo; }
+function editOrder(billNo, isCake) { window.location.href = isCake ? ('order_cake.php?edit=' + billNo) : ('edit_order.php?bill=' + billNo); }
 
 // ===== ADD MORE ADVANCE (same endpoint) =====
 var advBillNoVal = 0, advMaxBalance = 0, selectedAdvMethodVal = '';

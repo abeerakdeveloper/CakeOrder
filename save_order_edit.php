@@ -1,5 +1,9 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', '0');   // never break the JSON response with notices
+ini_set('log_errors', '1');
 require_once 'db.php';
+require_once 'upload_helper.php';
 requireRole(array(1, 3));
 
 $input = json_decode(file_get_contents('php://input'), true);
@@ -36,6 +40,7 @@ mysqli_autocommit($mysqli, false);
 try {
     // 0. FULL REPLACE (cake edit mode): rebuild every row of this bill
     if (!empty($input['full_replace'])) {
+        error_log('save_order_edit: full_replace start bill=' . $billNo . ' user=' . $user);
         $oldRes = mysqli_query($mysqli, "SELECT * FROM cake_order WHERE bill_no = $billNo ORDER BY id LIMIT 1");
         $old = mysqli_fetch_assoc($oldRes);
         $oldStatus  = $old ? $old['status'] : 'confirmed';
@@ -53,6 +58,14 @@ try {
 
         $extraCharge  = isset($input['extra_charge']) ? intval($input['extra_charge']) : 0;
         $extraApplied = false;
+        $eatTotal = 0;
+        if (!empty($input['eatables']) && is_array($input['eatables'])) {
+            foreach ($input['eatables'] as $erow) {
+                $efac = (isset($erow['qty']) && $erow['qty'] === '1/2') ? 0.5 : 1;
+                $eatTotal += floatval(isset($erow['price']) ? $erow['price'] : 0) * $efac;
+            }
+        }
+        $eatTotal = round($eatTotal);
         $occasion     = isset($input['occasion']) ? esc($input['occasion']) : '';
         $deliveryType = isset($input['delivery_type']) ? esc($input['delivery_type']) : 'pickup';
         $deliveryAddress = isset($input['delivery_address']) ? esc($input['delivery_address']) : '';
@@ -88,7 +101,7 @@ try {
                 elseif ($oldAudio) $audioHex = $oldAudio;
             }
             $extPay = 0;
-            if ($extraCharge > 0 && !$extraApplied) { $amount += $extraCharge; $extPay = $extraCharge; $extraApplied = true; }
+            if (($extraCharge + $eatTotal) > 0 && !$extraApplied) { $amount += $extraCharge + $eatTotal; $extPay = $extraCharge; $extraApplied = true; }
 
             $imageSql = $imageHex ? "'" . esc($imageHex) . "'" : "NULL";
             $thumbSql = $thumbHex ? "'" . esc($thumbHex) . "'" : "NULL";

@@ -20,6 +20,14 @@ $flatDisc = isset($input['flat_disc']) ? intval($input['flat_disc']) : 0;
 $advance = isset($input['advance']) ? intval($input['advance']) : 0;
 $advanceMethod = isset($input['advance_method']) ? $input['advance_method'] : '';
 $extraCharge = isset($input['extra_charge']) ? intval($input['extra_charge']) : 0;
+$eatTotal = 0;
+if (!empty($input['eatables']) && is_array($input['eatables'])) {
+    foreach ($input['eatables'] as $erow) {
+        $efac = (isset($erow['qty']) && $erow['qty'] === '1/2') ? 0.5 : 1;
+        $eatTotal += floatval(isset($erow['price']) ? $erow['price'] : 0) * $efac;
+    }
+}
+$eatTotal = round($eatTotal);
 $occasion = isset($input['occasion']) ? esc($input['occasion']) : '';
 $deliveryType = isset($input['delivery_type']) ? esc($input['delivery_type']) : 'pickup';
 $deliveryAddress = isset($input['delivery_address']) ? esc($input['delivery_address']) : '';
@@ -51,7 +59,7 @@ $totalAmount = 0;
 foreach ($items as $item) {
     $totalAmount += $item['price'] * $item['qty'];
 }
-$totalAmount += $extraCharge;
+$totalAmount += $extraCharge + $eatTotal;
 $extraApplied = false;
 
 // Begin transaction
@@ -105,7 +113,7 @@ try {
         $thumbSql = $thumbHex ? "'" . esc($thumbHex) . "'" : "NULL";
         $audioSql = $audioHex ? "'" . esc($audioHex) . "'" : "NULL";
         $extPay = 0;
-        if ($extraCharge > 0 && !$extraApplied) { $amount += $extraCharge; $extPay = $extraCharge; $extraApplied = true; }
+        if (($extraCharge + $eatTotal) > 0 && !$extraApplied) { $amount += $extraCharge + $eatTotal; $extPay = $extraCharge; $extraApplied = true; }
         
         $sql = "INSERT INTO cake_order 
             (bill_no, inv_date, return_date, deliver_date, delivery_time, 

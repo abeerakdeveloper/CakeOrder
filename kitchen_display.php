@@ -9,6 +9,10 @@ $kf = isset($_GET['kf']) ? $_GET['kf'] : 'kitchen';
 if ($kf === 'ready')     $statusWhere = "co.status = 'ready'";
 elseif ($kf === 'all')   $statusWhere = "co.status IN ('confirmed','preparing','ready')";
 else                     $statusWhere = "co.status IN ('confirmed','preparing')";
+$kd = isset($_GET['d']) ? trim($_GET['d']) : '';
+if ($kd !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $kd)) {
+    $statusWhere .= " AND co.deliver_date = '" . mysqli_real_escape_string($mysqli, $kd) . "'";
+}
 
 $sql = "SELECT co.bill_no, co.party_detail, co.deliver_date, co.delivery_time,
         co.status, co.priority, MAX(co.dateent) AS dateent,
@@ -178,6 +182,9 @@ $pageTitle = 'Kitchen Orders';
                 </div>
                 <div class="fld" style="flex:0 0 130px;">
                     <label>Priority</label>
+                    <input type="date" class="inp" style="width:150px;" id="kDate" title="Filter by delivery date"
+                           value="<?php echo htmlspecialchars($kd); ?>"
+                           onchange="location.search='?kf=<?php echo htmlspecialchars($kf); ?>&d='+this.value">
                     <select class="inp" id="prioSel" onchange="filterKitchen()">
                         <option value="all">All</option>
                         <option value="vip">⭐ VIP</option>
@@ -187,7 +194,7 @@ $pageTitle = 'Kitchen Orders';
                 </div>
                 <div class="fld" style="flex:1;min-width:160px;">
                     <label>Status</label>
-                    <select class="inp" onchange="location.search='?kf='+this.value">
+                    <select class="inp" onchange="location.search='?kf='+this.value+'&d=<?php echo htmlspecialchars($kd); ?>'">
                         <option value="kitchen" <?php echo $kf === 'kitchen' ? 'selected' : ''; ?>>In Kitchen (new + preparing)</option>
                         <option value="ready" <?php echo $kf === 'ready' ? 'selected' : ''; ?>>Ready (to pack / hand over)</option>
                         <option value="all" <?php echo $kf === 'all' ? 'selected' : ''; ?>>All active</option>

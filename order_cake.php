@@ -383,6 +383,7 @@ include 'includes/app_shell.php';
             <div class="s-row"><span class="k">Price (per unit)</span><span class="v" id="sPrice">Rs. 0</span></div>
             <div class="s-row"><span class="k">Subtotal</span><span class="v" id="sSub">Rs. 0</span></div>
             <div class="s-row" id="sExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sExtra">Rs. 0</span></div>
+            <div id="sEatWrap"></div>
             <div class="s-total"><span>Total Amount</span><span id="sTotal">Rs. 0</span></div>
             <button class="btn btn-primary btn-block mt12" id="confirmBtn" onclick="saveCake('confirmed', this)">🛒 Add to Order <span class="hint" style="color:#cfe1ff;">(F9)</span></button>
             <button class="btn btn-ghost btn-block mt8" onclick="saveCake('hold', this)">⏸ Hold Order <span class="hint">(F10)</span></button>
@@ -621,7 +622,19 @@ include 'includes/app_shell.php';
         var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
 
         var sub = price * parsed.tiers * qty;
-        var total = sub + extra;
+        var eatTotal = 0, eatHtml = '';
+        for (var ei = 0; ei < eatRows.length; ei++) {
+            var er = eatRows[ei];
+            var ePrice = parseFloat(er.price) || 0;
+            if (!ePrice && !er.img && !er.desc) continue;
+            var eAmt = ePrice * ((er.qty === '1/2') ? 0.5 : 1);
+            eatTotal += eAmt;
+            if (ePrice > 0) {
+                eatHtml += '<div class="s-row"><span class="k">Eatable ' + (ei + 1) + (er.desc ? ' - ' + er.desc : '') + ' (x' + er.qty + ')</span><span class="v">' + money(eAmt) + '</span></div>';
+            }
+        }
+        document.getElementById('sEatWrap').innerHTML = eatHtml;
+        var total = sub + extra + eatTotal;
 
         document.getElementById('lineTotal').textContent = money(total);
         document.getElementById('sCat').textContent = selected.name || '—';
@@ -677,6 +690,7 @@ include 'includes/app_shell.php';
         }
         wrap.innerHTML = html;
         if (window.refreshTabOrder) refreshTabOrder();
+        recalc();
     }
 
     function saveCake(status, btn) {
@@ -737,15 +751,28 @@ include 'includes/app_shell.php';
                     source: val('orderSource') || 'walk-in',
                     audio_data: voiceGet()
                 })
-            }).then(function(r) { return r.json(); }).then(function(res) {
+            }).then(function(r) {
+                return r.text().then(function(txt) {
+                    try { return JSON.parse(txt); }
+                    catch (e) {
+                        console.error('save_order_edit raw response:', txt);
+                        return { success: false, message: 'Server error: ' + txt.replace(/<[^>]*>/g, ' ').slice(0, 300) };
+                    }
+                });
+            }).then(function(res) {
                 if (res.success) {
                     showToast('Order #' + editBill + ' updated', 'success');
                     setTimeout(function() { window.location.href = 'order_list.php'; }, 700);
                 } else {
+                    console.error('save_order_edit failed:', res.message);
                     showToast(res.message || 'Update failed', 'error');
                     if (btn) btn.disabled = false;
                 }
-            }).catch(function() { showToast('Update failed', 'error'); if (btn) btn.disabled = false; });
+            }).catch(function(err) {
+                console.error(err);
+                showToast('Update failed: ' + (err && err.message ? err.message : err), 'error');
+                if (btn) btn.disabled = false;
+            });
             return;
         }
         submitOrder(items, {

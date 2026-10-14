@@ -79,13 +79,13 @@ if (typeof window.searchCustomer === 'undefined') {
 }
 
 /* ---------- keyboard tab order: tab walks fields top-to-bottom, left-to-right ---------- */
-function setupTabOrder() {
-    var root = document.querySelector('main') || document.body;
+function orderedControls(root) {
     var els = Array.prototype.slice.call(root.querySelectorAll('input, select, textarea, button'));
     els = els.filter(function (el) {
         if (el.type === 'hidden' || el.disabled) return false;
         var st = window.getComputedStyle(el);
-        return st.display !== 'none' && st.visibility !== 'hidden';
+        if (st.display === 'none' || st.visibility === 'hidden') return false;
+        return el.getClientRects().length > 0;
     });
     els.sort(function (a, b) {
         var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
@@ -93,8 +93,33 @@ function setupTabOrder() {
         if (row !== 0) return row;
         return ra.left - rb.left;
     });
+    return els;
+}
+function setupTabOrder() {
+    var root = document.querySelector('main') || document.body;
+    var els = orderedControls(root);
     for (var i = 0; i < els.length; i++) els[i].tabIndex = i + 1;
 }
+/* Enter = jump to the next visible control (input, combobox, radio, button) */
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    var t = e.target;
+    if (!t || !t.tagName) return;
+    var tag = t.tagName.toLowerCase();
+    if (tag === 'textarea' || tag === 'button' || tag === 'a') return;  // buttons keep Enter = click
+    var root = document.querySelector('main') || document.body;
+    if (!root.contains(t)) return;
+    if (t.closest && t.closest('.modal-overlay')) return;
+    if (t.form) return;   // real forms keep Enter = submit (search filters, salesman save)
+    e.preventDefault();
+    var els = orderedControls(root);
+    var i = els.indexOf(t);
+    if (i > -1 && i < els.length - 1) {
+        var nx = els[i + 1];
+        nx.focus();
+        if (nx.select && nx.tagName.toLowerCase() === 'input') nx.select();
+    }
+});
 window.refreshTabOrder = function () { setTimeout(setupTabOrder, 0); };
 window.addEventListener('resize', function () { window.refreshTabOrder(); });
 
