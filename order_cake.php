@@ -627,7 +627,7 @@ include 'includes/app_shell.php';
             var er = eatRows[ei];
             var ePrice = parseFloat(er.price) || 0;
             if (!ePrice && !er.img && !er.desc) continue;
-            var eAmt = ePrice * ((er.qty === '1/2') ? 0.5 : 1);
+            var eAmt = ePrice;   // exact amount typed in the row
             eatTotal += eAmt;
             if (ePrice > 0) {
                 eatHtml += '<div class="s-row"><span class="k">Eatable ' + (ei + 1) + (er.desc ? ' - ' + er.desc : '') + ' (x' + er.qty + ')</span><span class="v">' + money(eAmt) + '</span></div>';
@@ -662,7 +662,7 @@ include 'includes/app_shell.php';
     function eatEsc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
     function eatAdd() { eatRows.push({ img: '', qty: '1', price: 0, desc: '' }); eatRender(); }
     function eatDel(i) { eatRows.splice(i, 1); eatRender(); }
-    function eatSet(i, k, v) { eatRows[i][k] = v; }
+    function eatSet(i, k, v) { eatRows[i][k] = v; recalc(); }
     function eatImg(i) {
         pickImage(function(d) { eatRows[i].img = d; eatRender(); });
     }

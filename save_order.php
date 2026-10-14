@@ -23,8 +23,7 @@ $extraCharge = isset($input['extra_charge']) ? intval($input['extra_charge']) : 
 $eatTotal = 0;
 if (!empty($input['eatables']) && is_array($input['eatables'])) {
     foreach ($input['eatables'] as $erow) {
-        $efac = (isset($erow['qty']) && $erow['qty'] === '1/2') ? 0.5 : 1;
-        $eatTotal += floatval(isset($erow['price']) ? $erow['price'] : 0) * $efac;
+        $eatTotal += floatval(isset($erow['price']) ? $erow['price'] : 0);
     }
 }
 $eatTotal = round($eatTotal);
