@@ -50,7 +50,7 @@ session_start();
 // ============================================
 $host     = '182.180.87.102';
 $port     =  34599;           // integer, not string
-$dbname   = 'salman_gulbahar_bakery';
+$dbname   = 'abeer_bestpos';
 $username = 'waqar';
 $password = 'waqarmgr2019';
 

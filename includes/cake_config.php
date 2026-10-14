@@ -223,3 +223,14 @@ function productCatAttr($mysqli, $name) {
     }
     return htmlspecialchars(implode(',', $hit), ENT_QUOTES);
 }
+
+/* delivery branch options (edit here) */
+function deliveryBranches() {
+    return array(
+        'Salaman Gulbahar bakery',
+        'Salaman Dalazak bakery',
+        'Salaman Asia Gate',
+        'Salman warsak road',
+        'Salman dabgari garden',
+    );
+}

@@ -171,6 +171,7 @@ function submitOrder(items, extra, onDone) {
         extra_images: extra.extra_images || [],
         eatables: extra.eatables || [],
         extra_charge: parseInt(extra.extra_charge, 10) || 0,
+        delivery_branch: val('deliverBranch') || '',
         status: extra.status || 'confirmed',
         party_detail: val('custName') || 'Walk-in',
         cell_no: val('custPhone') || val('custCell'),

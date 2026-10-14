@@ -28,6 +28,9 @@ $branch = getBranchInfo();
 $totalAmount = 0;
 foreach ($items as $i) $totalAmount += $i['amount'];
 $netTotal = $totalAmount - $first['flat_disc'];
+
+
+
 $advance  = intval($first['advance']);
 $paid     = intval($first['paid']);
 $balance  = $netTotal - $advance - $paid;
@@ -200,8 +203,8 @@ function invDate($d)
         }
 
         .mid .copy {
-            font-weight: 800;
-            font-size: 13px;
+            font-weight: 1000;
+            font-size: 16px;
             color: #9b1c2e;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -334,13 +337,13 @@ function invDate($d)
         }
 
         .tot .k {
-            font-weight: 700;
+            font-weight: 900;
             padding-right: 20px;
             text-align: right;
         }
 
         .tot .v {
-            font-weight: 700;
+            font-weight: 900;
             min-width: 110px;
         }
 
@@ -509,8 +512,23 @@ function invDate($d)
                 flex: 0 0 auto;
             }
 
+
+
+            .invoice-content-body {
+                display: flex;
+                flex-direction: column;
+                flex: 1 1 auto;
+                min-height: 0;
+            }
+
+            .invoice-content-body > .tot {
+                margin-top: auto;
+            }
+
+
             .hd {
-                margin-bottom: 2mm;
+                margin-bottom: 5mm;
+                margin-top:10mm;
                 gap: 2.5mm;
             }
 
@@ -525,26 +543,29 @@ function invDate($d)
             }
 
             .info {
-                font-size: 9.5px;
-                margin-bottom: 2mm;
+                font-size: 10.2px;
+                line-height: 1.4;
+                margin-bottom: 2.5mm;
                 gap: 3mm;
             }
 
             .info table td {
-                padding: 1px 0;
+                padding: 1.5px 0;
+                vertical-align: top;
             }
 
             .mid {
-                margin: 1mm 0 2mm;
+                margin: 1.5mm 0 2.5mm;
             }
 
             .mid .copy {
-                font-size: 11px;
-                margin-bottom: 1px;
+                font-size: 14px;
+                margin: 10px 0px;
+                letter-spacing: 0.7px;
             }
 
             .mid .inv {
-                font-size: 10px;
+                font-size: 10.5px;
             }
 
             .mid .inv span {
@@ -552,8 +573,8 @@ function invDate($d)
             }
 
             .mid .boxes {
-                font-size: 10px;
-                margin-top: 1px;
+                font-size: 10.5px;
+                margin-top: 2px;
             }
 
             .photo {
@@ -566,56 +587,60 @@ function invDate($d)
             }
 
             table.lines {
-                font-size: 9px;
-                margin-bottom: 2mm;
+                font-size: 10px;
+                line-height: 1.35;
+                margin-bottom: 2.5mm;
             }
 
             table.lines th {
-                padding: 2.5px 4px;
-                font-size: 8.5px;
+                padding: 3.5px 4px;
+                font-size: 12px;
             }
 
             table.lines td {
-                padding: 2px 4px;
-                line-height: 1.25;
+                padding: 3px 4px;
+                line-height: 1.35;
+                font-size: 12px;
             }
 
             table.lines .plain td {
-                padding: 2px 4px;
+                padding: 3px 4px;
             }
 
             ul.plist {
-                font-size: 9.5px;
-                margin: 0 auto 2mm;
+                font-size: 10px;
+                line-height: 1.4;
+                margin: 0 auto 2.5mm;
                 max-width: 320px;
             }
 
             ul.plist li {
-                padding: 1.5px 0;
+                padding: 2.5px 0;
             }
 
+
             .tot {
-                margin: 1mm 0 2mm;
+                margin: 1.5mm 0 2.5mm;
             }
 
             .tot table {
-                font-size: 9.5px;
+                font-size: 10px;
             }
 
             .tot td {
-                padding: 1px 0;
+                padding: 1.5px 0;
             }
 
             .tot .k {
-                padding-right: 10px;
+                padding-right: 12px;
             }
 
             .tot .v {
-                min-width: 85px;
+                min-width: 90px;
             }
 
             .signrow {
-                padding: 1.5mm 0 2.5mm;
+                padding: 2mm 0 3mm;
             }
 
             .stamp {
@@ -633,18 +658,18 @@ function invDate($d)
             }
 
             .sig {
-                font-size: 8px;
-                line-height: 1.25;
+                font-size: 8.5px;
+                line-height: 1.35;
             }
 
             .sig .line {
                 width: 75px;
-                margin: 10px auto 2px;
+                margin: 12px auto 3px;
             }
 
             .sig.left .line {
                 width: 70px;
-                margin: 10px 0 2px;
+                margin: 12px 0 3px;
             }
 
             .ft {
@@ -660,13 +685,17 @@ function invDate($d)
 <body>
 
     <?php
-    function renderInvoiceCopy($copyType, $branch, $first, $billNo, $payStatus, $INV, $kind, $totalBoxes, $photoId, $extras, $items, $netTotal, $advance, $paid, $balance, $ladi) {
+    function renderInvoiceCopy($copyType, $branch, $first, $billNo, $payStatus, $INV, $kind, $totalBoxes, $photoId, $extras, $items, $netTotal, $advance, $paid, $balance, $ladi, $details = array()) {
         ob_start();
         ?>
         <!-- header -->
         <div class="hd">
             <div class="logo"><img src="assets/clogo.png" alt=""></div>
-            <h1><?php echo htmlspecialchars($branch['name']); ?></h1>
+            <h1>
+                Salman Bakers<br>
+                &amp; Sweets
+            </h1>
+
         </div>
 
         <!-- info -->
@@ -720,7 +749,7 @@ function invDate($d)
                 <tr>
                     <td class="k">Delivery Branch</td>
                     <td class="c">:</td>
-                    <td class="v"><?php echo htmlspecialchars($branch['name']); ?></td>
+                    <td class="v"><?php $db = preg_match('/DELBRANCH: ([^|]+)/', (string)$first['notes'], $dbm) ? trim($dbm[1]) : $branch['name']; echo htmlspecialchars($db); ?></td>
                 </tr>
                 <tr>
                     <td class="k">Delivery Date</td>
@@ -765,7 +794,7 @@ function invDate($d)
                     </thead>
                     <tbody>
                         <?php foreach ($items as $it):
-                            $noteClean = preg_replace('/(OCCASION:|LADI:|TIERS:|DELIVERY ADDR:)[^|]*/', '', (string)$it['notes']);
+                            $noteClean = preg_replace('/(OCCASION:|LADI:|TIERS:|DELBRANCH:|DELIVERY ADDR:)[^|]*/', '', (string)$it['notes']);
                             $noteClean = trim(preg_replace('/\|+/', '|', $noteClean), " |");
                         ?>
                             <tr>
@@ -780,7 +809,17 @@ function invDate($d)
                                 </td>
                                 <td><?php echo htmlspecialchars($it['uom']); ?></td>
                                 <td class="r"><?php echo intval($it['qty']); ?></td>
-                                <td class="r"><?php echo number_format($it['amount']); ?></td>
+                               <td class="r">
+                                    <?php
+                                    $cakeDisplayAmount = (float)$it['amount'];
+                                    if (!empty($details)) {
+                                        foreach ($details as $d) {
+                                            $cakeDisplayAmount -= (float)$d['price'];
+                                        }
+                                    }
+                                    echo number_format($cakeDisplayAmount);
+                                    ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -944,11 +983,11 @@ function invDate($d)
 
     <div class="print-container">
         <div class="sheet">
-            <?php echo renderInvoiceCopy('Branch Copy', $branch, $first, $billNo, $payStatus, $INV, $kind, $totalBoxes, $photoId, $extras, $items, $netTotal, $advance, $paid, $balance, $ladi); ?>
+            <?php echo renderInvoiceCopy('Branch Copy', $branch, $first, $billNo, $payStatus, $INV, $kind, $totalBoxes, $photoId, $extras, $items, $netTotal, $advance, $paid, $balance, $ladi, $details); ?>
         </div>
         <div class="cut-line"></div>
         <div class="sheet">
-            <?php echo renderInvoiceCopy('Customer Copy', $branch, $first, $billNo, $payStatus, $INV, $kind, $totalBoxes, $photoId, $extras, $items, $netTotal, $advance, $paid, $balance, $ladi); ?>
+            <?php echo renderInvoiceCopy('Customer Copy', $branch, $first, $billNo, $payStatus, $INV, $kind, $totalBoxes, $photoId, $extras, $items, $netTotal, $advance, $paid, $balance, $ladi, $details); ?>
         </div>
     </div>
 

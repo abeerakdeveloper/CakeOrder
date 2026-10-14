@@ -42,7 +42,7 @@ include 'includes/app_shell.php';
     <!-- ============ picture grid ============ -->
     <div>
         <div class="card compact">
-            <div class="grid-3" style="margin-bottom:14px;">
+            <div class="grid-4" style="margin-bottom:14px;">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer (F4)</label>
                     <div class="row" style="flex-wrap:nowrap; display:none;">
@@ -60,6 +60,15 @@ include 'includes/app_shell.php';
                     <select class="inp" id="orderTypeSel" onchange="toggleAddrRow()">
                         <option value="pickup">🛍 Pickup</option>
                         <option value="delivery"> Delivery</option>
+                    </select>
+                </div>
+                <div class="fld">
+                    <label>Delivery Branch</label>
+                    <select class="inp" id="deliverBranch">
+                        <option value="">— Same as order branch —</option>
+                        <?php foreach (deliveryBranches() as $db): ?>
+                        <option value="<?php echo htmlspecialchars($db, ENT_QUOTES); ?>"><?php echo htmlspecialchars($db); ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="fld">

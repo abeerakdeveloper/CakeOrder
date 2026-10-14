@@ -206,7 +206,7 @@ $pageTitle = 'Order List';
                             $canCancel = !$o['cancelled'] && $o['paid'] == 0 && !in_array($o['status'], array('ready','delivered','paid'));
                         }
                         
-                        $canEdit = !$o['cancelled'] && (isPOSUser() || isAdmin()) && !in_array($o['status'], array('ready','delivered','paid','cancelled'));
+                        $canEdit = !$o['cancelled'] && (isPOSUser() || isAdmin());
                         $canAddAdvance = !$o['cancelled'] && (isPOSUser() || isAdmin()) && $balance > 0 && !in_array($o['status'], array('paid','cancelled'));
                         $canPay = !$o['cancelled'] && $balance > 0 && in_array($o['status'], array('delivered','ready'));
                         $canDeliver = !$o['cancelled'] && (isPOSUser() || isAdmin()) && $o['status'] == 'ready';

@@ -23,6 +23,7 @@ $extraCharge = isset($input['extra_charge']) ? intval($input['extra_charge']) : 
 $occasion = isset($input['occasion']) ? esc($input['occasion']) : '';
 $deliveryType = isset($input['delivery_type']) ? esc($input['delivery_type']) : 'pickup';
 $deliveryAddress = isset($input['delivery_address']) ? esc($input['delivery_address']) : '';
+$deliveryBranch = isset($input['delivery_branch']) ? esc($input['delivery_branch']) : '';
 $source = isset($input['source']) ? esc($input['source']) : 'walk-in';
 
 // ============================================
@@ -93,6 +94,7 @@ try {
         
         // Build combined notes with extra info
         $fullNote = $itemNote;
+        if ($deliveryBranch) $fullNote = "DELBRANCH: $deliveryBranch | " . $fullNote;
         if ($occasion) $fullNote = "OCCASION: $occasion | " . $fullNote;
         if ($deliveryType == 'delivery' && $deliveryAddress) {
             $fullNote .= " | DELIVERY ADDR: $deliveryAddress";
@@ -201,8 +203,10 @@ if (!empty($input['eatables'])) {
         $eq = mysqli_real_escape_string($mysqli, isset($eat['qty']) ? $eat['qty'] : '1');
         $ep = floatval(isset($eat['price']) ? $eat['price'] : 0);
         $ed = mysqli_real_escape_string($mysqli, isset($eat['desc']) ? $eat['desc'] : '');
-        mysqli_query($mysqli, "INSERT INTO cake_detail (bill_no, image_data, thumb_data, qty, price, description, dateent)
-            VALUES ($billNo, '$eImg', '$eThumb', '$eq', $ep, '$ed', NOW())");
+        if (!mysqli_query($mysqli, "INSERT INTO cake_detail (bill_no, image_data, thumb_data, qty, price, description, dateent)
+            VALUES ($billNo, '$eImg', '$eThumb', '$eq', $ep, '$ed', NOW())")) {
+            error_log('cake_detail insert failed: ' . mysqli_error($mysqli));
+        }
     }
 }
 

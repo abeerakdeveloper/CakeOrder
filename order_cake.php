@@ -61,9 +61,10 @@ if (!empty($_GET['edit'])) {
             'qty'       => intval($f['qty']),
             'price'     => floatval($f['retail_price']) / max(1, floatval($f['tiers'])),
             'cakeMsg'   => $f['cake_message'],
-            'note'      => trim(preg_replace('/\|+/', '|', preg_replace('/(OCCASION:|LADI:|TIERS:|DELIVERY ADDR:)[^|]*/', '', (string)$f['notes'])), " |"),
+            'note'      => trim(preg_replace('/\|+/', '|', preg_replace('/(OCCASION:|LADI:|TIERS:|DELBRANCH:|DELIVERY ADDR:)[^|]*/', '', (string)$f['notes'])), " |"),
             'occasion'  => (preg_match('/OCCASION: ([^|]+)/', (string)$f['notes'], $m) ? trim($m[1]) : ''),
             'extra'     => intval($f['ext_pay']),
+            'delBranch' => (preg_match('/DELBRANCH: ([^|]+)/', (string)$f['notes'], $m) ? trim($m[1]) : ''),
             'primary'   => !empty($f['image_data']) ? 'data:image/jpeg;base64,' . base64_encode(hex2bin($f['image_data'])) : '',
             'extras'    => $exImgs,
             'eatables'  => $detRows,
@@ -93,7 +94,7 @@ include 'includes/app_shell.php';
         <!-- customer + type + date -->
         <div class="card compact">
             <input type="hidden" id="editBillNo" value="<?php echo $EDIT ? intval($EDIT['bill']) : 0; ?>">
-            <div class="grid-3">
+            <div class="grid-4">
                 <div class="fld" style="position:relative;">
                     <label>👤 Customer (F4)</label>
                     <div class="row" style="flex-wrap:nowrap; display:none;">
@@ -111,6 +112,15 @@ include 'includes/app_shell.php';
                     <select class="inp" id="orderTypeSel" onchange="toggleAddrRow()">
                         <option value="pickup">🛍 Pickup</option>
                         <option value="delivery"> Delivery</option>
+                    </select>
+                </div>
+                <div class="fld">
+                    <label>Delivery Branch</label>
+                    <select class="inp" id="deliverBranch">
+                        <option value="">— Same as order branch —</option>
+                        <?php foreach (deliveryBranches() as $db): ?>
+                        <option value="<?php echo htmlspecialchars($db, ENT_QUOTES); ?>"><?php echo htmlspecialchars($db); ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="fld">
@@ -764,6 +774,7 @@ include 'includes/app_shell.php';
             toggleAddrRow();
         }
         if (EDIT.occasion) document.getElementById('occasion').value = EDIT.occasion;
+        if (EDIT.delBranch) document.getElementById('deliverBranch').value = EDIT.delBranch;
     }
 
     bindCustomerLookup('custCell', 'custName');

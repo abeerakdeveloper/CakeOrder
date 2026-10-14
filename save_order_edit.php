@@ -19,13 +19,16 @@ $newItems = isset($input['new_items']) ? $input['new_items'] : array();
 $user = esc($_SESSION['user']);
 $salesman = !empty($_SESSION['salesman_name']) ? esc($_SESSION['salesman_name']) : $user;
 
-// Verify order is editable
+// Verify order is editable (full_replace = cake edit mode: allowed on any existing bill)
+$isFullReplace = !empty($input['full_replace']);
 $res = mysqli_query($mysqli, "SELECT status, ordercancel FROM cake_order WHERE bill_no = $billNo LIMIT 1");
 $check = mysqli_fetch_assoc($res);
 if (!$check) jsonResponse(array('success' => false, 'message' => 'Order not found'));
-if ($check['ordercancel']) jsonResponse(array('success' => false, 'message' => 'Order is cancelled'));
-if (in_array($check['status'], array('ready','delivered','paid','cancelled'))) {
-    jsonResponse(array('success' => false, 'message' => 'Cannot edit ' . $check['status'] . ' order'));
+if (!$isFullReplace) {
+    if ($check['ordercancel']) jsonResponse(array('success' => false, 'message' => 'Order is cancelled'));
+    if (in_array($check['status'], array('ready','delivered','paid','cancelled'))) {
+        jsonResponse(array('success' => false, 'message' => 'Cannot edit ' . $check['status'] . ' order'));
+    }
 }
 
 mysqli_autocommit($mysqli, false);
@@ -33,7 +36,7 @@ mysqli_autocommit($mysqli, false);
 try {
     // 0. FULL REPLACE (cake edit mode): rebuild every row of this bill
     if (!empty($input['full_replace'])) {
-        $oldRes = mysqli_query($mysqli, "SELECT * FROM cake_order WHERE bill_no = $billNo AND ordercancel = 0 ORDER BY id LIMIT 1");
+        $oldRes = mysqli_query($mysqli, "SELECT * FROM cake_order WHERE bill_no = $billNo ORDER BY id LIMIT 1");
         $old = mysqli_fetch_assoc($oldRes);
         $oldStatus  = $old ? $old['status'] : 'confirmed';
         $oldAdvance = $old ? intval($old['advance']) : 0;
@@ -41,6 +44,8 @@ try {
         $oldAudio   = ($old && !empty($old['audio_data'])) ? $old['audio_data'] : '';
         $oldFactory = $old ? $old['order_factory'] : 'main';
         $oldFlat    = $old ? intval($old['flat_disc']) : 0;
+        // hold/pending/etc. become confirmed again on save; delivered & paid stay as they are
+        $newStatus  = in_array($oldStatus, array('delivered', 'paid')) ? $oldStatus : 'confirmed';
 
         mysqli_query($mysqli, "DELETE FROM cake_order WHERE bill_no = $billNo");
         mysqli_query($mysqli, "DELETE FROM order_extra_images WHERE bill_no = $billNo");
@@ -67,6 +72,7 @@ try {
             $cakeMsg = isset($item['cake_message']) ? esc($item['cake_message']) : '';
             $itemNote = isset($item['note']) ? esc($item['note']) : '';
             $fullNote = $itemNote;
+            if (!empty($input['delivery_branch'])) $fullNote = "DELBRANCH: " . esc($input['delivery_branch']) . " | " . $fullNote;
             if ($occasion) $fullNote = "OCCASION: $occasion | " . $fullNote;
             if ($deliveryType == 'delivery' && $deliveryAddress) $fullNote .= " | DELIVERY ADDR: " . $deliveryAddress;
             $fullNote = esc($fullNote);
@@ -99,7 +105,7 @@ try {
                 ($billNo, CURDATE(), NOW(), '$deliverDate', '$deliveryTime',
                  $amount, $oldAdvance, $oldPaid, '$cellNo', '$partyDetail', '$fullNote',
                  '$user', NOW(), '$salesman', '$oldFactory', 0,
-                 '$oldStatus', 0, NOW(), $oldFlat, '$deliverDate',
+                 '$newStatus', 0, NOW(), $oldFlat, '$deliverDate',
                  '" . esc(isset($input['source']) ? $input['source'] : 'walk-in') . "', $invId, $qty, $extPay, '$flavor', 0,
                  '$priority', '$category', $tiers, '$shape', '$cakeMsg', $price,
                  $imageSql, $thumbSql, $audioSql, '$uom', NULL)";
