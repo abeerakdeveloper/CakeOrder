@@ -17,6 +17,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
 <?php if (!empty($preCss)): foreach ((array)$preCss as $css): ?><link rel="stylesheet" href="<?php echo htmlspecialchars($css); ?>">
 <?php endforeach; endif; ?>
 <link rel="stylesheet" href="assets/app.css">
+<link rel="icon" href="assets/cicon.png">
 <script src="assets/pos_common.js"></script>
 </head>
 <body>

@@ -106,7 +106,7 @@ include 'includes/app_shell.php';
             <span class="q-ic">◍</span>
             <span class="q-lb">Eatables</span>
         </a>
-        <a class="quick-card qc-slate" href="index.php">
+        <a class="quick-card qc-slate" href="index.php" style="display:none;">
             <span class="q-arrow">→</span>
             <span class="q-ic">≡</span>
             <span class="q-lb">Other (POS)</span>

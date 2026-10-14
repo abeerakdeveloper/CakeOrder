@@ -68,8 +68,8 @@ function cakeConfig()
                     'Three Milky' => 1000,
                     'Red Velvet' => 1000,
                     'Ferrero Rocher' => 1000,
-                    '【entity-Kit Kat¦canonical_name=Kit Kat】' => 1000,
-                    '【entity-Cadbury¦canonical_name=Cadbury】' => 1000,
+                    'Kit Kat' => 1000,
+                    'Cadbury' => 1000,
                     'Caramel' => 1000,
                     'Lotus' => 1000
                 ),

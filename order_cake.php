@@ -80,7 +80,7 @@ include 'includes/app_shell.php';
 ?>
 
 <div class="page-head">
-    <div class="ph-ic"></div>
+    
     <div>
         <h2><?php echo $EDIT ? 'Edit Cake Order #' . intval($EDIT['bill']) : 'Create Cake Order'; ?></h2>
     </div>
@@ -117,7 +117,7 @@ include 'includes/app_shell.php';
                 <div class="fld">
                     <label>Delivery Branch</label>
                     <select class="inp" id="deliverBranch">
-                        <option value="">— Same as order branch —</option>
+        
                         <?php foreach (deliveryBranches() as $db): ?>
                         <option value="<?php echo htmlspecialchars($db, ENT_QUOTES); ?>"><?php echo htmlspecialchars($db); ?></option>
                         <?php endforeach; ?>
