@@ -385,6 +385,14 @@ include 'includes/app_shell.php';
             <div class="s-row" id="sExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sExtra">Rs. 0</span></div>
             <div id="sEatWrap"></div>
             <div class="s-total"><span>Total Amount</span><span id="sTotal">Rs. 0</span></div>
+            <div class="row mt8" style="flex-wrap:nowrap;">
+                <div class="fld"><label>Advance (Rs.)</label><input class="inp" type="number" id="advance" value="0" min="0"></div>
+                <div class="fld"><label>Method</label>
+                    <select class="inp" id="advMethod">
+                        <option value="cash" selected> Cash</option><option value="bank"> Bank</option>
+                        <option value="card"> Card</option><option value="easypaisa">Easypaisa</option>
+                    </select></div>
+            </div>
             <button class="btn btn-primary btn-block mt12" id="confirmBtn" onclick="saveCake('confirmed', this)">🛒 Add to Order <span class="hint" style="color:#cfe1ff;">(F9)</span></button>
             <button class="btn btn-ghost btn-block mt8" onclick="saveCake('hold', this)">⏸ Hold Order <span class="hint">(F10)</span></button>
             <a class="btn btn-outline btn-block mt8" href="order_list.php">📋 View All Orders</a>
@@ -781,7 +789,8 @@ include 'includes/app_shell.php';
             btn: btn,
             extra_images: extraImages(),
             extra_charge: extra,
-            eatables: eatSend
+            eatables: eatSend,
+            advance_method: document.getElementById('advMethod').value
         }, function(res) {
             defaultAfterSave(res, status);
         });
