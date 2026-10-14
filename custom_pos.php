@@ -104,7 +104,7 @@ include 'includes/app_shell.php';
                 <div class="fld"><label>Advance (Rs.)</label><input class="inp" type="number" id="advance" value="0" min="0"></div>
                 <div class="fld"><label>Method</label>
                     <select class="inp" id="advMethod">
-                        <option value="">—</option><option value="cash">Cash</option><option value="bank">Bank</option>
+                        <option value="cash" selected>Cash</option><option value="bank">Bank</option>
                         <option value="card">Card</option><option value="easypaisa">Easypaisa</option>
                     </select></div>
             </div>
