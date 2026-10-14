@@ -485,3 +485,6 @@ body { background: #e1e8f1; }
 
 /* sweets box: prices hidden everywhere on the screen */
 body.sweets .sw-hide { display: none !important; }
+
+/* keyboard focus visibility for tiles / dropzones (enter-space navigation) */
+.tile:focus, .dropzone:focus { outline: 2px solid var(--blue); outline-offset: 2px; }

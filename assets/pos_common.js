@@ -80,7 +80,7 @@ if (typeof window.searchCustomer === 'undefined') {
 
 /* ---------- keyboard tab order: tab walks fields top-to-bottom, left-to-right ---------- */
 function orderedControls(root) {
-    var els = Array.prototype.slice.call(root.querySelectorAll('input, select, textarea, button'));
+    var els = Array.prototype.slice.call(root.querySelectorAll('input, select, textarea, button, .tile, .dropzone'));
     els = els.filter(function (el) {
         if (el.type === 'hidden' || el.disabled) return false;
         var st = window.getComputedStyle(el);
@@ -100,25 +100,44 @@ function setupTabOrder() {
     var els = orderedControls(root);
     for (var i = 0; i < els.length; i++) els[i].tabIndex = i + 1;
 }
-/* Enter = jump to the next visible control (input, combobox, radio, button) */
-document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    var t = e.target;
-    if (!t || !t.tagName) return;
-    var tag = t.tagName.toLowerCase();
-    if (tag === 'textarea' || tag === 'button' || tag === 'a') return;  // buttons keep Enter = click
+/* Enter = ALWAYS move to the next visible control (input, combobox/select,
+   radio, tile, dropzone, button). Space activates the focused control
+   (open combobox, pick radio/tile, press button). */
+function focusNextControl(t) {
     var root = document.querySelector('main') || document.body;
-    if (!root.contains(t)) return;
-    if (t.closest && t.closest('.modal-overlay')) return;
-    if (t.form) return;   // real forms keep Enter = submit (search filters, salesman save)
-    e.preventDefault();
     var els = orderedControls(root);
     var i = els.indexOf(t);
     if (i > -1 && i < els.length - 1) {
         var nx = els[i + 1];
         nx.focus();
         if (nx.select && nx.tagName.toLowerCase() === 'input') nx.select();
+        return true;
     }
+    return false;
+}
+document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (!t || !t.tagName) return;
+    var tag = t.tagName.toLowerCase();
+    var root = document.querySelector('main') || document.body;
+    if (!root.contains(t)) return;
+    if (t.closest && t.closest('.modal-overlay')) return;
+
+    /* SPACE activates tiles / dropzones like a radio button */
+    if (e.key === ' ' || e.key === 'Spacebar') {
+        if (t.classList && (t.classList.contains('tile') || t.classList.contains('dropzone'))) {
+            e.preventDefault();
+            t.click();
+        }
+        return;
+    }
+
+    if (e.key !== 'Enter') return;
+    if (tag === 'textarea') return;          // newline stays
+    if (tag === 'a') return;                 // links keep Enter = open
+    if (t.form) return;   // anything inside a real form keeps Enter = submit
+    e.preventDefault();   // stops button click on form-less order screens
+    focusNextControl(t);
 });
 window.refreshTabOrder = function () { setTimeout(setupTabOrder, 0); };
 window.addEventListener('resize', function () { window.refreshTabOrder(); });

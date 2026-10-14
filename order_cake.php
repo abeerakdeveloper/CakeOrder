@@ -736,6 +736,7 @@ include 'includes/app_shell.php';
                 body: JSON.stringify({
                     bill_no: editBill,
                     full_replace: true,
+                    status: status,
                     items: items,
                     extra_images: extraImages(),
                     extra_charge: extra,

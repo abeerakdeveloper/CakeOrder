@@ -49,8 +49,14 @@ try {
         $oldAudio   = ($old && !empty($old['audio_data'])) ? $old['audio_data'] : '';
         $oldFactory = $old ? $old['order_factory'] : 'main';
         $oldFlat    = $old ? intval($old['flat_disc']) : 0;
-        // hold/pending/etc. become confirmed again on save; delivered & paid stay as they are
-        $newStatus  = in_array($oldStatus, array('delivered', 'paid')) ? $oldStatus : 'confirmed';
+        // status follows the pressed button (hold = hold, save = confirmed);
+        // delivered & paid bills keep their status
+        $reqStatus = isset($input['status']) ? $input['status'] : 'confirmed';
+        if (in_array($oldStatus, array('delivered', 'paid'))) {
+            $newStatus = $oldStatus;
+        } else {
+            $newStatus = ($reqStatus === 'hold') ? 'hold' : 'confirmed';
+        }
 
         mysqli_query($mysqli, "DELETE FROM cake_order WHERE bill_no = $billNo");
         mysqli_query($mysqli, "DELETE FROM order_extra_images WHERE bill_no = $billNo");
