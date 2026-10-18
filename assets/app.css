@@ -104,7 +104,7 @@ img { display: block;border-radius: 50% !important; }
 }
 .app-sidebar .love .big { font-size: 26px; font-style: normal; display: block; margin-bottom: 6px; }
 
-.app-main { flex: 1;padding: 4px 140px 40px; min-width: 0; }
+.app-main { flex: 1;padding: 8px 140px 40px; min-width: 0; }
 
 /* ---------- PAGE HEAD ---------- */
 .page-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }

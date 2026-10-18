@@ -49,6 +49,8 @@ function shellActiveBox($t) { global $currentPage;
 <div class="app-layout">
     <?php if (empty($shellNoNav)): ?>
     <nav class="app-sidebar">
+    <?php if (!isKitchen()): ?>
+
         <div class="grp">Overview</div>
         <a class="app-nav-item <?php echo shellActive('dashboard.php'); ?>" href="dashboard.php"><span class="ic">◫</span> Dashboard</a>
 
@@ -66,6 +68,9 @@ function shellActiveBox($t) { global $currentPage;
         <a style="display:none;" class="app-nav-item <?php echo shellActive('index.php'); ?>" href="index.php"><span class="ic">⧉</span> Other (POS)</a>
         <a class="app-nav-item <?php echo shellActive('custom_pos.php'); ?>" href="custom_pos.php"><span class="ic">✎</span> Custom Sale</a>
         <a class="app-nav-item <?php echo shellActive('categories.php'); ?>" href="categories.php"><span class="ic">▤</span> Categories</a>
+        <?php endif; ?>
+
+
 
         <?php if (isKitchen() || isAdmin()): ?>
         <div class="grp">Production</div>
@@ -76,10 +81,14 @@ function shellActiveBox($t) { global $currentPage;
         <a class="app-nav-item <?php echo shellActive('pickup_queue.php'); ?>" href="pickup_queue.php"><span class="ic">⇒</span> Pickup Queue</a>
         <?php endif; ?>
 
+
+
         <?php if (isAdmin()): ?>
         <div class="grp">Admin</div>
         <a class="app-nav-item <?php echo shellActive('admin_payments.php'); ?>" href="admin_payments.php"><span class="ic">Rs</span> Payments</a>
         <a class="app-nav-item <?php echo shellActive('admin_ledger.php'); ?>" href="admin_ledger.php"><span class="ic">≣</span> GL Ledger</a>
+
+
         <a style="display:none;" class="app-nav-item <?php echo shellActive('admin_users.php'); ?>" href="admin_users.php"><span class="ic">○○</span> Users</a>
         <?php endif; ?>
 

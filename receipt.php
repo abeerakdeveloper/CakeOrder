@@ -811,16 +811,26 @@ function invDate($d)
                                 <td class="r"><?php echo intval($it['qty']); ?></td>
                                <td class="r">
                                     <?php
+                                    $extPay = intval($first['ext_pay']);
                                     $cakeDisplayAmount = (float)$it['amount'];
                                     if (!empty($details)) {
                                         foreach ($details as $d) {
                                             $cakeDisplayAmount -= (float)$d['price'];
                                         }
                                     }
+                                    if ($extPay > 0) $cakeDisplayAmount -= $extPay;
                                     echo number_format($cakeDisplayAmount);
                                     ?>
                                 </td>
                             </tr>
+                            <?php if ($extPay > 0): ?>
+                            <tr>
+                                <td><span class="dk">Board Charges</span></td>
+                                <td></td>
+                                <td class="r"></td>
+                                <td class="r"><?php echo number_format($extPay); ?></td>
+                            </tr>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>

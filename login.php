@@ -53,6 +53,7 @@ $brAddr  = $brLogin['address'];
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Login — BestPOS</title>
 <link rel="stylesheet" href="assets/app.css">
+<link rel="icon" href="assets/cicon.png">
 <style>
 html, body { height: 100%; }
 body {
@@ -64,6 +65,7 @@ body {
 
 /* ---------- left: brand panel ---------- */
 .lg-brand {
+    flex-grow: 2;
     position: relative; flex: 1.15; min-height: 100vh;
     background: url('assets/login_bg.jpg') center 38% / cover no-repeat #12294a;
 }
@@ -73,14 +75,15 @@ body {
 }
 .lg-brand-in {
     position: relative; z-index: 2; height: 100%;
-    display: flex; flex-direction: column; justify-content: flex-end;
-    padding: 56px 60px; color: #fff;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 56px 160px; color: #fff;
+    width: 1200px;
 }
 .lg-mark { display: flex; align-items: center; gap: 14px; }
-.lg-mark img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
-.lg-mark .nm { font-size: 24px; font-weight: 700; letter-spacing: .3px; line-height: 1.15; }
-.lg-mark .sb { font-size: 12px; font-weight: 500; color: #cfd9e8; letter-spacing: 1.6px; text-transform: uppercase; margin-top: 2px; }
-.lg-line { width: 54px; height: 3px; background: #d8a13c; border-radius: 2px; margin: 22px 0 18px; }
+.lg-mark img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.lg-mark .nm { font-size: 40px; font-weight: 800; letter-spacing: .3px; line-height: 1.15; }
+.lg-mark .sb { font-size: 25px; font-weight: 500; color: #cfd9e8; letter-spacing: 1.6px; text-transform: uppercase; margin-top: 2px; }
+.lg-line { width: 100px; height: 3px; background: #d8a13c; border-radius: 2px; margin: 22px 0 18px; }
 .lg-feats { list-style: none; margin: 0; padding: 0; font-size: 14px; color: #e6ecf5; }
 .lg-feats li { padding: 5px 0 5px 22px; position: relative; }
 .lg-feats li::before { content: ''; position: absolute; left: 0; top: 12px; width: 8px; height: 8px; border: 2px solid #d8a13c; border-radius: 2px; }
@@ -122,6 +125,9 @@ body {
     .lg-brand { display: none; }
     .lg-panel { padding: 28px 18px; }
 }
+.lg-dis-lines{
+    padding-left: 20px;
+}
 </style>
 </head>
 <body>
@@ -133,16 +139,19 @@ body {
                 <img src="assets/clogo.png" alt="logo">
                 <div>
                     <div class="nm"><?php echo htmlspecialchars($brName); ?></div>
-                    <div class="sb">Bakery &amp; Sweets POS</div>
+                    <div class="sb">Order Management System</div>
                 </div>
             </div>
             <div class="lg-line"></div>
+            <div class="lg-dis-lines">
             <ul class="lg-feats">
                 <li>Cake, lunch box &amp; sweets order management</li>
                 <li>Live kitchen display and pickup queue</li>
                 <li>Branch-wise invoicing, advances and ledger</li>
             </ul>
             <div class="lg-copy">&copy; <?php echo date('Y'); ?> BestPOS — Bakery &amp; Sweets Order Management System</div>
+
+            </div>
         </div>
     </div>
 
@@ -172,7 +181,7 @@ body {
                 </form>
             </div>
 
-            <div class="lg-keys">Shortcuts after login: <b>F1</b> help · <b>F2</b> search · <b>F4</b> customer · <b>F9</b> confirm · <b>F10</b> hold</div>
+            <!-- <div class="lg-keys">Shortcuts after login: <b>F1</b> help · <b>F2</b> search · <b>F4</b> customer · <b>F9</b> confirm · <b>F10</b> hold</div> -->
             <div class="lg-foot">BestPOS • Bakery &amp; Sweets Order Management</div>
         </div>
     </div>

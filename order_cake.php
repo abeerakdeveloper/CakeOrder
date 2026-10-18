@@ -37,7 +37,9 @@ if (!empty($_GET['edit'])) {
         $dtr = @mysqli_query($mysqli, "SELECT qty, price, description, image_data FROM cake_detail WHERE bill_no = $eb ORDER BY id");
         if ($dtr) while ($d = mysqli_fetch_assoc($dtr)) {
             $detRows[] = array(
-                'qty' => $d['qty'], 'price' => floatval($d['price']), 'desc' => $d['description'],
+                'qty' => $d['qty'],
+                'price' => floatval($d['price']),
+                'desc' => $d['description'],
                 'img' => !empty($d['image_data']) ? 'data:image/jpeg;base64,' . base64_encode(hex2bin($d['image_data'])) : '',
             );
         }
@@ -80,7 +82,7 @@ include 'includes/app_shell.php';
 ?>
 
 <div class="page-head">
-    
+
     <div>
         <h2><?php echo $EDIT ? 'Edit Cake Order #' . intval($EDIT['bill']) : 'Create Cake Order'; ?></h2>
     </div>
@@ -117,9 +119,9 @@ include 'includes/app_shell.php';
                 <div class="fld">
                     <label>Delivery Branch</label>
                     <select class="inp" id="deliverBranch">
-        
+
                         <?php foreach (deliveryBranches() as $db): ?>
-                        <option value="<?php echo htmlspecialchars($db, ENT_QUOTES); ?>"><?php echo htmlspecialchars($db); ?></option>
+                            <option value="<?php echo htmlspecialchars($db, ENT_QUOTES); ?>"><?php echo htmlspecialchars($db); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -230,7 +232,7 @@ include 'includes/app_shell.php';
             <div class="row" style="align-items:flex-end;">
                 <div class="sec" style="flex:1.3;">
                     <div class="num">5</div>
-                    
+
                     <div class="sec-head" style="flex:1;">
                         <h4>Size / UOM</h4>
                         <select class="inp mt12" id="size" onchange="recalc()"></select>
@@ -258,7 +260,7 @@ include 'includes/app_shell.php';
                         <option value="6">6 Tiers</option>
                     </select>
                 </div>
-                <div class="fld" style="flex:1;">
+                <div class="fld" style="flex:1; display: none;">
                     <label>Price (per unit, Rs.)</label>
                     <input class="inp" type="number" id="price" value="0" min="0" onchange="recalc()">
                 </div>
@@ -289,7 +291,7 @@ include 'includes/app_shell.php';
         <div class="card">
             <div class="card-title">Eatables Pictures &amp; Decoration
                 <span class="spacer"></span>
-                <button type="button" class="btn btn-outline btn-sm" id = 'add-eatable-row' onclick="eatAdd()">+ Add Row</button>
+                <button type="button" class="btn btn-outline btn-sm" id='add-eatable-row' onclick="eatAdd()">+ Add Row</button>
             </div>
             <div id="eatRows"></div>
             <div class="hint" id="eatEmpty" style="padding:4px 2px;">Optional — pictures with quantity (1 or 1/2), price and description.</div>
@@ -301,9 +303,12 @@ include 'includes/app_shell.php';
                 <div class="sec" style="flex:.8;">
                     <div class="num">8</div>
                     <div class="sec-head" style="flex:1;">
-                        <h4>Extra Charges <span class="muted" style="font-weight:400;">(optional)</span></h4>
+                        <h4>Board Charges <span class="muted" style="font-weight:400;">(optional)</span></h4>
                         <div class="fld mt12">
-                            <input class="inp" type="number" id="extraCharge" value="0" min="0" onchange="recalc()" placeholder="Rs. 0">
+                            <select class="inp" id="extraCharge" onchange="recalc()">
+                                <option value="0">Rs. 0 — No Board</option>
+                                <option value="500">Rs. 500 — Board</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -382,16 +387,19 @@ include 'includes/app_shell.php';
             <div class="s-row"><span class="k">Quantity</span><span class="v" id="sQty">1</span></div>
             <div class="s-row"><span class="k">Price (per unit)</span><span class="v" id="sPrice">Rs. 0</span></div>
             <div class="s-row"><span class="k">Subtotal</span><span class="v" id="sSub">Rs. 0</span></div>
-            <div class="s-row" id="sExtraRow" style="display:none;"><span class="k">+ Extra Charges</span><span class="v" id="sExtra">Rs. 0</span></div>
+            <div class="s-row" id="sExtraRow" style="display:none;"><span class="k">+ Board Charges</span><span class="v" id="sExtra">Rs. 0</span></div>
             <div id="sEatWrap"></div>
             <div class="s-total"><span>Total Amount</span><span id="sTotal">Rs. 0</span></div>
             <div class="row mt8" style="flex-wrap:nowrap;">
                 <div class="fld"><label>Advance (Rs.)</label><input class="inp" type="number" id="advance" value="0" min="0"></div>
                 <div class="fld"><label>Method</label>
                     <select class="inp" id="advMethod">
-                        <option value="cash" selected> Cash</option><option value="bank"> Bank</option>
-                        <option value="card"> Card</option><option value="easypaisa">Easypaisa</option>
-                    </select></div>
+                        <option value="cash" selected> Cash</option>
+                        <option value="bank"> Bank</option>
+                        <option value="card"> Card</option>
+                        <option value="easypaisa">Easypaisa</option>
+                    </select>
+                </div>
             </div>
             <button class="btn btn-primary btn-block mt12" id="confirmBtn" onclick="saveCake('confirmed', this)">🛒 Add to Order <span class="hint" style="color:#cfe1ff;">(F9)</span></button>
             <button class="btn btn-ghost btn-block mt8" onclick="saveCake('hold', this)">⏸ Hold Order <span class="hint">(F10)</span></button>
@@ -412,9 +420,10 @@ include 'includes/app_shell.php';
         name: '',
         price: 0
     };
-    document.addEventListener('DOMContentLoaded',()=>{
-        if (!(window.EDIT && EDIT.bill)) document.getElementById('add-eatable-row').click();
-    })
+    // document.addEventListener('DOMContentLoaded', () => {
+    //     if (!(window.EDIT && EDIT.bill)) document.getElementById('add-eatable-row').click();
+    // })
+
     function pickTile(groupId, el) {
         document.querySelectorAll('#' + groupId + ' .tile').forEach(function(t) {
             t.classList.remove('on');
@@ -515,7 +524,9 @@ include 'includes/app_shell.php';
 
     function pickAllCategories(el) {
         catMode = 'all';
-        document.querySelectorAll('#catTiles .tile').forEach(function(t) { t.classList.remove('on'); });
+        document.querySelectorAll('#catTiles .tile').forEach(function(t) {
+            t.classList.remove('on');
+        });
         el.classList.add('on');
         var s = document.getElementById('cakeSearch');
         s.focus();
@@ -526,7 +537,10 @@ include 'includes/app_shell.php';
         var q = document.getElementById('cakeSearch').value.trim();
         var cur = (catMode === 'all') ? 'all' : (selected.name || '').toLowerCase();
         document.querySelectorAll('#catTiles .tile').forEach(function(t) {
-            if (t.dataset.kind === 'allcat') { t.style.display = ''; return; }
+            if (t.dataset.kind === 'allcat') {
+                t.style.display = '';
+                return;
+            }
             if (t.dataset.kind === 'cat') {
                 t.style.display = (!q || fuzzyMatch(t.dataset.name, q)) ? '' : 'none';
             } else {
@@ -630,12 +644,13 @@ include 'includes/app_shell.php';
         var extra = parseInt(document.getElementById('extraCharge').value, 10) || 0;
 
         var sub = price * parsed.tiers * qty;
-        var eatTotal = 0, eatHtml = '';
+        var eatTotal = 0,
+            eatHtml = '';
         for (var ei = 0; ei < eatRows.length; ei++) {
             var er = eatRows[ei];
             var ePrice = parseFloat(er.price) || 0;
             if (!ePrice && !er.img && !er.desc) continue;
-            var eAmt = ePrice;   // exact amount typed in the row
+            var eAmt = ePrice; // exact amount typed in the row
             eatTotal += eAmt;
             if (ePrice > 0) {
                 eatHtml += '<div class="s-row"><span class="k">Eatable ' + (ei + 1) + (er.desc ? ' - ' + er.desc : '') + ' (x' + er.qty + ')</span><span class="v">' + money(eAmt) + '</span></div>';
@@ -661,19 +676,56 @@ include 'includes/app_shell.php';
     function parseSize(label) {
         var s0 = String(label || '').trim();
         var m = s0.match(/^([0-9]+(?:\.[0-9]+)?)\s*(.+)$/);
-        if (m) return { tiers: parseFloat(m[1]), uom: m[2].trim() };
-        return { tiers: 1, uom: s0 };   // Pound / Kg / Piece exactly as in cake_config
+        if (m) return {
+            tiers: parseFloat(m[1]),
+            uom: m[2].trim()
+        };
+        return {
+            tiers: 1,
+            uom: s0
+        }; // Pound / Kg / Piece exactly as in cake_config
     }
 
     /* ---- eatable / decoration rows ---- */
     var eatRows = [];
-    function eatEsc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
-    function eatAdd() { eatRows.push({ img: '', qty: '1', price: 0, desc: '' }); eatRender(); }
-    function eatDel(i) { eatRows.splice(i, 1); eatRender(); }
-    function eatSet(i, k, v) { eatRows[i][k] = v; recalc(); }
-    function eatImg(i) {
-        pickImage(function(d) { eatRows[i].img = d; eatRender(); });
+
+    function eatEsc(v) {
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
+
+    function eatAdd() {
+        eatRows.push({
+            img: '',
+            qty: '1',
+            price: 800,
+            desc: ''
+        });
+        eatRender();
+    }
+
+    function eatDel(i) {
+        eatRows.splice(i, 1);
+        eatRender();
+    }
+
+    function eatSet(i, k, v) {
+        eatRows[i][k] = v;
+        recalc();
+    }
+
+    function eatQtyChange(i, v) {
+        eatRows[i].qty = v;
+        eatRows[i].price = (v === '1/2') ? 400 : 800;
+        eatRender();
+    }
+
+    function eatImg(i) {
+        pickImage(function(d) {
+            eatRows[i].img = d;
+            eatRender();
+        });
+    }
+
     function eatRender() {
         var wrap = document.getElementById('eatRows');
         document.getElementById('eatEmpty').style.display = eatRows.length ? 'none' : '';
@@ -682,18 +734,18 @@ include 'includes/app_shell.php';
             var r = eatRows[i];
             html += '<div class="row mt8" style="flex-wrap:nowrap;align-items:center;gap:8px;">' +
                 '<div style="width:56px;height:46px;border:1px dashed #b9c4d6;border-radius:8px;flex:0 0 auto;cursor:pointer;overflow:hidden;background:#f7f9fc;" onclick="eatImg(' + i + ')">' +
-                
+
 
                 (r.img ? '<img src="' + r.img + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="display:block;text-align:center;line-height:44px;color:#8a97ad;">+</span>') +
                 '</div>' +
 
                 '<input class="inp" style="flex:1;" placeholder="Description" value="' + eatEsc(r.desc) + '" onchange="eatSet(' + i + ',\'desc\',this.value)">' +
 
-                '<select class="inp" style="width:74px;flex:0 0 auto;" onchange="eatSet(' + i + ',\'qty\',this.value)">' +
+                '<select class="inp" style="width:74px;flex:0 0 auto;" onchange="eatQtyChange(' + i + ',this.value)">' +
                 '<option value="1"' + (r.qty === '1' ? ' selected' : '') + '>1</option>' +
                 '<option value="1/2"' + (r.qty === '1/2' ? ' selected' : '') + '>1/2</option></select>' +
-                '<input class="inp" style="width:96px;flex:0 0 auto;" type="number" min="0" placeholder="Price" value="' + (parseFloat(r.price) || '') + '" onchange="eatSet(' + i + ',\'price\',this.value)">' +
-                
+                '<input class="inp" style="width:96px;flex:0 0 auto;background:#f3f6fa;" type="number" min="0" placeholder="Price" value="' + (parseFloat(r.price) || '') + '" readonly>' +
+
                 '<button type="button" class="btn btn-ghost btn-sm" style="max-width:100px;" onclick="eatDel(' + i + ')">x</button></div>';
         }
         wrap.innerHTML = html;
@@ -734,13 +786,17 @@ include 'includes/app_shell.php';
             audio_data: voiceGet()
         }];
 
-        var eatSend = eatRows.filter(function(r) { return r.img || r.desc || parseFloat(r.price) > 0; });
+        var eatSend = eatRows.filter(function(r) {
+            return r.img || r.desc || parseFloat(r.price) > 0;
+        });
         var editBill = parseInt(document.getElementById('editBillNo').value, 10) || 0;
         if (editBill) {
             if (btn) btn.disabled = true;
             fetch('save_order_edit.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     bill_no: editBill,
                     full_replace: true,
@@ -762,16 +818,22 @@ include 'includes/app_shell.php';
                 })
             }).then(function(r) {
                 return r.text().then(function(txt) {
-                    try { return JSON.parse(txt); }
-                    catch (e) {
+                    try {
+                        return JSON.parse(txt);
+                    } catch (e) {
                         console.error('save_order_edit raw response:', txt);
-                        return { success: false, message: 'Server error: ' + txt.replace(/<[^>]*>/g, ' ').slice(0, 300) };
+                        return {
+                            success: false,
+                            message: 'Server error: ' + txt.replace(/<[^>]*>/g, ' ').slice(0, 300)
+                        };
                     }
                 });
             }).then(function(res) {
                 if (res.success) {
                     showToast('Order #' + editBill + ' updated', 'success');
-                    setTimeout(function() { window.location.href = 'order_list.php'; }, 700);
+                    setTimeout(function() {
+                        window.location.href = 'order_list.php';
+                    }, 700);
                 } else {
                     console.error('save_order_edit failed:', res.message);
                     showToast(res.message || 'Update failed', 'error');
@@ -800,7 +862,8 @@ include 'includes/app_shell.php';
     if (EDIT) {
         document.getElementById('custName').value = EDIT.customer || 'Walk-in';
         document.getElementById('custPhone').value = EDIT.phone || '';
-        var cc = document.getElementById('custCell'); if (cc) cc.value = EDIT.phone || '';
+        var cc = document.getElementById('custCell');
+        if (cc) cc.value = EDIT.phone || '';
         document.getElementById('deliverDate').value = EDIT.date || '';
         document.getElementById('deliverTime').value = EDIT.time || '';
         if (EDIT.priority) document.getElementById('priority').value = EDIT.priority;
@@ -819,7 +882,10 @@ include 'includes/app_shell.php';
     if (EDIT) {
         var tiles = document.querySelectorAll('#catTiles .tile[data-kind="cat"]');
         for (var ti = 0; ti < tiles.length; ti++) {
-            if (tiles[ti].dataset.name === String(EDIT.category || '').toLowerCase()) { pickCategory(tiles[ti]); break; }
+            if (tiles[ti].dataset.name === String(EDIT.category || '').toLowerCase()) {
+                pickCategory(tiles[ti]);
+                break;
+            }
         }
         document.getElementById('flavorText').value = EDIT.flavor || '';
         document.getElementById('ladiText').value = EDIT.ladi || '';
@@ -831,8 +897,14 @@ include 'includes/app_shell.php';
         var sizeSel = document.getElementById('size');
         var want = (EDIT.wtiers && EDIT.wtiers != 1 ? EDIT.wtiers + ' ' : '') + (EDIT.uom || '');
         var has = false;
-        for (var so = 0; so < sizeSel.options.length; so++) if (sizeSel.options[so].value === want) has = true;
-        if (!has && want) { var op = document.createElement('option'); op.value = want; op.textContent = want; sizeSel.appendChild(op); }
+        for (var so = 0; so < sizeSel.options.length; so++)
+            if (sizeSel.options[so].value === want) has = true;
+        if (!has && want) {
+            var op = document.createElement('option');
+            op.value = want;
+            op.textContent = want;
+            sizeSel.appendChild(op);
+        }
         if (want) sizeSel.value = want;
         document.getElementById('tiersSel').value = String(EDIT.cakeTiers || 1);
         document.getElementById('qty').value = EDIT.qty || 1;
@@ -841,14 +913,21 @@ include 'includes/app_shell.php';
         document.getElementById('note').value = EDIT.note || '';
         document.getElementById('extraCharge').value = EDIT.extra || 0;
         if (EDIT.primary) imageSet.push(EDIT.primary);
-        (EDIT.extras || []).forEach(function(u) { imageSet.push(u); });
+        (EDIT.extras || []).forEach(function(u) {
+            imageSet.push(u);
+        });
         imgRender();
         eatRows.length = 0;
-        (EDIT.eatables || []).forEach(function(r) { eatRows.push(r); });
+        (EDIT.eatables || []).forEach(function(r) {
+            eatRows.push(r);
+        });
         eatRender();
         if (EDIT.voiceUrl) {
             var pb = document.getElementById('voicePlayBtn');
-            if (pb) { pb.disabled = false; pb.setAttribute('onclick', "voicePlayNote('" + EDIT.voiceUrl + "')"); }
+            if (pb) {
+                pb.disabled = false;
+                pb.setAttribute('onclick', "voicePlayNote('" + EDIT.voiceUrl + "')");
+            }
         }
         recalc();
     }

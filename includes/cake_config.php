@@ -19,13 +19,13 @@ function cakeConfig()
         'Kg',
         'Piece',
     );
-    $stdLadi = array('Vanilla', 'Chocolate', 'Brownie', 'N/A');
+    $stdLadi = array('Lotus', 'Red Velvent ', 'Vanilla', 'Chocolate', 'Brownie', 'N/A');
 
     return array(
         'categories' => array(
             array(
                 'name' => 'Fresh Cream Cake',
-                'icon' => '◉', // was 🎂
+                'icon' => '◉',
                 'price' => 760,
                 'flavors' => array(
                     'Pine Apple' => 760,
@@ -42,7 +42,7 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Mousse Cake',
-                'icon' => '◎', // was 🍰
+                'icon' => '◎',
                 'price' => 760,
                 'flavors' => array(
                     'Vanilla' => 760,
@@ -61,14 +61,14 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Café Cake',
-                'icon' => '◍', // was ☕
+                'icon' => '◍',
                 'price' => 1000,
                 'flavors' => array(
                     'Belgium Cake' => 1000,
                     'Three Milky' => 1000,
                     'Red Velvet' => 1000,
                     'Ferrero Rocher' => 1000,
-                    'Kit Kat' => 1000,
+                    'Kitkat' => 1000,
                     'Cadbury' => 1000,
                     'Caramel' => 1000,
                     'Lotus' => 1000
@@ -78,7 +78,7 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Butter Cream Cake',
-                'icon' => '⬔', // was 🧈
+                'icon' => '⬔',
                 'price' => 760,
                 'flavors' => array(
                     'Chocolate Icing' => 760,
@@ -95,19 +95,19 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Fresh Brownie Cake',
-                'icon' => '⬓', // was 🍫
+                'icon' => '⬓',
                 'price' => 810,
                 'flavors' => array(
-                    'F-Oreo Brownie' => 810,
-                    'F-Cadbury Brownie' => 810,
-                    'F-Kitkat Brownie' => 810
+                    'Oreo Brownie' => 810,
+                    'Cadbury Brownie' => 810,
+                    'Kitkat Brownie' => 810
                 ),
                 'sizes' => $stdSizes,
                 'ladi' => $stdLadi
             ),
             array(
                 'name' => 'Ice Cream Cake',
-                'icon' => '◐', // was 🍨
+                'icon' => '◐',
                 'price' => 850,
                 'flavors' => array(
                     'Kulfa' => 850,
@@ -124,7 +124,7 @@ function cakeConfig()
             ),
             array(
                 'name' => 'Chicken Cake',
-                'icon' => '⬙', // was 🍗
+                'icon' => '⬙',
                 'price' => 600,
                 'flavors' => array(
                     'Chicken Cake' => 600
@@ -132,6 +132,75 @@ function cakeConfig()
                 'sizes' => $stdSizes,
                 'ladi' => $stdLadi
             ),
+            // --- NEW CATEGORIES ADDED ---
+            array(
+                'name' => 'Cream + Fondant Cake',
+                'icon' => '◈',
+                'price' => 810,
+                'flavors' => array(
+                    'Pine Apple' => 810,
+                    'Black Forest' => 810,
+                    'Chocolate Chip' => 810,
+                    'Fruit Cocktail' => 810,
+                    'Caramel Fresh Cream' => 810,
+                    'Coffee Chocolate' => 810,
+                    'Mango' => 810,
+                    'Strawberry' => 810,
+                    'Chocolate Icing' => 810,
+                    'Vanilla Icing' => 810,
+                    'Strawberry Icing' => 810,
+                    'Coffee Fudge' => 810,
+                    'Chocolate Fudge' => 810,
+                    'Lemon Tart' => 810
+                ),
+                'sizes' => $stdSizes,
+                'ladi' => $stdLadi
+            ),
+            array(
+                'name' => 'Fresh Cream + Picture Cake',
+                'icon' => '▣',
+                'price' => 710,
+                'flavors' => array(
+                    'Pine Apple' => 710,
+                    'Black Forest' => 710,
+                    'Chocolate Chip' => 710,
+                    'Fruit Cocktail' => 710,
+                    'Caramel Fresh Cream' => 710,
+                    'Coffee Chocolate' => 710,
+                    'Mango' => 710,
+                    'Strawberry' => 710
+                ),
+                'sizes' => $stdSizes,
+                'ladi' => $stdLadi
+            ),
+
+
+            array(
+                'name' => 'Fondant Cake',
+                'icon' => '⬣',
+                'price' => 900,
+                'flavors' => array(
+                    'Pine Apple' => 900,
+                    'Black Forest' => 900,
+                    'Chocolate Chip' => 900,
+                    'Fruit Cocktail' => 900,
+                    'Caramel Fresh Cream' => 900,
+                    'Coffee Chocolate' => 900,
+                    'Mango' => 900,
+                    'Strawberry' => 900,
+                    'Chocolate Icing' => 900,
+                    'Vanilla Icing' => 900,
+                    'Strawberry Icing' => 900,
+                    'Coffee Fudge' => 900,
+                    'Chocolate Fudge' => 900,
+                    'Lemon Tart' => 900
+                ),
+                'sizes' => $stdSizes,
+                'ladi' => $stdLadi
+            ),
+
+
+
         ),
         'default_flavors' => array(
             'Vanilla' => 0,
@@ -151,6 +220,9 @@ function cakeConfig()
     );
 }
 
+
+
+
 /** Parse "1.5 Kg (15-18 servings)" -> array(tiers, uom, label) */
 function parseSizeLabel($label)
 {
@@ -166,7 +238,8 @@ function parseSizeLabel($label)
 /* ---------- order categories (DB managed, with defaults) ----------
    cake_order_category(id, name, order_type, keywords)
    order_type: cake | lunchbox | sweetsbox | pos | all               */
-function ensureCategoryTable($mysqli) {
+function ensureCategoryTable($mysqli)
+{
     mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS cake_order_category (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
@@ -193,7 +266,8 @@ function ensureCategoryTable($mysqli) {
         }
     }
 }
-function orderCategories($mysqli, $type) {
+function orderCategories($mysqli, $type)
+{
     ensureCategoryTable($mysqli);
     $t = mysqli_real_escape_string($mysqli, $type);
     $out = array();
@@ -202,7 +276,8 @@ function orderCategories($mysqli, $type) {
     if ($r) while ($x = mysqli_fetch_assoc($r)) $out[] = $x;
     return $out;
 }
-function allCategories($mysqli) {
+function allCategories($mysqli)
+{
     ensureCategoryTable($mysqli);
     $out = array();
     $r = mysqli_query($mysqli, "SELECT name, order_type, keywords FROM cake_order_category ORDER BY id");
@@ -210,22 +285,30 @@ function allCategories($mysqli) {
     return $out;
 }
 /* comma list of category names whose keywords appear in product name */
-function productCatAttr($mysqli, $name) {
+function productCatAttr($mysqli, $name)
+{
     static $cats = null;
     if ($cats === null) $cats = allCategories($mysqli);
     $hit = array();
     foreach ($cats as $c) {
         $kws = array_filter(array_map('trim', explode(',', $c['keywords'])));
-        if (!$kws) { $hit[] = strtolower($c['name']); continue; }   // no keywords = general, matches all
+        if (!$kws) {
+            $hit[] = strtolower($c['name']);
+            continue;
+        }   // no keywords = general, matches all
         foreach ($kws as $k) {
-            if ($k !== '' && stripos($name, $k) !== false) { $hit[] = strtolower($c['name']); break; }
+            if ($k !== '' && stripos($name, $k) !== false) {
+                $hit[] = strtolower($c['name']);
+                break;
+            }
         }
     }
     return htmlspecialchars(implode(',', $hit), ENT_QUOTES);
 }
 
 /* delivery branch options (edit here) */
-function deliveryBranches() {
+function deliveryBranches()
+{
     return array(
         'Salaman Gulbahar bakery',
         'Salaman Dalazak bakery',
