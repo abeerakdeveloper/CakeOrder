@@ -96,7 +96,7 @@ function fmtTimeAMPM(t) {
         var full = '';
         if (src.indexOf('show_image.php') > -1 && src.indexOf('type=thumb') > -1) full = src.replace('type=thumb', 'type=image');
         else if (src.indexOf('show_image.php') > -1 && src.indexOf('type=extrathumb') > -1) full = src.replace('type=extrathumb', 'type=extra');
-        else if (src.indexOf('data:image') === 0 && el.parentNode && String(el.parentNode.className || '').indexOf('photorow') > -1) full = src;
+        else if (src.indexOf('data:image') === 0 && el.closest && el.closest('.photorow, .kd-imgrow')) full = src;
         if (!full) return;
         e.preventDefault();
         e.stopPropagation();

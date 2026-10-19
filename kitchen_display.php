@@ -102,6 +102,9 @@ $pageTitle = 'Kitchen Orders';
 .ko-media { display: flex; gap: 10px; }
 .ko-media .ph { width: 86px; height: 86px; border-radius: 10px; background: var(--blue-soft); display: flex; align-items: center; justify-content: center; font-size: 34px; overflow: hidden; flex-shrink: 0; cursor: pointer; }
 .ko-media .ph img { width: 100%; height: 100%; object-fit: cover; }
+.kd-imgrow { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; overflow-x: auto; padding-top: 2px; }
+.kd-imgrow img { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; flex-shrink: 0; }
+.kd-imgrow img.kd-main { width: 72px; height: 72px; }
 .ko-media .tt h5 { font-size: 14px; color: var(--blue); line-height: 1.25; }
 .ko-media .tt .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .ko-media .tt .ln { font-size: 11.5px; color: var(--text); margin-top: 5px; display: flex; gap: 6px; align-items: flex-start; }
@@ -230,6 +233,14 @@ $pageTitle = 'Kitchen Orders';
                 $itemDetailsRes = mysqli_query($mysqli, $itemDetailsSql);
                 $itemDetails = array();
                 if ($itemDetailsRes) while ($d = mysqli_fetch_assoc($itemDetailsRes)) $itemDetails[] = $d;
+
+                // all pictures of this order: extra images + eatable pictures (shown in one row)
+                $kdExtraIds = array();
+                $kexRes = @mysqli_query($mysqli, "SELECT id FROM order_extra_images WHERE bill_no = " . intval($o['bill_no']) . " ORDER BY id");
+                if ($kexRes) while ($kx = mysqli_fetch_assoc($kexRes)) $kdExtraIds[] = intval($kx['id']);
+                $kdDetThumbs = array();
+                $kdtRes = @mysqli_query($mysqli, "SELECT thumb_data FROM cake_detail WHERE bill_no = " . intval($o['bill_no']) . " AND thumb_data IS NOT NULL AND thumb_data != '' ORDER BY id");
+                if ($kdtRes) while ($kdt = mysqli_fetch_assoc($kdtRes)) $kdDetThumbs[] = $kdt['thumb_data'];
             ?>
             <div class="ko-card <?php echo $isUrgent ? 'urgent' : ''; ?> fade-in" data-type="<?php echo $kind; ?>" data-priority="<?php echo htmlspecialchars($o['priority']); ?>" data-bill="<?php echo $o['bill_no']; ?>">
                 <div class="ko-head">
@@ -272,6 +283,13 @@ $pageTitle = 'Kitchen Orders';
                         </div>
                     </div>
 
+                    <?php if ((!empty($thumbHex) && $hasImage0) || !empty($kdExtraIds) || !empty($kdDetThumbs)): ?>
+                    <div class="kd-imgrow">
+                        <?php if (!empty($thumbHex) && $hasImage0): ?><img class="kd-main" src="show_image.php?type=thumb&id=<?php echo $itemId0; ?>" alt="" title="Main picture - click to zoom"><?php endif; ?>
+                        <?php foreach ($kdExtraIds as $kxId): ?><img src="show_image.php?type=extrathumb&id=<?php echo $kxId; ?>" alt="" title="Extra image - click to zoom"><?php endforeach; ?>
+                        <?php foreach ($kdDetThumbs as $kdt): ?><img src="data:image/jpeg;base64,<?php echo base64_encode(hex2bin($kdt)); ?>" alt="" title="Eatable picture - click to zoom"><?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
                     <div class="ko-detail">
                         <h6>Order Details</h6>
                         <div class="r"><span class="ic">🧾</span><span class="k">Quantity:</span> <?php echo intval($o['total_qty']); ?></div>
