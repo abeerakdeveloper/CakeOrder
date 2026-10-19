@@ -9,6 +9,9 @@ $billNo = isset($_GET['bill']) ? intval($_GET['bill']) : 0;
 if (!$billNo) { header('Location: order_list.php'); exit; }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isAdmin()) {
+    $gRes = mysqli_query($mysqli, "SELECT MAX(status) AS st, MIN(inv_date) AS od FROM cake_order WHERE bill_no = $billNo");
+    $gRow = $gRes ? mysqli_fetch_assoc($gRes) : null;
+    if ($gRow && $gRow['st'] === 'delivered') { header("Location: order_detail.php?bill=$billNo&edit_blocked=1"); exit; }
     $partyDetail = esc($_POST['party_detail']);
     $cellNo = esc($_POST['cell_no']);
     $deliverDate = esc($_POST['deliver_date']);
@@ -16,6 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isAdmin()) {
     $priority = esc($_POST['priority']);
     $flatDisc = intval($_POST['flat_disc']);
     $newStatus = esc($_POST['status']);
+    if ($deliverDate && $gRow && !empty($gRow['od']) && $deliverDate < date('Y-m-d', strtotime($gRow['od']))) {
+        header("Location: order_detail.php?bill=$billNo&bad_date=1"); exit;
+    }
 
     mysqli_query($mysqli, "UPDATE cake_order SET 
         party_detail='$partyDetail', cell_no='$cellNo', deliver_date='$deliverDate', 
@@ -60,6 +66,12 @@ $pageTitle = "Order #$billNo Details";
 <body>
 
 <?php include 'includes/header.php'; ?>
+<?php if (isset($_GET['edit_blocked'])): ?>
+<div style="background:#fdecea;border:1px solid #f6c9cc;color:#c92a2f;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-weight:600;">Delivered order cannot be edited.</div>
+<?php endif; ?>
+<?php if (isset($_GET['bad_date'])): ?>
+<div style="background:#fdecea;border:1px solid #f6c9cc;color:#c92a2f;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-weight:600;">Delivery date cannot be before the order date - change not saved.</div>
+<?php endif; ?>
 
         <?php if (isset($_GET['saved'])): ?>
         <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:16px;">✅ Saved!</div>
@@ -76,7 +88,7 @@ $pageTitle = "Order #$billNo Details";
                 <h4>Order Information 
                     <?php if(isAdmin()) echo '<small style="color:#e74c3c;">(Admin: Editable)</small>'; ?>
                 </h4>
-                <?php if (isAdmin()): ?>
+                <?php if (isAdmin() && $first['status'] !== 'delivered'): ?>
                 <form method="POST" style="margin-top:12px;">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                         <div><label style="font-size:11px;font-weight:600;color:#6c3483;">Customer</label>
@@ -84,7 +96,7 @@ $pageTitle = "Order #$billNo Details";
                         <div><label style="font-size:11px;font-weight:600;color:#6c3483;">Phone</label>
                             <input type="text" name="cell_no" value="<?php echo htmlspecialchars($first['cell_no']); ?>" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:11px;font-weight:600;color:#6c3483;">Delivery Date</label>
-                            <input type="date" name="deliver_date" value="<?php echo $first['deliver_date']; ?>" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                            <input type="date" name="deliver_date" value="<?php echo $first['deliver_date']; ?>" min="<?php echo !empty($first['inv_date']) ? date('Y-m-d', strtotime($first['inv_date'])) : ''; ?>" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:11px;font-weight:600;color:#6c3483;">Delivery Time</label>
                             <input type="text" name="delivery_time" value="<?php echo fmtTime12($first['delivery_time']); ?>" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:11px;font-weight:600;color:#6c3483;">Priority</label>

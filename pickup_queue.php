@@ -7,6 +7,7 @@ $sql = "SELECT bill_no, party_detail, cell_no, deliver_date, delivery_time,
     FROM cake_order 
     WHERE status IN ('ready', 'delivered') AND ordercancel = 0
     GROUP BY bill_no
+    HAVING MAX(status) = 'ready' OR (SUM(amount) - IFNULL(MAX(flat_disc),0) - IFNULL(MAX(advance),0) - IFNULL(MAX(paid),0)) > 0
     ORDER BY FIELD(MAX(status), 'ready', 'delivered'), deliver_date ASC";
 
 $res = mysqli_query($mysqli, $sql);

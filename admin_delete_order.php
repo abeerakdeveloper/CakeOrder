@@ -111,10 +111,10 @@ try {
     $descText = "ADMIN DELETED Payment ID#$paymentId (Rs.$amount) by $user: $reason";
     
     $logSql = "INSERT INTO gledg 
-        (vno, v_type, acc_code, date, amt_type, amount, `desc`, ref_no, bill_no, user, dateent)
+        (vno, v_type, acc_code, date, amt_type, amount, `desc`, ref_no, user, dateent)
         VALUES 
         ($logVno, '$reverseVType', '112000001', CURDATE(), '$amtType', $amount, 
-         '$descText', $billNo, $billNo, '$user', NOW())";
+         '$descText', $billNo, '$user', NOW())";
     mysqli_query($mysqli, $logSql);
 
     mysqli_commit($mysqli);

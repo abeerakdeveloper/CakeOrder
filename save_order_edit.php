@@ -28,6 +28,17 @@ $isFullReplace = !empty($input['full_replace']);
 $res = mysqli_query($mysqli, "SELECT status, ordercancel FROM cake_order WHERE bill_no = $billNo LIMIT 1");
 $check = mysqli_fetch_assoc($res);
 if (!$check) jsonResponse(array('success' => false, 'message' => 'Order not found'));
+// delivered orders are locked for editing
+if ($check['status'] === 'delivered') {
+    jsonResponse(array('success' => false, 'message' => 'Delivered order cannot be edited'));
+}
+// delivery date cannot be before the order date
+$odRes = mysqli_query($mysqli, "SELECT MIN(inv_date) AS od FROM cake_order WHERE bill_no = $billNo");
+$odRow = $odRes ? mysqli_fetch_assoc($odRes) : null;
+$orderDateMin = ($odRow && !empty($odRow['od'])) ? date('Y-m-d', strtotime($odRow['od'])) : '';
+if ($orderDateMin && $deliverDate && $deliverDate < $orderDateMin) {
+    jsonResponse(array('success' => false, 'message' => 'Delivery date cannot be before order date (' . date('d M Y', strtotime($orderDateMin)) . ')'));
+}
 if (!$isFullReplace) {
     if ($check['ordercancel']) jsonResponse(array('success' => false, 'message' => 'Order is cancelled'));
     if (in_array($check['status'], array('ready','delivered','paid','cancelled'))) {
@@ -48,6 +59,9 @@ try {
         $oldPaid    = $old ? intval($old['paid']) : 0;
         $oldAudio   = ($old && !empty($old['audio_data'])) ? $old['audio_data'] : '';
         $oldFactory = $old ? $old['order_factory'] : 'main';
+        // keep the original order date on edited bills
+        $oldInvDate = ($old && !empty($old['inv_date'])) ? $old['inv_date'] : date('Y-m-d');
+        $oldDateent = ($old && !empty($old['dateent'])) ? $old['dateent'] : date('Y-m-d H:i:s');
         $oldFlat    = $old ? intval($old['flat_disc']) : 0;
         // status follows the pressed button (hold = hold, save = confirmed);
         // delivered & paid bills keep their status
@@ -120,9 +134,9 @@ try {
                  priority, category, tiers, shape, cake_message, retail_price,
                  image_data, thumb_data, audio_data, uom, payment_method)
                 VALUES
-                ($billNo, CURDATE(), NOW(), '$deliverDate', '$deliveryTime',
+                ($billNo, '$oldInvDate', '$oldDateent', '$deliverDate', '$deliveryTime',
                  $amount, $oldAdvance, $oldPaid, '$cellNo', '$partyDetail', '$fullNote',
-                 '$user', NOW(), '$salesman', '$oldFactory', 0,
+                 '$user', '$oldDateent', '$salesman', '$oldFactory', 0,
                  '$newStatus', 0, NOW(), $oldFlat, '$deliverDate',
                  '" . esc(isset($input['source']) ? $input['source'] : 'walk-in') . "', $invId, $qty, $extPay, '$flavor', 0,
                  '$priority', '$category', $tiers, '$shape', '$cakeMsg', $price,

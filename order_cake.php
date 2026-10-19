@@ -28,6 +28,10 @@ if (!empty($_GET['edit'])) {
     if ($er) while ($r = mysqli_fetch_assoc($er)) $erows[] = $r;
     if (!empty($erows)) {
         $f = $erows[0];
+        if ($f['status'] === 'delivered') {
+            header('Location: order_detail.php?bill=' . $eb . '&edit_blocked=1');
+            exit;
+        }
         $exImgs = array();
         $xr = @mysqli_query($mysqli, "SELECT image_data FROM order_extra_images WHERE bill_no = $eb ORDER BY id");
         if ($xr) while ($x = mysqli_fetch_assoc($xr)) {
@@ -49,6 +53,7 @@ if (!empty($_GET['edit'])) {
             'customer'  => $f['party_detail'],
             'phone'     => $f['cell_no'],
             'date'      => $f['deliver_date'],
+            'orderDate' => !empty($f['inv_date']) ? date('Y-m-d', strtotime($f['inv_date'])) : '',
             'time'      => $f['delivery_time'],
             'priority'  => $f['priority'],
             'source'    => $f['order_type'],
@@ -791,6 +796,11 @@ include 'includes/app_shell.php';
         });
         var editBill = parseInt(document.getElementById('editBillNo').value, 10) || 0;
         if (editBill) {
+            var ddEl = document.getElementById('deliverDate');
+            if (ddEl.value && ddEl.min && ddEl.value < ddEl.min) {
+                showToast('Delivery date cannot be before order date', 'error');
+                return;
+            }
             if (btn) btn.disabled = true;
             fetch('save_order_edit.php', {
                 method: 'POST',
@@ -865,6 +875,7 @@ include 'includes/app_shell.php';
         var cc = document.getElementById('custCell');
         if (cc) cc.value = EDIT.phone || '';
         document.getElementById('deliverDate').value = EDIT.date || '';
+        if (EDIT.orderDate) document.getElementById('deliverDate').min = EDIT.orderDate;
         document.getElementById('deliverTime').value = EDIT.time || '';
         if (EDIT.priority) document.getElementById('priority').value = EDIT.priority;
         if (EDIT.source) document.getElementById('orderSource').value = EDIT.source;

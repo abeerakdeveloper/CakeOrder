@@ -147,10 +147,10 @@ try {
         $descText = "REFUND - Cancelled Order #$billNo by $user: $reason";
         
         $refundSql = "INSERT INTO gledg 
-            (vno, v_type, acc_code, date, amt_type, amount, `desc`, ref_no, bill_no, user, dateent) 
+            (vno, v_type, acc_code, date, amt_type, amount, `desc`, ref_no, user, dateent) 
             VALUES 
             ($vno, '$refundVType', '112000001', CURDATE(), '$amtType', $refundAmt, 
-             '$descText', $billNo, $billNo, '$user', NOW())";
+             '$descText', $billNo, '$user', NOW())";
         
         if (!mysqli_query($mysqli, $refundSql)) {
             throw new Exception('Refund GL failed: ' . mysqli_error($mysqli));

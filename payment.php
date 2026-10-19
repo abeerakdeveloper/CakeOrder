@@ -117,6 +117,16 @@ $canPay = in_array($order['status'], array('delivered', 'ready', 'confirmed', 'p
                 <button class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:16px;" 
                         onclick="processPayment()" id="payBtn">💰 Process Payment</button>
 
+                <div id="payDone" style="display:none;margin-top:16px;text-align:center;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;">
+                    <h3 style="color:#16a34a;margin-bottom:6px;">Payment Saved</h3>
+                    <p style="font-size:13px;color:#555;margin-bottom:12px;">Receipt is not opened automatically - use the button below when you are ready.</p>
+                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                        <a href="receipt.php?bill=<?php echo $billNo; ?>" class="btn btn-primary">Show Receipt</a>
+                        <a href="payment.php?bill=<?php echo $billNo; ?>" class="btn btn-outline">Refresh Balance</a>
+                        <a href="order_list.php" class="btn btn-outline">Back to Orders</a>
+                    </div>
+                </div>
+
                 <div style="display:flex;gap:8px;margin-top:8px;">
                     <button class="btn btn-outline" style="flex:1;" onclick="window.location.href='order_list.php'">← Back</button>
                 </div>
@@ -182,8 +192,9 @@ function processPayment() {
         })
     }).then(function(r){ return r.json(); }).then(function(res) {
         if (res.success) {
-            showToast('Payment received!', 'success');
-            setTimeout(function(){ window.location.href = 'receipt.php?bill=<?php echo $billNo; ?>'; }, 1500);
+            showToast('Payment saved!', 'success');
+            document.getElementById('payBtn').style.display = 'none';
+            document.getElementById('payDone').style.display = 'block';
         } else {
             showToast(res.message, 'error');
             document.getElementById('payBtn').disabled = false;
