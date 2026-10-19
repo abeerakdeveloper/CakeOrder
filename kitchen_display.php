@@ -104,7 +104,6 @@ $pageTitle = 'Kitchen Orders';
 .ko-media .ph img { width: 100%; height: 100%; object-fit: cover; }
 .kd-imgrow { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; overflow-x: auto; padding-top: 2px; }
 .kd-imgrow img { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; flex-shrink: 0; }
-.kd-imgrow img.kd-main { width: 72px; height: 72px; }
 .ko-media .tt h5 { font-size: 14px; color: var(--blue); line-height: 1.25; }
 .ko-media .tt .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .ko-media .tt .ln { font-size: 11.5px; color: var(--text); margin-top: 5px; display: flex; gap: 6px; align-items: flex-start; }
@@ -283,9 +282,8 @@ $pageTitle = 'Kitchen Orders';
                         </div>
                     </div>
 
-                    <?php if ((!empty($thumbHex) && $hasImage0) || !empty($kdExtraIds) || !empty($kdDetThumbs)): ?>
+                    <?php if (!empty($kdExtraIds) || !empty($kdDetThumbs)): ?>
                     <div class="kd-imgrow">
-                        <?php if (!empty($thumbHex) && $hasImage0): ?><img class="kd-main" src="show_image.php?type=thumb&id=<?php echo $itemId0; ?>" alt="" title="Main picture - click to zoom"><?php endif; ?>
                         <?php foreach ($kdExtraIds as $kxId): ?><img src="show_image.php?type=extrathumb&id=<?php echo $kxId; ?>" alt="" title="Extra image - click to zoom"><?php endforeach; ?>
                         <?php foreach ($kdDetThumbs as $kdt): ?><img src="data:image/jpeg;base64,<?php echo base64_encode(hex2bin($kdt)); ?>" alt="" title="Eatable picture - click to zoom"><?php endforeach; ?>
                     </div>
