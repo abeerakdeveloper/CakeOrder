@@ -204,7 +204,7 @@ include 'includes/app_shell.php';
                 </td>
                 <td><strong><?php echo htmlspecialchars($o['party_detail']); ?></strong><br><span class="muted" style="font-size:11px;">📱 <?php echo htmlspecialchars($o['cell_no']); ?></span></td>
                 <td style="max-width:220px;"><span class="muted" style="font-size:12px;"><?php echo htmlspecialchars($o['items']); ?></span><br><span style="font-size:11px;color:var(--blue);font-weight:600;"><?php echo $o['item_count']; ?> items</span></td>
-                <td><strong><?php echo date('d M Y', strtotime($o['deliver_date'])); ?></strong><br><span class="muted" style="font-size:11px;">🕐 <?php echo $o['delivery_time']; ?></span> <?php echo $deliveryAlert; ?></td>
+                <td><strong><?php echo date('d M Y', strtotime($o['deliver_date'])); ?></strong><br><span class="muted" style="font-size:11px;">🕐 <?php echo fmtTime12($o['delivery_time']); ?></span> <?php echo $deliveryAlert; ?></td>
                 <td><?php if ($o['total'] - $o['disc'] > 0): ?><strong>Rs. <?php echo number_format($o['total'] - $o['disc']); ?></strong><?php else: ?><span class="muted">After weight</span><?php endif; ?><br><span class="muted" style="font-size:11px;color:var(--green);">Paid <?php echo number_format($o['advance'] + $o['paid']); ?></span></td>
                 <td style="color:<?php echo $balance > 0 ? 'var(--red)' : 'var(--green)'; ?>;font-weight:700;">Rs. <?php echo number_format(max(0, $balance)); ?></td>
                 <td><span class="bdg <?php echo htmlspecialchars($o['status']); ?>"><?php echo ucfirst($o['status']); ?></span></td>
@@ -342,7 +342,7 @@ function quickStatusCheck() {
                 for (var i = 0; i < res.orders.length; i++) {
                     var o = res.orders[i];
                     html += '<div class="cart-row"><span class="mid"><span class="nm">Bill #' + o.bill_no + ' — ' + escHtml(o.party_detail) + ' (' + escHtml(o.cell_no) + ')</span>' +
-                        '<br><span class="sb">' + escHtml(o.items) + ' ·  ' + escHtml(o.deliver_date) + ' ' + escHtml(o.delivery_time) +
+                        '<br><span class="sb">' + escHtml(o.items) + ' ·  ' + escHtml(o.deliver_date) + ' ' + escHtml(fmtTimeAMPM(o.delivery_time)) +
                         ' · 💰 Rs. ' + o.total + ' (Paid ' + o.paid + ' / Balance ' + o.balance + ')</span></span>' +
                         '<span class="bdg ' + escHtml(String(o.status || '').toLowerCase()) + '">' + escHtml(o.status_badge.replace(/<[^>]+>/g, '')) + '</span>' +
                         '<a class="btn btn-sm btn-outline" href="order_detail.php?bill=' + o.bill_no + '">👁 View</a></div>';
@@ -359,6 +359,24 @@ initShortcuts({ searchId: 'quickSearch' });
 
 // Auto refresh every 2 minutes (same as before)
 setInterval(function () { location.reload(); }, 120000);
+</script>
+
+<script>
+// salesman name: keep in localStorage so logout does not clear it until user updates it
+(function () {
+    var f = document.querySelector('input[name="salesman_name"]');
+    if (!f || !f.form) return;
+    var saved = '';
+    try { saved = localStorage.getItem('pos_salesman_name') || ''; } catch (e) {}
+    if (saved && !f.value.trim()) {
+        f.value = saved;
+        f.form.submit(); // restore into session once after logout/login
+    }
+    f.form.addEventListener('submit', function () {
+        var v = f.value.trim();
+        if (v) { try { localStorage.setItem('pos_salesman_name', v); } catch (e) {} }
+    });
+})();
 </script>
 
 <?php include 'includes/app_footer.php'; ?>

@@ -60,7 +60,7 @@ try {
         throw new Exception('Update failed: ' . mysqli_error($mysqli));
     }
     
-    // 2. Get voucher number from retvno()
+    // 2. Get voucher number from retvchno()
     $vno = 0;
     $vRes = mysqli_query($mysqli, "SELECT retvchno('$vnoFunc') AS vno");
     if (!$vRes) {

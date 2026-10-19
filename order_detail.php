@@ -86,7 +86,7 @@ $pageTitle = "Order #$billNo Details";
                         <div><label style="font-size:11px;font-weight:600;color:#6c3483;">Delivery Date</label>
                             <input type="date" name="deliver_date" value="<?php echo $first['deliver_date']; ?>" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:11px;font-weight:600;color:#6c3483;">Delivery Time</label>
-                            <input type="text" name="delivery_time" value="<?php echo $first['delivery_time']; ?>" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                            <input type="text" name="delivery_time" value="<?php echo fmtTime12($first['delivery_time']); ?>" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:11px;font-weight:600;color:#6c3483;">Priority</label>
                             <select name="priority" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;">
                                 <?php foreach (array('normal','urgent','vip') as $p): ?>
@@ -108,7 +108,7 @@ $pageTitle = "Order #$billNo Details";
                 <table style="margin-top:12px;">
                     <tr><td><strong>Customer:</strong></td><td><?php echo htmlspecialchars($first['party_detail']); ?></td></tr>
                     <tr><td><strong>Phone:</strong></td><td><?php echo htmlspecialchars($first['cell_no']); ?></td></tr>
-                    <tr><td><strong>Delivery:</strong></td><td><?php echo date('d M Y', strtotime($first['deliver_date'])); ?> at <?php echo $first['delivery_time']; ?></td></tr>
+                    <tr><td><strong>Delivery:</strong></td><td><?php echo date('d M Y', strtotime($first['deliver_date'])); ?> at <?php echo fmtTime12($first['delivery_time']); ?></td></tr>
                     <tr><td><strong>Status:</strong></td><td><?php echo getStatusBadge($first['status']); ?></td></tr>
                     <tr><td><strong>Priority:</strong></td><td><?php echo ucfirst($first['priority']); ?></td></tr>
                     <tr><td><strong>Order By:</strong></td><td><?php echo htmlspecialchars($first['order_taker']); ?></td></tr>

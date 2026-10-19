@@ -58,7 +58,8 @@ $totals = array(
     'CR_receipt' => 0,  // Cash Received
     'BR_receipt' => 0,  // Bank Received
     'CP_refund' => 0,   // Cash Refunded
-    'BP_refund' => 0    // Bank Refunded
+    'BP_refund' => 0,   // Bank Refunded
+    'advance' => 0      // Advance Received
 );
 
 if ($res) {
@@ -72,6 +73,30 @@ if ($res) {
         else if ($vt == 'BR' && $at == 'CR') $totals['BR_receipt'] += $amt;
         else if ($vt == 'CP' && $at == 'DR') $totals['CP_refund'] += $amt;
         else if ($vt == 'BP' && $at == 'DR') $totals['BP_refund'] += $amt;
+        if ($at == 'CR' && stripos((string)$r['desc'], 'ADVANCE') !== false) $totals['advance'] += $amt;
+    }
+}
+
+// Summary cards must reflect the FULL ledger, not just the visible (filtered / LIMIT 500) rows
+$sumRes = mysqli_query($mysqli, "SELECT amt_type, v_type, SUM(amount) AS amt FROM gledg WHERE acc_code = '112000001' GROUP BY amt_type, v_type");
+if ($sumRes) {
+    $totals = array('CR_receipt' => 0, 'BR_receipt' => 0, 'CP_refund' => 0, 'BP_refund' => 0, 'advance' => $totals['advance']);
+    while ($sr = mysqli_fetch_assoc($sumRes)) {
+        $key = $sr['v_type'] . '_' . (($sr['amt_type'] == 'CR') ? 'receipt' : 'refund');
+        if (isset($totals[$key])) $totals[$key] = floatval($sr['amt']);
+    }
+}
+$advRes = mysqli_query($mysqli, "SELECT COALESCE(SUM(amount),0) AS amt FROM gledg WHERE acc_code = '112000001' AND amt_type = 'CR' AND `desc` LIKE '%ADVANCE%'");
+if ($advRes) { $advRow = mysqli_fetch_assoc($advRes); $totals['advance'] = floatval($advRow['amt']); }
+
+// Remaining payment across open (non-cancelled) orders: total - disc - advance - paid
+$remainingPay = 0;
+$remRes = mysqli_query($mysqli, "SELECT bill_no, SUM(amount) AS t, MAX(flat_disc) AS d, MAX(advance) AS a, MAX(paid) AS p, MAX(ordercancel) AS c FROM cake_order GROUP BY bill_no");
+if ($remRes) {
+    while ($rr = mysqli_fetch_assoc($remRes)) {
+        if (intval($rr['c']) == 1) continue;
+        $bal = floatval($rr['t']) - floatval($rr['d']) - floatval($rr['a']) - floatval($rr['p']);
+        if ($bal > 0) $remainingPay += $bal;
     }
 }
 
@@ -190,12 +215,12 @@ $pageTitle = 'General Ledger';
 			</form>
 		</div>
         <!-- STATS SUMMARY -->
-        <div class="stats-row" style="grid-template-columns:repeat(4,1fr);">
+        <div class="stats-row" style="grid-template-columns:repeat(3,1fr);">
             <div class="stat-card">
                 <div class="stat-icon" style="background:#d4edda;">💵</div>
                 <div class="stat-info">
                     <h2 style="color:#27ae60;">Rs. <?php echo number_format($totals['CR_receipt']); ?></h2>
-                    <p>Cash Received (CR)</p>
+                    <p>Total Cash Received</p>
                 </div>
             </div>
             <div class="stat-card">
@@ -203,6 +228,22 @@ $pageTitle = 'General Ledger';
                 <div class="stat-info">
                     <h2 style="color:#3498db;">Rs. <?php echo number_format($totals['BR_receipt']); ?></h2>
                     <p>Bank Received (BR)</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#fef3c7;">🤝</div>
+                <div class="stat-info">
+                    <h2 style="color:#b45309;">Rs. <?php echo number_format($totals['advance']); ?></h2>
+                    <p>Total Advance Received</p>
+                    <small style="color:#888;font-size:10px;">Advance vouchers (cash + bank)</small>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#ffedd5;">⏳</div>
+                <div class="stat-info">
+                    <h2 style="color:#ea580c;">Rs. <?php echo number_format($remainingPay); ?></h2>
+                    <p>Remaining Payment of Orders</p>
+                    <small style="color:#888;font-size:10px;">Open orders (total - disc - advance - paid)</small>
                 </div>
             </div>
             <div class="stat-card">

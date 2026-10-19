@@ -59,10 +59,10 @@ try {
     
     // ============================================
     // 2. Insert GL entry (gledg table)
-    // vno from retvno('CR') for cash, retvno('BR') for bank
+    // vno from retvchno('CR') for cash, retvchno('BR') for bank
     // ============================================
     $vno = 0;
-    $vRes = mysqli_query($mysqli, "SELECT retvno('$vnoFunc') AS vno");
+    $vRes = mysqli_query($mysqli, "SELECT retvchno('$vnoFunc') AS vno");
     if ($vRes) {
         $vRow = mysqli_fetch_assoc($vRes);
         $vno = intval($vRow['vno']);

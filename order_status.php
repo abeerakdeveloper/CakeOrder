@@ -64,7 +64,7 @@ function searchOrders() {
                 html += '<div style="font-size:13px;color:#666;">'+o.cell_no+'</div>';
                 html += '</div>';
                 html += '<div style="text-align:right;">'+o.status_badge+'<br>';
-                html += '<small style="color:#888;">'+o.deliver_date+' '+o.delivery_time+'</small></div>';
+                html += '<small style="color:#888;">'+o.deliver_date+' '+fmtTimeAMPM(o.delivery_time)+'</small></div>';
                 html += '</div>';
                 html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #ddd;">';
                 html += '<div style="font-size:13px;"><strong> Items:</strong> '+o.items+'</div>';

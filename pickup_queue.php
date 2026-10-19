@@ -43,7 +43,7 @@ if ($res) {
                 <div class="customer"><?php echo htmlspecialchars($o['party_detail'] ? $o['party_detail'] : 'Walk-in'); ?></div>
                 <div style="margin:8px 0;"><?php echo getStatusBadge($o['status']); ?></div>
                 <div style="font-size:12px;color:#555;margin:8px 0;"><?php echo htmlspecialchars($o['items']); ?></div>
-                <div class="time">🕐 <?php echo $o['delivery_time']; ?> | 📅 <?php echo date('d M', strtotime($o['deliver_date'])); ?></div>
+                <div class="time">🕐 <?php echo fmtTime12($o['delivery_time']); ?> | 📅 <?php echo date('d M', strtotime($o['deliver_date'])); ?></div>
                 <div style="margin-top:12px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
                     <?php if ($o['status'] == 'ready'): ?>
                     <button class="btn btn-sm btn-success" onclick="markDelivered(<?php echo $o['bill_no']; ?>)">✅ Delivered</button>

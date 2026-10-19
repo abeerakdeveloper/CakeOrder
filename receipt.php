@@ -1009,6 +1009,7 @@ function invDate($d)
             }, 400);
         };
     </script>
+<?php include_once __DIR__ . '/includes/img_zoom.php'; ?>
 </body>
 
 </html>

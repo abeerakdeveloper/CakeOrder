@@ -251,4 +251,20 @@ if (!headers_sent()) {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
 }
+
+function fmtTime12($t) {
+    $t = trim((string)$t);
+    if ($t === '') return '';
+    if (preg_match('/^(\d{1,2}):(\d{2})\s*([AaPp]\.?[Mm]\.?)?$/', $t, $m)) {
+        $h = intval($m[1]); $mi = $m[2];
+        $ap = isset($m[3]) ? strtoupper(str_replace('.', '', $m[3])) : '';
+        if ($ap === 'PM' && $h < 12) $h += 12;
+        if ($ap === 'AM' && $h === 12) $h = 0;
+        $suffix = ($h >= 12) ? 'PM' : 'AM';
+        $h12 = $h % 12; if ($h12 === 0) $h12 = 12;
+        return $h12 . ':' . $mi . ' ' . $suffix;
+    }
+    $ts = strtotime($t);
+    return $ts ? date('g:i A', $ts) : $t;
+}
 ?>

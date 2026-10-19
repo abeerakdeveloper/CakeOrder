@@ -100,3 +100,5 @@ function shellActiveBox($t) { global $currentPage;
     <?php endif; ?>
 
     <main class="app-main">
+
+<?php include_once __DIR__ . '/img_zoom.php'; ?>

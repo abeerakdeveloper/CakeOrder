@@ -277,7 +277,7 @@ $pageTitle = 'Kitchen Orders';
                         <div class="r"><span class="ic">🧾</span><span class="k">Quantity:</span> <?php echo intval($o['total_qty']); ?></div>
                         <div class="r"><span class="ic">📐</span><span class="k">Size:</span> <?php echo htmlspecialchars($o['sizes']); ?></div>
                         <div class="r"><span class="ic">🚚</span><span class="k">Delivery:</span> <?php echo $o['is_delivery'] ? 'Home Delivery' : 'Pickup'; ?></div>
-                        <div class="r"><span class="ic">🕐</span><span class="k">Time:</span> <?php echo date('d M', strtotime($o['deliver_date'])); ?>, <?php echo $o['delivery_time']; ?></div>
+                        <div class="r"><span class="ic">🕐</span><span class="k">Time:</span> <?php echo date('d M', strtotime($o['deliver_date'])); ?>, <?php echo fmtTime12($o['delivery_time']); ?></div>
                         <?php if (!empty($notesList)): ?>
                         <div class="r"><span class="ic">📝</span><span class="k">Note:</span> <?php echo htmlspecialchars(kdShort($notesList[0], 46)); ?></div>
                         <?php endif; ?>

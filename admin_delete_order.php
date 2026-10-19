@@ -22,6 +22,7 @@ $user = esc($_SESSION['user']);
 $billNo = intval($payment['bill_no']);
 $amount = floatval($payment['amount']);
 $origType = isset($payment['amt_type']) ? $payment['amt_type'] : 'CR';
+$origVType = !empty($payment['v_type']) ? $payment['v_type'] : (($origType == 'BR') ? 'BR' : 'CR');
 
 mysqli_autocommit($mysqli, false);
 try {
@@ -48,8 +49,8 @@ try {
   /*  
     // ============================================
     // 3. Log the admin action as reversal entry
-    // Original CR -> CP (cash payment/reversal) using retvno('CP')
-    // Original BR -> BP (bank payment/reversal) using retvno('BP')
+    // Original CR -> CP (cash payment/reversal) using retvchno('CP')
+    // Original BR -> BP (bank payment/reversal) using retvchno('BP')
     // ============================================
     if ($origType == 'CR') {
         $reverseType = 'CP';
@@ -64,7 +65,7 @@ try {
     
     // Get voucher number
     $logVno = 0;
-    $vRes = mysqli_query($mysqli, "SELECT retvno('$vnoFunc') AS vno");
+    $vRes = mysqli_query($mysqli, "SELECT retvchno('$vnoFunc') AS vno");
     if ($vRes) {
         $vRow = mysqli_fetch_assoc($vRes);
         $logVno = intval($vRow['vno']);
@@ -82,8 +83,8 @@ try {
 
 	    // ============================================
     // 3. Log the admin action as reversal entry
-    // Original CR (Cash Receipt) -> CP (Cash Payment) using retvno('CP')
-    // Original BR (Bank Receipt) -> BP (Bank Payment) using retvno('BP')
+    // Original CR (Cash Receipt) -> CP (Cash Payment) using retvchno('CP')
+    // Original BR (Bank Receipt) -> BP (Bank Payment) using retvchno('BP')
     // amt_type = DR (Refund/Outgoing)
     // ============================================
     if ($origVType == 'CR') {
@@ -101,7 +102,7 @@ try {
     
     // Get voucher number
     $logVno = 0;
-    $vRes = mysqli_query($mysqli, "SELECT retvno('$vnoFunc') AS vno");
+    $vRes = mysqli_query($mysqli, "SELECT retvchno('$vnoFunc') AS vno");
     if ($vRes) {
         $vRow = mysqli_fetch_assoc($vRes);
         $logVno = intval($vRow['vno']);

@@ -171,9 +171,9 @@ try {
         $partyEsc = esc($partyDetail);
         $userEsc = esc($user);
         
-        // Get new voucher number from retvno() function
+        // Get new voucher number from retvchno() function
         $vno = 0;
-        $vRes = mysqli_query($mysqli, "SELECT retvno('$vnoFunc') AS vno");
+        $vRes = mysqli_query($mysqli, "SELECT retvchno('$vnoFunc') AS vno");
         if ($vRes) {
             $vRow = mysqli_fetch_assoc($vRes);
             $vno = intval($vRow['vno']);

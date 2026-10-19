@@ -228,7 +228,7 @@ $pageTitle = 'Order List';
                         </td>
                         <td>
                             <strong><?php echo date('d M Y', strtotime($o['deliver_date'])); ?></strong><br>
-                            <small>🕐 <?php echo $o['delivery_time']; ?></small>
+                            <small>🕐 <?php echo fmtTime12($o['delivery_time']); ?></small>
                             <?php if ($deliveryAlert): ?><br><?php echo $deliveryAlert; ?><?php endif; ?>
                         </td>
                         <td>
