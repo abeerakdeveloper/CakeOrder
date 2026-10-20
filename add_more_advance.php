@@ -77,7 +77,7 @@ try {
     }
     // exit();
     
-    $descText = "ADDITIONAL ADVANCE - Cake Order #$billNo - $partyDetail" . ($reference ? " Ref:$reference" : "");
+    $descText = "Cake Order ADDITIONAL ADVANCE - Order #$billNo - $partyDetail" . ($reference ? " Ref:$reference" : "");
     
     // 3. Insert GL entry
     /*
@@ -95,10 +95,10 @@ try {
     //      '$descText', $billNo, $billNo, '$user', NOW())";
 
 	$glSql = "INSERT INTO gledg 
-        (vno, v_type, acc_code,ref_acc_code, date, amt_type, amount, `desc`, ref_no, user, dateent) 
+        (vno, v_type, acc_code,ref_acc_code, date, amt_type, amount, `desc`, ref_no, user, dateent, pur_inv) 
         VALUES 
         ($vno, '$vType', '112000001','110000001' ,'$payDate', '$amtType', $amount, 
-         '$descText', $billNo, '$user', NOW())";
+         '$descText', $billNo, '$user', NOW(), 'C')";
 
 	// $glSqlDR = "INSERT INTO gledg 
     //     (vno, v_type, acc_code, ref_acc_code,date, amt_type, amount, `desc`, ref_no, user, dateent) 

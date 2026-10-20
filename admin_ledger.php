@@ -26,7 +26,7 @@ $accFilter = isset($_GET['acc_code']) ? esc($_GET['acc_code']) : '112000001'; //
 $showAll = isset($_GET['all']) ? true : false;
 
 // Build WHERE clause (Show All Entries = every row, no hidden filters)
-$where = $showAll ? "WHERE 1=1 " : "WHERE ref_no>0 ";
+$where = $showAll ? "WHERE pur_inv = 'C' " : "WHERE ref_no>0 AND pur_inv = 'C' ";
 
 if (!$showAll) {
     $where .= " AND date BETWEEN '$fromDate' AND '$toDate'";
@@ -78,7 +78,7 @@ if ($res) {
 }
 
 // Summary cards must reflect the FULL ledger, not just the visible (filtered / LIMIT 500) rows
-$sumRes = mysqli_query($mysqli, "SELECT amt_type, v_type, SUM(amount) AS amt FROM gledg WHERE acc_code = '112000001' GROUP BY amt_type, v_type");
+$sumRes = mysqli_query($mysqli, "SELECT amt_type, v_type, SUM(amount) AS amt FROM gledg WHERE acc_code = '112000001' AND pur_inv = 'C' GROUP BY amt_type, v_type");
 if ($sumRes) {
     $totals = array('CR_receipt' => 0, 'BR_receipt' => 0, 'CP_refund' => 0, 'BP_refund' => 0, 'advance' => $totals['advance']);
     while ($sr = mysqli_fetch_assoc($sumRes)) {
@@ -88,7 +88,7 @@ if ($sumRes) {
         if (isset($totals[$key])) $totals[$key] = floatval($sr['amt']);
     }
 }
-$advRes = mysqli_query($mysqli, "SELECT COALESCE(SUM(amount),0) AS amt FROM gledg WHERE acc_code = '112000001' AND amt_type = 'CR' AND `desc` LIKE '%ADVANCE%'");
+$advRes = mysqli_query($mysqli, "SELECT COALESCE(SUM(amount),0) AS amt FROM gledg WHERE acc_code = '112000001' AND pur_inv = 'C' AND amt_type = 'CR' AND `desc` LIKE '%ADVANCE%'");
 if ($advRes) { $advRow = mysqli_fetch_assoc($advRes); $totals['advance'] = floatval($advRow['amt']); }
 
 // Remaining payment across open (non-cancelled) orders: total - disc - advance - paid

@@ -179,13 +179,13 @@ try {
             $vno = intval($vRow['vno']);
         }
         
-        $descText = "ADVANCE - Cake Order #$billNo - $partyEsc";
+        $descText = "Cake Order ADVANCE - Order #$billNo - $partyEsc";
         
         $glSql = "INSERT INTO gledg 
-            (amt_type,vno, acc_code, date, v_type, amount, `desc`, ref_no, user, dateent) 
+            (amt_type,vno, acc_code, date, v_type, amount, `desc`, ref_no, user, dateent, pur_inv) 
             VALUES 
             ('CR',$vno, '112000001', CURDATE(), '$amtType', $advance, 
-             '$descText', $billNo, '$userEsc', NOW())";
+             '$descText', $billNo, '$userEsc', NOW(), 'C')";
         
         if (!mysqli_query($mysqli, $glSql)) {
             error_log('Advance GL entry failed: ' . mysqli_error($mysqli));

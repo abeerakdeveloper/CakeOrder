@@ -71,10 +71,10 @@ try {
     $descText = "Cake Order #$billNo - $partyDetail" . ($reference ? " Ref:$reference" : "");
     
     $glSql = "INSERT INTO gledg 
-        (amt_type,vno, acc_code, date, v_type, amount, `desc`, ref_no,  user, dateent) 
+        (amt_type,vno, acc_code, date, v_type, amount, `desc`, ref_no,  user, dateent, pur_inv) 
         VALUES 
         ('CR',$vno, '112000001', '$payDate', '$amtType', $amount, 
-         '$descText', $billNo, '$user', NOW())";
+         '$descText', $billNo, '$user', NOW(), 'C')";
     
     if (!mysqli_query($mysqli, $glSql)) {
         throw new Exception('GL Entry failed: ' . mysqli_error($mysqli));

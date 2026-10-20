@@ -94,7 +94,7 @@ try {
             $vno = intval($vRow['vno']);
         }
         
-        $descText = "REFUND - Cancelled Order #$billNo by $user: $reason";
+        $descText = "Cake Order REFUND - Cancelled Order #$billNo by $user: $reason";
         
         $refundSql = "INSERT INTO gledg 
             (amt_type,vno, acc_code, date, v_type, amount, `desc`, ref_no,  user, dateent) 
@@ -144,13 +144,13 @@ try {
             $vno = intval($vRow['vno']);
         }
         
-        $descText = "REFUND - Cancelled Order #$billNo by $user: $reason";
+        $descText = "Cake Order REFUND - Cancelled Order #$billNo by $user: $reason";
         
         $refundSql = "INSERT INTO gledg 
-            (vno, v_type, acc_code, date, amt_type, amount, `desc`, ref_no, user, dateent) 
+            (vno, v_type, acc_code, date, amt_type, amount, `desc`, ref_no, user, dateent, pur_inv) 
             VALUES 
             ($vno, '$refundVType', '112000001', CURDATE(), '$amtType', $refundAmt, 
-             '$descText', $billNo, '$user', NOW())";
+             '$descText', $billNo, '$user', NOW(), 'C')";
         
         if (!mysqli_query($mysqli, $refundSql)) {
             throw new Exception('Refund GL failed: ' . mysqli_error($mysqli));

@@ -71,7 +71,7 @@ try {
         $logVno = intval($vRow['vno']);
     }
     
-    $descText = "ADMIN DELETED Payment ID#$paymentId (Rs.$amount) by $user: $reason";
+    $descText = "Cake Order ADMIN DELETED Payment ID#$paymentId (Rs.$amount) by $user: $reason";
     
     $logSql = "INSERT INTO gledg 
         (vno, acc_code, date, amt_type, amount, `desc`, ref_no,  user, dateent)
@@ -108,13 +108,13 @@ try {
         $logVno = intval($vRow['vno']);
     }
     
-    $descText = "ADMIN DELETED Payment ID#$paymentId (Rs.$amount) by $user: $reason";
+    $descText = "Cake Order ADMIN DELETED Payment ID#$paymentId (Rs.$amount) by $user: $reason";
     
     $logSql = "INSERT INTO gledg 
-        (vno, v_type, acc_code, date, amt_type, amount, `desc`, ref_no, user, dateent)
+        (vno, v_type, acc_code, date, amt_type, amount, `desc`, ref_no, user, dateent, pur_inv)
         VALUES 
         ($logVno, '$reverseVType', '112000001', CURDATE(), '$amtType', $amount, 
-         '$descText', $billNo, '$user', NOW())";
+         '$descText', $billNo, '$user', NOW(), 'C')";
     mysqli_query($mysqli, $logSql);
 
     mysqli_commit($mysqli);
