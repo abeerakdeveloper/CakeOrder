@@ -25,8 +25,8 @@ $amtTypeFilter = isset($_GET['amt_type']) ? esc($_GET['amt_type']) : '';
 $accFilter = isset($_GET['acc_code']) ? esc($_GET['acc_code']) : '112000001'; // Default cake account
 $showAll = isset($_GET['all']) ? true : false;
 
-// Build WHERE clause
-$where = "WHERE ref_no>0 ";
+// Build WHERE clause (Show All Entries = every row, no hidden filters)
+$where = $showAll ? "WHERE 1=1 " : "WHERE ref_no>0 ";
 
 if (!$showAll) {
     $where .= " AND date BETWEEN '$fromDate' AND '$toDate'";
@@ -39,7 +39,7 @@ if ($accFilter && $accFilter != 'ALL') {
 if ($vTypeFilter) $where .= " AND v_type = '$vTypeFilter'";
 if ($amtTypeFilter) $where .= " AND amt_type = '$amtTypeFilter'";
 
-$sql = "SELECT * FROM gledg $where ORDER BY date DESC, gledg_id DESC LIMIT 500";
+$sql = "SELECT * FROM gledg $where ORDER BY date DESC, gledg_id DESC" . ($showAll ? "" : " LIMIT 500");
 
 
 $res = mysqli_query($mysqli, $sql);
@@ -82,7 +82,9 @@ $sumRes = mysqli_query($mysqli, "SELECT amt_type, v_type, SUM(amount) AS amt FRO
 if ($sumRes) {
     $totals = array('CR_receipt' => 0, 'BR_receipt' => 0, 'CP_refund' => 0, 'BP_refund' => 0, 'advance' => $totals['advance']);
     while ($sr = mysqli_fetch_assoc($sumRes)) {
-        $key = $sr['v_type'] . '_' . (($sr['amt_type'] == 'CR') ? 'receipt' : 'refund');
+        if ($sr['amt_type'] == 'CR') $key = $sr['v_type'] . '_receipt';
+        elseif ($sr['amt_type'] == 'DR') $key = $sr['v_type'] . '_refund';
+        else continue;
         if (isset($totals[$key])) $totals[$key] = floatval($sr['amt']);
     }
 }
@@ -255,6 +257,7 @@ $pageTitle = 'General Ledger';
                         CP: <?php echo number_format($totals['CP_refund']); ?> | 
                         BP: <?php echo number_format($totals['BP_refund']); ?>
                     </small>
+                    <br><a href="?all=1&acc_code=ALL&amt_type=DR" style="font-size:10px;color:#e74c3c;font-weight:600;">View refund entries</a>
                 </div>
             </div>
             <div class="stat-card">
